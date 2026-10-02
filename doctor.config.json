@@ -1,0 +1,17 @@
+{
+  "ignore": {
+    "files": [
+      "vendor/**",
+      ".wxt/**",
+      ".output/**",
+      "dist/**",
+      "docs/dist/**",
+      "coverage/**",
+      "reports/**",
+      "test-results/**",
+      "playwright-report/**",
+      "storybook-static/**",
+      "src/shared/icons/generated.ts"
+    ]
+  }
+}

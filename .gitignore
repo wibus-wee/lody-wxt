@@ -1,0 +1,16 @@
+node_modules/
+.wxt/
+.output/
+dist/
+docs/dist/
+.source/
+storybook-static/
+coverage/
+reports/
+test-results/
+playwright-report/
+src/shared/icons/generated.ts
+.env
+.env.*
+!.env.example
+.DS_Store

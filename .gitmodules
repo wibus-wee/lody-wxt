@@ -1,0 +1,7 @@
+[submodule "vendor/runeicons"]
+	path = vendor/runeicons
+	url = https://github.com/wibus-wee/runeicons.git
+[submodule "vendor/lody"]
+	path = vendor/lody
+	url = https://github.com/LodyAI/Lody.git
+	branch = main

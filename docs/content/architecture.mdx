@@ -1,0 +1,14 @@
+---
+title: Architecture
+description: Runtime ownership and extension points.
+---
+
+Entrypoints only mount the application or register background listeners. Features own behavior. Shared modules hold tokens, icons and your UI adapter. Node-only developer tools live in `tools`, outside the extension bundle.
+
+React Query owns loading, writes and failure states. Jotai projects the current preferences into the app. React Hook Form owns form state. Preference writes commit to storage before the app publishes their result; storage notifications synchronize open extension pages.
+
+WXT and the browser preview reuse one Vite plugin factory: StyleX extracts CSS, Vite's OXC transforms TypeScript/JSX, and the official React Compiler Babel preset compiles eligible components. Motion uses springs and follows the system Reduce Motion setting. Paper shaders load lazily only after users enable ambient effects, and are suppressed under Reduce Motion.
+
+Runeicons is a pinned fork submodule. Git submodules operate on repositories, so the full upstream is checked out; the app derives selected SVG assets from its `public` sources, alongside the framework-free package at `packages/runeicons`. Outline maps to normal; pixel maps to pixelated. The glass collection has different identifiers, so its home glyph is explicitly mapped.
+
+Cuelens owns the introduction step controller. The application owns content, buttons and navigation. There is no automatic playback, external command execution or camera animation in this starter.

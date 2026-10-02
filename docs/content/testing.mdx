@@ -1,0 +1,12 @@
+---
+title: Testing
+description: Browser journeys and evidence-based coverage.
+---
+
+Never write unit tests for web components. Exercise UI through Cucumber + Playwright journeys and Storybook accessibility checks. Vitest Browser Mode verifies the preference storage and state infrastructure in Chromium, without mounting components.
+
+`pnpm test:e2e` starts an isolated Vite preview, runs all Gherkin scenarios, closes the server and regenerates `COVERAGE.md` even on failures. Journey tags declare transition edges and fused states. Namespace disposition is owned by `tests/e2e/namespaces.json`. Missing result files are reported as not run.
+
+`pnpm test:extension` builds and loads the real MV3 extension in Chromium, then verifies popup/options storage synchronization and the background message contract. This catches extension CSP and packaging failures that a web preview cannot detect.
+
+The generated report includes the System Journey Graph, State-Fusion Matrix, Feature Namespace Disposition and browser infrastructure percentages. It does not equate line coverage with product coverage or claim that observed state combinations cover every possible combination.

@@ -1,0 +1,18 @@
+---
+title: Getting started
+description: Run and extend the WXT foundation.
+---
+
+Requires Node 26 and pnpm 12. Clone with submodules, then install dependencies.
+
+```sh
+git submodule update --init --recursive
+pnpm install
+pnpm dev
+```
+
+WXT builds the extension and starts a browser with hot reload. Use `pnpm dev:web` for the same React application in a normal browser. Production output is `.output/chrome-mv3`; load that directory from Chrome's extension developer mode.
+
+The React application is shared by popup, options and preview. Hash routing keeps routes inside packaged extension pages. No styled component library is installed. Base UI supplies the unstyled switch; replace local UI through the `src/shared/ui` boundary.
+
+Run `pnpm check`, `pnpm test` and `pnpm build:storybook` before shipping. See the repository README for the full command map.
