@@ -1,0 +1,27 @@
+{
+  "preferences": {
+    "disposition": "active",
+    "owner": "src/features/preferences",
+    "reason": "Mood, name, durable storage and recovery."
+  },
+  "ambient": {
+    "disposition": "active",
+    "owner": "src/features/ambient",
+    "reason": "Opt-in shader effects and system Reduce Motion."
+  },
+  "introduction": {
+    "disposition": "active",
+    "owner": "src/features/introduction",
+    "reason": "Host-controlled Cuelens onboarding."
+  },
+  "extension": {
+    "disposition": "integration",
+    "owner": "tests/extension",
+    "reason": "Packaged MV3 cross-page behavior is verified by Playwright."
+  },
+  "custom-ui": {
+    "disposition": "reserved",
+    "owner": "src/shared/ui",
+    "reason": "User-owned component library integration boundary."
+  }
+}

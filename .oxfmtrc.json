@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "singleQuote": true,
+  "ignorePatterns": [
+    "vendor/**",
+    ".wxt/**",
+    ".output/**",
+    "dist/**",
+    "docs/dist/**",
+    "coverage/**",
+    "reports/**",
+    "storybook-static/**",
+    "src/shared/icons/generated.ts",
+    "pnpm-lock.yaml",
+    "COVERAGE.md"
+  ]
+}
