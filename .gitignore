@@ -1,4 +1,5 @@
 node_modules/
+.cache/
 .wxt/
 .output/
 dist/

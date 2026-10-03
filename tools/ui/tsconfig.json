@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "jsx": "react-jsx",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "rootDir": "../../vendor/lody/packages/ui/src",
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "../../.cache/lody-ui",
+    "skipLibCheck": true
+  },
+  "include": ["../../vendor/lody/packages/ui/src/**/*"]
+}

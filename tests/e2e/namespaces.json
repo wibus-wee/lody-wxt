@@ -20,8 +20,28 @@
     "reason": "Packaged MV3 cross-page behavior is verified by Playwright."
   },
   "custom-ui": {
-    "disposition": "reserved",
+    "disposition": "active",
     "owner": "src/shared/ui",
-    "reason": "User-owned component library integration boundary."
+    "reason": "Real @lody/ui source compilation, themes and keyboard controls."
+  },
+  "chat": {
+    "disposition": "active",
+    "owner": "src/features/chat",
+    "reason": "Streaming, cancellation, retry, drafts and reading position."
+  },
+  "conversations": {
+    "disposition": "active",
+    "owner": "src/features/conversations",
+    "reason": "Target selection, history, persistence and async isolation."
+  },
+  "page-context": {
+    "disposition": "active",
+    "owner": "src/features/page-context",
+    "reason": "Explicit attachment, previews, removal and permission failures."
+  },
+  "connection": {
+    "disposition": "active",
+    "owner": "src/features/connection",
+    "reason": "Demo identity, unavailable real transport and data isolation."
   }
 }

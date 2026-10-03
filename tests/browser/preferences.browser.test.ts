@@ -12,7 +12,7 @@ import {
 afterEach(() => localStorage.removeItem('lody:preferences'));
 
 it('durable preferences hydrate a fresh Jotai store in a real browser', async () => {
-  const value = { mood: 'glass', displayName: 'Focus', ambient: true } as const;
+  const value = { ...defaults, mood: 'glass', displayName: 'Focus', ambient: true } as const;
   await savePreferences(value);
   const store = createStore();
   store.set(preferencesAtom, await loadPreferences());

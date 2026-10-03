@@ -8,8 +8,17 @@ const config: StorybookConfig = {
   addons: ['@storybook/addon-a11y'],
   framework: '@storybook/react-vite',
   viteFinal: (config) => {
-    const [stylexPlugin, , compilerPlugin] = appPlugins();
-    return { ...config, plugins: [...(config.plugins ?? []), stylexPlugin, compilerPlugin] };
+    const [sourcePlugin, stylexPlugin, , compilerPlugin, stylexDevPlugin] = appPlugins();
+    return {
+      ...config,
+      plugins: [
+        ...(config.plugins ?? []),
+        sourcePlugin,
+        stylexPlugin,
+        compilerPlugin,
+        stylexDevPlugin,
+      ],
+    };
   },
 };
 export default config;

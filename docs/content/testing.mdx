@@ -3,10 +3,10 @@ title: Testing
 description: Browser journeys and evidence-based coverage.
 ---
 
-Never write unit tests for web components. Exercise UI through Cucumber + Playwright journeys and Storybook accessibility checks. Vitest Browser Mode verifies the preference storage and state infrastructure in Chromium, without mounting components.
+Never write unit tests for web components. Exercise UI through Cucumber + Playwright journeys and Storybook accessibility checks. Vitest Browser Mode verifies preferences, storage, capture and demo transport infrastructure in Chromium, without mounting components.
 
-`pnpm test:e2e` starts an isolated Vite preview, runs all Gherkin scenarios, closes the server and regenerates `COVERAGE.md` even on failures. Journey tags declare transition edges and fused states. Namespace disposition is owned by `tests/e2e/namespaces.json`. Missing result files are reported as not run.
+`pnpm test:e2e` verifies that port 4273 is free, starts an isolated Vite preview, runs all Gherkin scenarios, closes the server and regenerates `COVERAGE.md` even on failures. Use `LODY_E2E_PORT` to choose another free port. Journey tags declare transition edges and fused states. Namespace disposition is owned by `tests/e2e/namespaces.json`. Missing result files are reported as not run.
 
-`pnpm test:extension` builds and loads the real MV3 extension in Chromium, then verifies popup/options storage synchronization and the background message contract. This catches extension CSP and packaging failures that a web preview cannot detect.
+`pnpm test:extension` builds and loads the real MV3 extension in Chromium. It verifies popup/options synchronization, worker messages, native side-panel opening, streamed history recovery and explicit page/selection capture on a served fixture with private form/hidden content. Successful host access uses Chrome's site-access settings. Headless Chrome automatically accepts permission prompts, so only the refusal decision is substituted in that test. Restricted pages and empty selection remain real failures. Check headed Chrome and webpage preview as well; build success does not establish rendered behavior.
 
 The generated report includes the System Journey Graph, State-Fusion Matrix, Feature Namespace Disposition and browser infrastructure percentages. It does not equate line coverage with product coverage or claim that observed state combinations cover every possible combination.

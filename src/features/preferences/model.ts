@@ -4,11 +4,19 @@ export interface Preferences {
   mood: Mood;
   displayName: string;
   ambient: boolean;
+  theme: 'system' | 'light' | 'dark';
+  mode: 'demo' | 'real';
+  workspaceId: string;
+  autoProject: boolean;
 }
 export const defaults: Preferences = {
   mood: 'outline',
   displayName: 'Your workspace',
   ambient: false,
+  theme: 'system',
+  mode: 'demo',
+  workspaceId: '',
+  autoProject: false,
 };
 
 const moodSet = new Set<string>(moods);
@@ -28,5 +36,9 @@ export function parsePreferences(value: unknown): Preferences {
         ? data.displayName
         : defaults.displayName,
     ambient: typeof data.ambient === 'boolean' ? data.ambient : defaults.ambient,
+    theme: data.theme === 'light' || data.theme === 'dark' ? data.theme : 'system',
+    mode: data.mode === 'real' ? 'real' : 'demo',
+    workspaceId: typeof data.workspaceId === 'string' ? data.workspaceId.slice(0, 200) : '',
+    autoProject: data.autoProject === true,
   };
 }

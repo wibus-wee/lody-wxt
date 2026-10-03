@@ -7,7 +7,7 @@ import { App } from './App';
 import { startDiagnostics } from './diagnostics';
 import { AppProviders } from './providers';
 
-export function mountApp(surface: 'popup' | 'options' | 'web') {
+export function mountApp(surface: 'popup' | 'options' | 'web' | 'sidepanel') {
   const root = document.getElementById('root');
   if (!root) throw new Error('Missing #root mount element');
   document.body.dataset.surface = surface;
@@ -15,7 +15,7 @@ export function mountApp(surface: 'popup' | 'options' | 'web') {
   createRoot(root).render(
     <StrictMode>
       <AppProviders>
-        <App />
+        <App surface={surface} />
       </AppProviders>
     </StrictMode>,
   );

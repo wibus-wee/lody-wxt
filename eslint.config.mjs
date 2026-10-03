@@ -7,6 +7,7 @@ export default defineConfig({
   rules: { 'md/no-url-trailing-slash': 'off' },
   ignores: [
     'vendor/**',
+    '.cache/**',
     '.wxt/**',
     '.output/**',
     'dist/**',

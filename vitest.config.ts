@@ -12,7 +12,13 @@ export default defineConfig({
     },
     coverage: {
       provider: 'v8',
-      include: ['src/features/preferences/{model,storage,state}.ts'],
+      include: [
+        'src/features/preferences/{model,storage,state}.ts',
+        'src/features/chat/{demo-runtime,validation}.ts',
+        'src/features/connection/{client,run-config}.ts',
+        'src/features/page-context/{capture,model}.ts',
+        'src/shared/storage.ts',
+      ],
       reporter: ['text', 'json-summary', 'html'],
       reportsDirectory: 'coverage/browser',
     },

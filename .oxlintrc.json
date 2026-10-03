@@ -4,6 +4,7 @@
   "categories": { "correctness": "error" },
   "ignorePatterns": [
     "vendor/**",
+    ".cache/**",
     ".wxt/**",
     ".output/**",
     "dist/**",

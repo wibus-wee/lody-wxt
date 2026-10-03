@@ -3,6 +3,7 @@
   "singleQuote": true,
   "ignorePatterns": [
     "vendor/**",
+    ".cache/**",
     ".wxt/**",
     ".output/**",
     "dist/**",

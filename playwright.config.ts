@@ -9,4 +9,9 @@ export default defineConfig({
     ['html', { open: 'never' }],
   ],
   use: { trace: 'retain-on-failure', screenshot: 'only-on-failure' },
+  webServer: {
+    command: 'pnpm exec wxt --config tools/wxt/extension-test.config.ts',
+    url: 'http://localhost:3081/virtual:stylex.css',
+    reuseExistingServer: false,
+  },
 });

@@ -1,5 +1,6 @@
 import { SequenceStepProvider, useSequenceStep } from '@wibus/cuelens/react';
 
+import { Button } from '../../shared/ui';
 import { introduction } from './sequence';
 
 export function Introduction() {
@@ -23,19 +24,24 @@ function IntroductionStep() {
       <p>
         Step {step.index + 1} of {introduction.steps.length}
       </p>
-      <button type="button" disabled={step.index === 0} onClick={() => step.previous()}>
+      <Button
+        variant="secondary"
+        type="button"
+        disabled={step.index === 0}
+        onClick={() => step.previous()}
+      >
         Back
-      </button>{' '}
-      <button
+      </Button>{' '}
+      <Button
         type="button"
         disabled={step.index === introduction.steps.length - 1}
         onClick={() => step.next()}
       >
         Continue
-      </button>{' '}
-      <button type="button" onClick={() => step.reset()}>
+      </Button>{' '}
+      <Button variant="ghost" type="button" onClick={() => step.reset()}>
         Start over
-      </button>
+      </Button>
     </section>
   );
 }

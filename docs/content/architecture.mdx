@@ -3,12 +3,16 @@ title: Architecture
 description: Runtime ownership and extension points.
 ---
 
-Entrypoints only mount the application or register background listeners. Features own behavior. Shared modules hold tokens, icons and your UI adapter. Node-only developer tools live in `tools`, outside the extension bundle.
+Entrypoints only mount popup, options or side panel, or register background listeners. Chat, conversations, page-context and connection features own behavior. Shared UI re-exports actual Lody primitives; Node-only tools stay outside the extension bundle.
 
-React Query owns loading, writes and failure states. Jotai projects the current preferences into the app. React Hook Form owns form state. Preference writes commit to storage before the app publishes their result; storage notifications synchronize open extension pages.
+React Query owns asynchronous preferences and account-scoped conversation snapshots. Jotai owns selected sessions, per-account / per-session drafts and global mood. React Hook Form owns settings fields. Storage notifications synchronize preferences and invalidate conversation queries across extension surfaces. Demo commands are serialized in the background worker; each stream chunk is durable. Worker interruption retains partial text with stopped status. The preview uses one local runtime instead of extension messaging.
+
+Page capture runs only after attachment. Current-site optional permissions precede scripting; visible text is bounded and excludes forms and hidden content. Draft and historical contexts retain source title, sanitized URL and an explicit untrusted marker. No page instruction grants tools or approval.
+
+The typed connection boundary retains workspace, machine, Agent configuration and project identity. Real mode is disabled until browser authentication and upstream session/history transport are integrated; demo history is never returned as real account data. The repository README links the exact persistence and connection contracts.
 
 WXT and the browser preview reuse one Vite plugin factory: StyleX extracts CSS, Vite's OXC transforms TypeScript/JSX, and the official React Compiler Babel preset compiles eligible components. Motion uses springs and follows the system Reduce Motion setting. Paper shaders load lazily only after users enable ambient effects, and are suppressed under Reduce Motion.
 
 Runeicons is a pinned fork submodule. Git submodules operate on repositories, so the full upstream is checked out; the app derives selected SVG assets from its `public` sources, alongside the framework-free package at `packages/runeicons`. Outline maps to normal; pixel maps to pixelated. The glass collection has different identifiers, so its home glyph is explicitly mapped.
 
-Cuelens owns the introduction step controller. The application owns content, buttons and navigation. There is no automatic playback, external command execution or camera animation in this starter.
+Cuelens owns the introduction step controller. The application owns content, library buttons and navigation. No automatic playback or autonomous external command execution is introduced.

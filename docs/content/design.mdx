@@ -3,8 +3,8 @@ title: Interaction and design
 description: HIG-inspired interaction rules for your own UI.
 ---
 
-Use native controls, visible keyboard focus, explicit labels, readable contrast and at least 44-pixel interactive targets. Respect system Reduce Motion in Motion and decorative effects. Ambient shaders are opt-in; important content never depends on them. These defaults follow the accessibility and motion direction of [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/).
+Use Lody's Button, Field, Textarea, Input, Menu, Dialog, Select, Tooltip and feedback primitives with visible keyboard focus, accessible names and readable contrast. Keep the sidebar compact at 360–480px, with a scrollable transcript and fixed multiline composer. Honor IME composition, Shift+Enter, user-controlled reading position and explicit return-to-latest. ThemeRoot owns system/light/dark; small-text contrast overrides live in shared UI themes.
 
-The starter's controls only demonstrate behavior. Your library owns visual design and component APIs. Keep its adapter in `src/shared/ui`, StyleX tokens in `src/shared/theme`, and globally mood-aware icons in `src/shared/icons`.
+The actual `@lody/ui` workspace owns primitive variants and component APIs; these are re-exported without copying their implementation. The shared UI boundary also owns the locally copied product run-config menu and search field, adapted to controlled extension state. [Shared UI](../../src/shared/ui/README.md) records their upstream sources and accessibility adaptations. Application StyleX primarily owns layout. Icons inherit global Jotai mood from `src/shared/icons`. Ambient shaders are opt-in, disabled under Reduce Motion, and never carry important information.
 
 Use spring transitions as the default for interaction feedback. Add duration-based choreography only when a timed sequence actually requires it. Cuelens currently introduces the app through explicit steps so the user controls reading speed.
