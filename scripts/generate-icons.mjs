@@ -30,6 +30,8 @@ const glyphs = {
   agent: ['tools/sparkles.svg', 'Sparkle3 2.svg'],
   machine: ['gadgets/laptop.svg', 'Code.svg'],
   terminal: ['code/terminal.svg', 'Code.svg'],
+  microphone: ['playback/mic.svg', 'Microphone 2.svg'],
+  tools: ['metrics/sliders-horizontal.svg', 'SettingsSliderHor 4.svg'],
   permission: ['identity/shield-check.svg', 'ShieldCheck 1.svg'],
   readOnly: ['senses/eye.svg', 'EyeOpen 1.svg'],
   permissionWarning: ['identity/shield-x.svg', 'ShieldCrossed 1.svg'],
@@ -62,7 +64,8 @@ for (const [mood, variant] of Object.entries(variants)) {
   output[mood] = {};
   for (const [name, [regular, glass]] of Object.entries(glyphs)) {
     const file =
-      (mood === 'glass' && name === 'machine') || (mood === 'fill' && name === 'terminal')
+      (mood === 'glass' && name === 'machine') ||
+      (mood === 'fill' && ['terminal', 'microphone', 'tools'].includes(name))
         ? path.join(upstream, 'public/normal', regular)
         : mood === 'glass'
           ? path.join(upstream, 'public/glass-icons', glass)
@@ -110,11 +113,13 @@ for (const file of (await readdir(path.join(brandRoot, 'registry-assets'))).toSo
       'utf8',
     );
 }
-for (const name of ['bub', 'dimcode'])
-  brands[name] = await readFile(
+for (const name of ['bub', 'dimcode', 'lody']) {
+  const svg = await readFile(
     path.resolve(`vendor/lody/packages/components/src/assets/${name}.svg`),
     'utf8',
   );
+  brands[name] = name === 'lody' ? svg.replaceAll('fill="#E2E8F0"', 'fill="currentColor"') : svg;
+}
 brands.mimo = await readFile('tools/icons/xiaomi.svg', 'utf8');
 for (const [name, svg] of Object.entries(brands)) {
   brands[name] = svg

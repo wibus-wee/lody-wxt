@@ -50,6 +50,7 @@
     "jotai": "3.0.1",
     "loro-repo": "0.21.0",
     "motion": "14.0.0",
+    "pdfjs-dist": "6.3.289",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-hook-form": "7.89.0",
