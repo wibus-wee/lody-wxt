@@ -5,6 +5,8 @@ import type { PropsWithChildren } from 'react';
 import { useState } from 'react';
 import { HashRouter } from 'react-router';
 
+import { AccountProvider } from '../features/account/AccountProvider';
+
 const loadMotionFeatures = () =>
   import('../shared/motion/features').then((module) => module.default);
 
@@ -23,7 +25,9 @@ export function AppProviders({ children }: PropsWithChildren) {
           transition={{ type: 'spring', stiffness: 360, damping: 32 }}
         >
           <LazyMotion features={loadMotionFeatures} strict>
-            <HashRouter>{children}</HashRouter>
+            <AccountProvider>
+              <HashRouter>{children}</HashRouter>
+            </AccountProvider>
           </LazyMotion>
         </MotionConfig>
       </QueryClientProvider>
