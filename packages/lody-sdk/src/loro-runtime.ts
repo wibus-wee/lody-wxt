@@ -129,3 +129,10 @@ export async function createLoroSessionRuntime(options: LoroRuntimeOptions) {
     throw error;
   }
 }
+
+/** Creates a shortcut-only replica; callers own its storage namespace and destruction. */
+export function createPromptShortcutRepo(options: {
+  storageAdapter: NonNullable<LoroRepoOptions['storageAdapter']>;
+}): Promise<LoroRepo> {
+  return LoroRepo.create({ storageAdapter: options.storageAdapter });
+}

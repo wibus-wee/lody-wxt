@@ -107,6 +107,25 @@ export {
 } from './sharing/infrastructure/share-package.js';
 export { parseManifest as validateShareManifest } from './sharing/infrastructure/share-package.js';
 export { verifyShareObject } from './sharing/infrastructure/share-package.js';
+export type * from './shortcuts/application/ports.js';
+export {
+  canAccessShortcutDomain,
+  getShortcutBodyStreamId,
+  getShortcutIndexStreamId,
+} from './shortcuts/domain/access.js';
+export * from './shortcuts/domain/models.js';
+export { parseShortcutIndex, projectShortcutIndex } from './shortcuts/infrastructure/catalog.js';
+export {
+  parsePromptShortcut,
+  validateShortcutRanges,
+} from './shortcuts/infrastructure/compiler.js';
+export {
+  ConvexPromptShortcuts,
+  type ConvexPromptShortcutsOptions,
+} from './shortcuts/infrastructure/convex-prompt-shortcuts.js';
+export { LocalShortcutStore } from './shortcuts/infrastructure/local-store.js';
+export { PromptShortcutRuntime } from './shortcuts/infrastructure/runtime.js';
+export { PromptShortcutSync } from './shortcuts/infrastructure/sync.js';
 export type { GrantOptions, StreamsGrantGateway } from './streams/application/ports.js';
 export { StreamsService } from './streams/application/streams-service.js';
 export type { StreamsGrant } from './streams/domain/models.js';
