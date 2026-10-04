@@ -1,12 +1,17 @@
 import * as v from 'valibot';
 import { browser } from 'wxt/browser';
 
-import type { NetworkReply } from './protocol';
-import { allowedRequest, networkLimits, networkMessageSchema } from './protocol';
+import type { NetworkRejection, NetworkReply } from './protocol';
+import { allowedRequest, networkLimits, networkMessageSchema, networkOperation } from './protocol';
 
 const headerNewline = /[\r\n]/;
 
 type Sender = { id?: string; url?: string; origin?: string; tab?: unknown };
+
+function rejectRequest(rejection: NetworkRejection): Promise<NetworkReply> {
+  console.warn('Lody network request rejected', rejection);
+  return Promise.resolve({ ok: false, code: 'invalid_request', rejection });
+}
 
 export function createNetworkHandler(
   fetchRequest: typeof fetch = (...args) => globalThis.fetch(...args),
@@ -26,7 +31,7 @@ export function createNetworkHandler(
     )
       return Promise.resolve({ ok: false, code: 'forbidden' });
     const parsed = v.safeParse(networkMessageSchema, message);
-    if (!parsed.success) return Promise.resolve({ ok: false, code: 'invalid_request' });
+    if (!parsed.success) return rejectRequest({ stage: 'message', operation: 'unknown' });
     const request = parsed.output;
     const key = `${sender.url}:${request.requestId}`;
     if (request.type === 'network:cancel') {
@@ -34,20 +39,29 @@ export function createNetworkHandler(
       return Promise.resolve({ ok: false, code: 'cancelled' });
     }
     const headers = Object.entries(request.headers);
+    const reject = (stage: NetworkRejection['stage']): Promise<NetworkReply> =>
+      rejectRequest({
+        stage,
+        operation: networkOperation(
+          request.url,
+          stage === 'request_size' ? undefined : request.body,
+        ),
+      });
+    if (!allowedRequest(request.url, request.method)) return reject('route');
     if (
-      !allowedRequest(request.url, request.method) ||
       headers.length > 8 ||
       headers.some(
         ([name, value]) =>
           !['accept', 'content-type', 'authorization'].includes(name.toLowerCase()) ||
           value.length > 8192 ||
           headerNewline.test(value),
-      ) ||
-      (request.method === 'GET' && request.body !== undefined) ||
-      new TextEncoder().encode(request.body ?? '').byteLength > networkLimits.maxRequestBytes ||
-      active.has(key)
+      )
     )
-      return Promise.resolve({ ok: false, code: 'invalid_request' });
+      return reject('headers');
+    if (request.method === 'GET' && request.body !== undefined) return reject('get_body');
+    if (new TextEncoder().encode(request.body ?? '').byteLength > networkLimits.maxRequestBytes)
+      return reject('request_size');
+    if (active.has(key)) return reject('duplicate_request');
     const remaining = Math.min(networkLimits.timeoutMs, request.deadline - Date.now());
     if (remaining <= 0) return Promise.resolve({ ok: false, code: 'timeout' });
     const controller = new AbortController();

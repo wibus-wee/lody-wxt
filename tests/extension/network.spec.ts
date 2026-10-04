@@ -47,6 +47,10 @@ test('packaged account SDK sends every HTTP request through its worker to an HTT
       });
       let data: unknown;
       switch (request.url) {
+        case '/api/action':
+        case '/api/mutation':
+          data = { status: 'success', value: { accepted: true } };
+          break;
         case '/api/auth/device/code':
           data = {
             device_code: 'controlled-device',
@@ -100,7 +104,7 @@ test('packaged account SDK sends every HTTP request through its worker to an HTT
       `--load-extension=${extension}`,
       '--ignore-certificate-errors',
       '--no-proxy-server',
-      `--host-resolver-rules=MAP backend.lody.ai 127.0.0.1:${address.port}`,
+      `--host-resolver-rules=MAP backend.lody.ai 127.0.0.1:${address.port}, MAP convex.lody.ai 127.0.0.1:${address.port}`,
     ],
   });
   try {
@@ -108,7 +112,7 @@ test('packaged account SDK sends every HTTP request through its worker to an HTT
     const id = new URL(worker.url()).host;
     const ownership: boolean[] = [];
     context.on('request', (request) => {
-      if (request.url().startsWith('https://backend.lody.ai/api/'))
+      if (new Set(['backend.lody.ai', 'convex.lody.ai']).has(new URL(request.url()).hostname))
         ownership.push(request.serviceWorker() === worker);
     });
     const page = await context.newPage();
@@ -128,6 +132,73 @@ test('packaged account SDK sends every HTTP request through its worker to an HTT
       received.slice(3).every((request) => request.authorization === 'Bearer controlled-token'),
     ).toBe(true);
     expect(ownership).toEqual([true, true, true, true, true]);
+    const operations = await page.evaluate(async () => {
+      const api = (
+        globalThis as typeof globalThis & {
+          chrome: {
+            runtime: { sendMessage: (message: Record<string, unknown>) => Promise<unknown> };
+          };
+        }
+      ).chrome;
+      const results = [];
+      for (const [route, operation] of [
+        ['action', 'promptShortcuts:getStreamToken'],
+        ['mutation', 'promptShortcuts:stageDocument'],
+      ]) {
+        results.push(
+          await api.runtime.sendMessage({
+            type: 'network:request',
+            requestId: crypto.randomUUID(),
+            url: `https://convex.lody.ai/api/${route}`,
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              authorization: 'Bearer scoped-convex-token',
+            },
+            body: JSON.stringify({
+              path: operation,
+              args: { workspaceId: 'workspace-a' },
+              format: 'json',
+            }),
+            credentials: 'omit',
+            redirect: 'error',
+            deadline: Date.now() + 15_000,
+          }),
+        );
+      }
+      return results;
+    });
+    expect(operations).toEqual([
+      { ok: true, status: 200, data: { status: 'success', value: { accepted: true } } },
+      { ok: true, status: 200, data: { status: 'success', value: { accepted: true } } },
+    ]);
+    expect(
+      received.slice(-2).map((request) => ({
+        path: request.path,
+        authorization: request.authorization,
+        body: JSON.parse(request.body),
+      })),
+    ).toEqual([
+      {
+        path: '/api/action',
+        authorization: 'Bearer scoped-convex-token',
+        body: {
+          path: 'promptShortcuts:getStreamToken',
+          args: { workspaceId: 'workspace-a' },
+          format: 'json',
+        },
+      },
+      {
+        path: '/api/mutation',
+        authorization: 'Bearer scoped-convex-token',
+        body: {
+          path: 'promptShortcuts:stageDocument',
+          args: { workspaceId: 'workspace-a' },
+          format: 'json',
+        },
+      },
+    ]);
+    expect(ownership).toEqual([true, true, true, true, true, true, true]);
     const denied = await page.evaluate(async () => {
       const api = (
         globalThis as typeof globalThis & {
@@ -158,7 +229,11 @@ test('packaged account SDK sends every HTTP request through its worker to an HTT
         deadline: Date.now() + 15_000,
       });
     });
-    expect(denied).toEqual({ ok: false, code: 'invalid_request' });
+    expect(denied).toEqual({
+      ok: false,
+      code: 'invalid_request',
+      rejection: { stage: 'route', operation: 'unknown' },
+    });
   } finally {
     await context.close();
     await new Promise<void>((resolve, reject) =>

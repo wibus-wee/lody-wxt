@@ -3,7 +3,25 @@ import { LodySdkError } from '@lody-mobile/sdk';
 import * as v from 'valibot';
 import { browser } from 'wxt/browser';
 
+import type { NetworkRejection } from './protocol';
 import { networkLimits, networkReplySchema } from './protocol';
+
+const rejectionMessages: Record<NetworkRejection['stage'], string> = {
+  message: '扩展内部请求格式不兼容，请重新加载扩展后重试。',
+  route: '扩展网络策略不支持此请求，请重新加载扩展后重试。',
+  headers: '扩展拒绝了不符合规范的请求头。',
+  get_body: '扩展拒绝了带有正文的读取请求。',
+  request_size: '请求超过扩展允许的大小。',
+  duplicate_request: '此请求正在处理，请等待后重试。',
+};
+
+function invalidWorkerRequest(rejection: NetworkRejection | undefined) {
+  const error = new LodySdkError('invalid_request');
+  error.message = rejection
+    ? `${rejectionMessages[rejection.stage]}（${rejection.operation} / ${rejection.stage}）`
+    : '扩展后台拒绝了请求，尚未提供具体原因。请重新加载扩展后重试。（invalid_request）';
+  return error;
+}
 
 export const extensionHttpTransport: HttpTransport = (url, request) =>
   new Promise((resolve, reject) => {
@@ -53,8 +71,11 @@ export const extensionHttpTransport: HttpTransport = (url, request) =>
           return;
         }
         if (!reply.output.ok) {
+          if (reply.output.code === 'invalid_request') {
+            finish(invalidWorkerRequest(reply.output.rejection));
+            return;
+          }
           const codes = {
-            invalid_request: 'invalid_request',
             forbidden: 'forbidden',
             cancelled: 'cancelled',
             timeout: 'timeout',

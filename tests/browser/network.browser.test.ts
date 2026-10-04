@@ -1,6 +1,11 @@
-import { createLodyClient } from '@lody-mobile/sdk';
+import {
+  BetterAuthConvexJwtProvider,
+  ConvexPromptShortcuts,
+  createLodyClient,
+} from '@lody-mobile/sdk';
 import { expect, it, vi } from 'vitest';
 
+import { createWorkerFetch } from '../../src/features/connection/worker-fetch';
 import { createNetworkHandler } from '../../src/features/network/background';
 import { networkLimits } from '../../src/features/network/protocol';
 import { extensionHttpTransport } from '../../src/features/network/transport';
@@ -72,7 +77,7 @@ it('rejects content scripts, external callers, arbitrary paths and extra message
     { ...message(), credentials: 'include' },
     { ...message(), unexpected: true },
   ]) {
-    expect(await handler(request, sender)).toEqual({ ok: false, code: 'invalid_request' });
+    expect(await handler(request, sender)).toMatchObject({ ok: false, code: 'invalid_request' });
   }
   expect(fetchRequest).not.toHaveBeenCalled();
 });
@@ -99,6 +104,11 @@ it('cancels the matching request and releases its ID for a subsequent request', 
   const request = message();
   const pending = handler(request, sender);
   await ready;
+  expect(await handler(request, sender)).toEqual({
+    ok: false,
+    code: 'invalid_request',
+    rejection: { stage: 'duplicate_request', operation: 'device_code' },
+  });
   await handler({ type: 'network:cancel', requestId: request.requestId }, sender);
   expect(await pending).toEqual({ ok: false, code: 'cancelled' });
   expect(await handler(request, sender)).toEqual({
@@ -150,4 +160,176 @@ it('settles page cancellation and deadline even when the worker never replies', 
   } finally {
     vi.useRealTimers();
   }
+});
+
+it('forwards scoped Convex actions and mutations but rejects other hosts, paths and methods', async () => {
+  const fetchRequest = vi
+    .fn<typeof fetch>()
+    .mockImplementation(async () => new Response('{"status":"success","value":null}'));
+  const handler = createNetworkHandler(fetchRequest);
+  for (const route of ['action', 'mutation']) {
+    const request = {
+      ...message(),
+      url: `https://convex.lody.ai/api/${route}`,
+      headers: { authorization: 'Bearer scoped-token' },
+      body: JSON.stringify({
+        path: 'promptShortcuts:stageDocument',
+        args: { workspaceId: 'workspace-a' },
+      }),
+    };
+    expect(await handler(request, sender)).toMatchObject({ ok: true, status: 200 });
+    expect(fetchRequest).toHaveBeenLastCalledWith(
+      request.url,
+      expect.objectContaining({
+        body: request.body,
+        headers: request.headers,
+        credentials: 'omit',
+        redirect: 'error',
+      }),
+    );
+  }
+  for (const request of [
+    { ...message(), url: 'https://evil.test/api/action' },
+    { ...message(), url: 'https://convex.lody.ai/api/admin' },
+    { ...message(), url: 'https://convex.lody.ai/api/mutation', method: 'GET', body: undefined },
+  ])
+    expect(await handler(request, sender)).toMatchObject({ ok: false, code: 'invalid_request' });
+  expect(fetchRequest).toHaveBeenCalledTimes(2);
+});
+
+it('classifies worker rejection without returning any request content or credentials', async () => {
+  const fetchRequest = vi.fn<typeof fetch>();
+  const handler = createNetworkHandler(fetchRequest);
+  for (const [request, stage, operation] of [
+    [{ ...message(), unexpected: 'private-input' }, 'message', 'unknown'],
+    [
+      {
+        ...message(),
+        url: 'https://convex.lody.ai/api/query?secret=private-input',
+        body: JSON.stringify({
+          path: 'promptShortcuts:listAccessibleDocuments',
+          args: { private: 'private-input' },
+        }),
+      },
+      'route',
+      'shortcut_directory',
+    ],
+    [
+      {
+        ...message(),
+        headers: { authorization: 'Bearer private-input', 'x-secret': 'private-input' },
+      },
+      'headers',
+      'device_code',
+    ],
+    [
+      { ...message(), url: 'https://backend.lody.ai/api/auth/convex/token', method: 'GET' },
+      'get_body',
+      'cloud_auth',
+    ],
+    [
+      { ...message(), body: 'a'.repeat(networkLimits.maxRequestBytes + 1) },
+      'request_size',
+      'device_code',
+    ],
+  ] as const) {
+    const result = await handler(request, sender);
+    expect(result).toEqual({ ok: false, code: 'invalid_request', rejection: { stage, operation } });
+    expect(JSON.stringify(result)).not.toContain('private-input');
+    expect(JSON.stringify(result)).not.toContain('Bearer');
+  }
+  expect(fetchRequest).not.toHaveBeenCalled();
+});
+
+it('explains current and legacy worker rejections while preserving the SDK error code', async () => {
+  const fetch = createWorkerFetch(extensionHttpTransport);
+  const request = () =>
+    fetch('https://convex.lody.ai/api/query', { method: 'POST', body: '{}', credentials: 'omit' });
+  sendMessage.mockResolvedValue({
+    ok: false,
+    code: 'invalid_request',
+    rejection: { stage: 'route', operation: 'shortcut_directory' },
+  });
+  await expect(request()).rejects.toMatchObject({
+    code: 'invalid_request',
+    message: expect.stringContaining('shortcut_directory / route'),
+  });
+  sendMessage.mockResolvedValue({ ok: false, code: 'invalid_request' });
+  await expect(request()).rejects.toMatchObject({
+    code: 'invalid_request',
+    message: expect.stringContaining('请重新加载扩展'),
+  });
+  sendMessage.mockResolvedValue({
+    ok: false,
+    code: 'invalid_request',
+    rejection: { stage: 'route', operation: 'secret-token' },
+  });
+  await expect(request()).rejects.toMatchObject({ code: 'invalid_response' });
+});
+
+it('retains only bounded worker diagnostics when the SDK sanitizes a Streams error', async () => {
+  const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const fetchRequest = vi.fn<typeof fetch>();
+  const handler = createNetworkHandler(fetchRequest);
+  sendMessage.mockImplementation(async (message) =>
+    handler(
+      {
+        ...JSON.parse(JSON.stringify(message)),
+        headers: { 'x-disallowed': 'private-header-value' },
+      },
+      sender,
+    ),
+  );
+  const client = createLodyClient({
+    authOrigin: 'https://backend.lody.ai',
+    clientId: 'lody-cli',
+    transport: extensionHttpTransport,
+  });
+  try {
+    await expect(
+      client.streams.getGrant('private-token', 'private-workspace'),
+    ).rejects.toMatchObject({
+      code: 'invalid_request',
+      message: 'Lody SDK: invalid_request',
+    });
+    expect(warning.mock.calls).toEqual([
+      ['Lody network request rejected', { stage: 'headers', operation: 'streams_grant' }],
+    ]);
+    expect(fetchRequest).not.toHaveBeenCalled();
+  } finally {
+    warning.mockRestore();
+  }
+});
+
+it('admits real shortcut SDK JWT and directory requests across Chrome JSON serialization and the worker policy', async () => {
+  const received: Array<{ url: string; method: string | undefined }> = [];
+  const handler = createNetworkHandler(async (url, init) => {
+    received.push({ url: String(url), method: init?.method });
+    return Response.json(
+      String(url).endsWith('/api/auth/convex/token')
+        ? { token: 'header.payload.signature' }
+        : { status: 'success', value: [] },
+    );
+  });
+  sendMessage.mockImplementation(async (message) =>
+    handler(JSON.parse(JSON.stringify(message)), sender),
+  );
+  const fetch = createWorkerFetch(extensionHttpTransport);
+  const jwt = new BetterAuthConvexJwtProvider({
+    authOrigin: 'https://backend.lody.ai',
+    getSessionBearer: async () => 'credential',
+    fetch,
+  });
+  const shortcuts = new ConvexPromptShortcuts({
+    origin: 'https://convex.lody.ai',
+    workspaceId: 'workspace',
+    userId: 'user',
+    getJwt: (signal) => jwt.getJwt(signal),
+    fetch,
+  });
+  expect(await shortcuts.listAccessibleDocuments()).toEqual([]);
+  expect(received).toEqual([
+    { url: 'https://backend.lody.ai/api/auth/convex/token', method: 'GET' },
+    { url: 'https://convex.lody.ai/api/query', method: 'POST' },
+  ]);
 });
