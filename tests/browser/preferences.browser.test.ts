@@ -17,7 +17,7 @@ it('durable preferences hydrate a fresh Jotai store in a real browser', async ()
   const store = createStore();
   store.set(preferencesAtom, await loadPreferences());
   expect(store.get(moodAtom)).toBe('glass');
-  expect(store.get(preferencesAtom)).toEqual(value);
+  expect(store.get(preferencesAtom)).toEqual({ ...defaults, ...value });
 });
 
 it('corrupted browser storage recovers defaults', async () => {
