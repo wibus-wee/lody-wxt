@@ -4,7 +4,14 @@ import type { AgentIdentity } from '../../shared/icons/agent-identity';
 
 export interface PageContext {
   id: string;
-  kind: 'page' | 'selection';
+  kind: 'page' | 'selection' | 'link';
+  capturedAt?: string;
+  truncated?: boolean;
+  sourceLength?: number;
+  tabId?: number;
+  frameId?: number;
+  documentId?: string;
+  sourceRevision?: string;
   title: string;
   url: string;
   text: string;

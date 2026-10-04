@@ -34,7 +34,7 @@ it('uses a temporary tab grant without asking for persistent site access', async
   api.executeScript
     .mockResolvedValueOnce([{ frameId: 0, result: true }])
     .mockResolvedValueOnce([{ frameId: 0, result: { ok: true, value: captured } }]);
-  expect(await capturePage('page')).toEqual(captured);
+  expect(await capturePage('page')).toEqual({ ...captured, tabId: 42, frameId: 0 });
   expect(api.request).not.toHaveBeenCalled();
 });
 it('requests only the active HTTP origin and preserves a declined grant as a failure', async () => {
@@ -53,9 +53,12 @@ it('reads the same tab after the user grants access to its origin', async () => 
     .mockRejectedValueOnce(new Error('Missing host permission for the tab'))
     .mockResolvedValueOnce([{ frameId: 0, result: { ok: true, value: captured } }]);
   api.request.mockResolvedValue(true);
-  expect(await capturePage('page')).toEqual(captured);
+  expect(await capturePage('page')).toEqual({ ...captured, tabId: 42, frameId: 0 });
   expect(api.executeScript).toHaveBeenLastCalledWith(
-    expect.objectContaining({ target: { tabId: 42 }, args: ['page', expect.any(String)] }),
+    expect.objectContaining({
+      target: { tabId: 42, frameIds: [0] },
+      args: ['page', expect.any(String), null],
+    }),
   );
 });
 it('reports a closed tab instead of treating every injection failure as missing permission', async () => {

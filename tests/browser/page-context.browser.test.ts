@@ -112,3 +112,24 @@ it('keeps selection capture separate and permits an empty selection for new sess
   expect(() => parseCapturedPageContext({ ...context, selection: 42 })).toThrow();
   expect(() => parseCapturedPageContext({ ...context, text: 'fallback' })).toThrow();
 });
+
+it('keeps approved source locators while removing credentials and unrelated query parameters', async () => {
+  const { createLinkContext, publicSourceUrl } =
+    await import('../../src/features/page-context/capture');
+  expect(publicSourceUrl('https://www.youtube.com/watch?v=abc_123&t=90&token=secret#private')).toBe(
+    'https://www.youtube.com/watch?v=abc_123&t=90',
+  );
+  expect(
+    publicSourceUrl('https://github.com/owner/repo/blob/main/code.ts?access_token=secret#L12-L18'),
+  ).toBe('https://github.com/owner/repo/blob/main/code.ts#L12-L18');
+  expect(publicSourceUrl('https://example.test/report.pdf?key=secret#page=12')).toBe(
+    'https://example.test/report.pdf#page=12',
+  );
+  const link = 'https://example.test/report?token=secret';
+  expect(createLinkContext(link, link)).toMatchObject({
+    title: 'https://example.test/report',
+    text: 'https://example.test/report',
+    kind: 'link',
+  });
+  expect(() => publicSourceUrl('https://user:password@example.test/')).toThrow('登录凭证');
+});

@@ -4,11 +4,16 @@ import { useForm, useFormState } from 'react-hook-form';
 import { NavLink } from 'react-router';
 import * as v from 'valibot';
 
+import { productConfig } from '../../app/product-config';
 import { Button, Field, Input, Select, Switch } from '../../shared/ui';
 import { composer } from '../../shared/ui/composer.stylex';
 import { AccountPage } from '../account/AccountPage';
+import { useAccount } from '../account/useAccount';
+import { NotificationSettings } from '../notifications/NotificationSettings';
 import type { Preferences } from '../preferences/model';
 import { moods } from '../preferences/model';
+import { BrowserPrivacySettings } from '../privacy/BrowserPrivacySettings';
+import { workspaceScope } from './state';
 
 const styles = stylex.create({
   settings: {
@@ -43,6 +48,19 @@ export function Settings({
   pending: boolean;
 }) {
   'use no memo';
+  const account = useAccount();
+  const scope =
+    account.account && account.workspace
+      ? JSON.stringify([
+          workspaceScope(
+            productConfig.authOrigin,
+            productConfig.clientId,
+            account.account.user.id,
+            account.workspace.id,
+          ),
+          new URL(productConfig.convexOrigin).origin,
+        ])
+      : undefined;
   const { register, handleSubmit, control, reset } = useForm<{ displayName: string }>({
     defaultValues: { displayName: preferences.displayName },
   });
@@ -59,6 +77,8 @@ export function Settings({
         </Button>
       </div>
       <AccountPage />
+      <BrowserPrivacySettings {...(scope ? { scope } : {})} />
+      <NotificationSettings key={scope ?? 'signed-out'} />
       <section {...stylex.props(styles.section)} aria-label="外观">
         <h3 {...stylex.props(styles.title)}>外观</h3>
         <Field.Root disabled={pending}>

@@ -1,6 +1,7 @@
 import * as v from 'valibot';
 import { browser } from 'wxt/browser';
 
+import { clearAttachmentScope } from '../chat/attachment-drafts';
 import type { AccountConfig, StoredSession } from './model';
 import { nullableSessionSchema, storedConfigSchema } from './model';
 
@@ -118,6 +119,7 @@ export function createAccountStorage(): AccountStorage {
       storageOperation(async () => {
         await write('accountSession', v.parse(nullableSessionSchema, session));
         await removeLegacySession();
+        if (session === null) await clearAttachmentScope();
       }),
     watch(listener) {
       function notify(key: string, value: unknown) {

@@ -2,8 +2,16 @@ import { browser } from 'wxt/browser';
 
 const httpsOrigin = /^https:\/\/[^/?#@]+\/?$/;
 
-export async function openSidePanel(): Promise<void> {
-  await browser.sidePanel.open({ windowId: browser.windows.WINDOW_ID_CURRENT });
+export async function openSidePanel(
+  windowId: number = browser.windows.WINDOW_ID_CURRENT,
+): Promise<void> {
+  if (!browser.sidePanel?.open) {
+    await browser.runtime.openOptionsPage();
+    throw new Error(
+      '此浏览器未提供 Lody 所需的侧栏 API，已打开设置页面。快捷侧栏目前支持桌面 Chrome。',
+    );
+  }
+  await browser.sidePanel.open({ windowId });
 }
 
 export interface ApiAccessPort {

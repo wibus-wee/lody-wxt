@@ -9,13 +9,20 @@ const webUrlSchema = v.pipe(
   }),
 );
 
-const pageContextSchema = v.strictObject({
+export const pageContextSchema = v.strictObject({
   id: v.pipe(v.string(), v.minLength(1), v.maxLength(200)),
-  kind: v.picklist(['page', 'selection']),
+  kind: v.picklist(['page', 'selection', 'link']),
   title: v.pipe(v.string(), v.maxLength(200)),
   url: webUrlSchema,
   text: v.pipe(v.string(), v.minLength(1), v.maxLength(32_000)),
   trust: v.literal('untrusted'),
+  capturedAt: v.exactOptional(v.pipe(v.string(), v.isoTimestamp())),
+  truncated: v.exactOptional(v.boolean()),
+  sourceLength: v.exactOptional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+  tabId: v.exactOptional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+  frameId: v.exactOptional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+  documentId: v.exactOptional(v.string()),
+  sourceRevision: v.exactOptional(v.string()),
 });
 
 export type PageContext = v.InferOutput<typeof pageContextSchema>;

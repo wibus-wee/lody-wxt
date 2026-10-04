@@ -4,12 +4,16 @@ import { defineBackground } from 'wxt/utils/define-background';
 
 import { registerAccountStorageLifecycle } from '../features/account/storage';
 import { createNetworkHandler } from '../features/network/background';
+import { registerNotificationLifecycle } from '../features/notifications/lifecycle';
+import { registerPageContextEntrypoints } from '../features/page-context/intents';
 import { registerSidePanelLifecycle } from '../features/page-context/lifecycle';
 import { parsePreferences } from '../features/preferences/model';
 
 export default defineBackground(() => {
   registerAccountStorageLifecycle();
   registerSidePanelLifecycle();
+  registerPageContextEntrypoints();
+  registerNotificationLifecycle();
   browser.runtime.onMessage.addListener(createNetworkHandler());
   browser.runtime.onMessage.addListener((message: unknown) => {
     const request = v.safeParse(v.object({ type: v.literal('preferences:get') }), message);
