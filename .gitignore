@@ -3,12 +3,14 @@ node_modules/
 .output/
 dist/
 docs/dist/
+packages/*/dist/
 .source/
 storybook-static/
 coverage/
 reports/
 test-results/
 playwright-report/
+.vitest/
 src/shared/icons/generated.ts
 .env
 .env.*

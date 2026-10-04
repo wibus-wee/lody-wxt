@@ -17,8 +17,15 @@ export default defineConfig({
     'src/shared/icons/generated.ts',
     'COVERAGE.md',
   ],
-}).append({
-  files: ['package.json'],
-  // Oxfmt owns package ordering so the formatter and Hyoban preset stay consistent.
-  rules: { 'jsonc/sort-keys': 'off' },
-});
+}).append(
+  {
+    files: ['package.json', 'packages/*/package.json'],
+    // Oxfmt owns package ordering so the formatter and Hyoban preset stay consistent.
+    rules: { 'jsonc/sort-keys': 'off' },
+  },
+  {
+    files: ['packages/lody-sdk/test/*.test.mjs'],
+    // The standalone SDK tests execute the built package through Node's test runner.
+    rules: { 'test/no-import-node-test': 'off', 'antfu/no-import-dist': 'off' },
+  },
+);

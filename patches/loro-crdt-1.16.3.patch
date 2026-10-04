@@ -1,0 +1,155 @@
+diff --git a/base64/loro_wasm.d.ts b/base64/loro_wasm.d.ts
+index 9df616760ae00058c6f24aece778527f8ce6cf7e..9c0dc8b2433c8e4ca63693baaf555351822c327b 100644
+--- a/base64/loro_wasm.d.ts
++++ b/base64/loro_wasm.d.ts
+@@ -301,7 +301,7 @@ interface LoroDoc {
+      * });
+      * ```
+      */
+-    toJsonWithReplacer(replacer: (key: string | index, value: Value | Container) => Value | Container | undefined): Value;
++    toJsonWithReplacer(replacer: (key: string | number, value: Value | Container) => Value | Container | undefined): Value;
+ 
+     /**
+      * Calculate the differences between two frontiers
+@@ -1608,7 +1608,7 @@ interface EphemeralStoreWasm<T extends Value = Value> {
+     set(key: string, value: T): void;
+     get(key: string): T | undefined;
+     getAllStates(): Record<string, T>;
+-    removeOutdated();
++    removeOutdated(): void;
+     subscribeLocalUpdates(f: EphemeralLocalListener): () => void;
+     subscribe(f: EphemeralListener): () => void;
+ }
+@@ -3474,7 +3474,7 @@ export class LoroText {
+    * text.iter((str) => (console.log(str), true));
+    * ```
+    */
+-  iter(callback: (string) => boolean): void;
++  iter(callback: (text: string) => boolean): void;
+   /**
+    * "Text"
+    */
+diff --git a/browser/loro_wasm.d.ts b/browser/loro_wasm.d.ts
+index 9df616760ae00058c6f24aece778527f8ce6cf7e..9c0dc8b2433c8e4ca63693baaf555351822c327b 100644
+--- a/browser/loro_wasm.d.ts
++++ b/browser/loro_wasm.d.ts
+@@ -301,7 +301,7 @@ interface LoroDoc {
+      * });
+      * ```
+      */
+-    toJsonWithReplacer(replacer: (key: string | index, value: Value | Container) => Value | Container | undefined): Value;
++    toJsonWithReplacer(replacer: (key: string | number, value: Value | Container) => Value | Container | undefined): Value;
+ 
+     /**
+      * Calculate the differences between two frontiers
+@@ -1608,7 +1608,7 @@ interface EphemeralStoreWasm<T extends Value = Value> {
+     set(key: string, value: T): void;
+     get(key: string): T | undefined;
+     getAllStates(): Record<string, T>;
+-    removeOutdated();
++    removeOutdated(): void;
+     subscribeLocalUpdates(f: EphemeralLocalListener): () => void;
+     subscribe(f: EphemeralListener): () => void;
+ }
+@@ -3474,7 +3474,7 @@ export class LoroText {
+    * text.iter((str) => (console.log(str), true));
+    * ```
+    */
+-  iter(callback: (string) => boolean): void;
++  iter(callback: (text: string) => boolean): void;
+   /**
+    * "Text"
+    */
+diff --git a/bundler/loro_wasm.d.ts b/bundler/loro_wasm.d.ts
+index 9df616760ae00058c6f24aece778527f8ce6cf7e..9c0dc8b2433c8e4ca63693baaf555351822c327b 100644
+--- a/bundler/loro_wasm.d.ts
++++ b/bundler/loro_wasm.d.ts
+@@ -301,7 +301,7 @@ interface LoroDoc {
+      * });
+      * ```
+      */
+-    toJsonWithReplacer(replacer: (key: string | index, value: Value | Container) => Value | Container | undefined): Value;
++    toJsonWithReplacer(replacer: (key: string | number, value: Value | Container) => Value | Container | undefined): Value;
+ 
+     /**
+      * Calculate the differences between two frontiers
+@@ -1608,7 +1608,7 @@ interface EphemeralStoreWasm<T extends Value = Value> {
+     set(key: string, value: T): void;
+     get(key: string): T | undefined;
+     getAllStates(): Record<string, T>;
+-    removeOutdated();
++    removeOutdated(): void;
+     subscribeLocalUpdates(f: EphemeralLocalListener): () => void;
+     subscribe(f: EphemeralListener): () => void;
+ }
+@@ -3474,7 +3474,7 @@ export class LoroText {
+    * text.iter((str) => (console.log(str), true));
+    * ```
+    */
+-  iter(callback: (string) => boolean): void;
++  iter(callback: (text: string) => boolean): void;
+   /**
+    * "Text"
+    */
+diff --git a/nodejs/loro_wasm.d.ts b/nodejs/loro_wasm.d.ts
+index 9df616760ae00058c6f24aece778527f8ce6cf7e..9c0dc8b2433c8e4ca63693baaf555351822c327b 100644
+--- a/nodejs/loro_wasm.d.ts
++++ b/nodejs/loro_wasm.d.ts
+@@ -301,7 +301,7 @@ interface LoroDoc {
+      * });
+      * ```
+      */
+-    toJsonWithReplacer(replacer: (key: string | index, value: Value | Container) => Value | Container | undefined): Value;
++    toJsonWithReplacer(replacer: (key: string | number, value: Value | Container) => Value | Container | undefined): Value;
+ 
+     /**
+      * Calculate the differences between two frontiers
+@@ -1608,7 +1608,7 @@ interface EphemeralStoreWasm<T extends Value = Value> {
+     set(key: string, value: T): void;
+     get(key: string): T | undefined;
+     getAllStates(): Record<string, T>;
+-    removeOutdated();
++    removeOutdated(): void;
+     subscribeLocalUpdates(f: EphemeralLocalListener): () => void;
+     subscribe(f: EphemeralListener): () => void;
+ }
+@@ -3474,7 +3474,7 @@ export class LoroText {
+    * text.iter((str) => (console.log(str), true));
+    * ```
+    */
+-  iter(callback: (string) => boolean): void;
++  iter(callback: (text: string) => boolean): void;
+   /**
+    * "Text"
+    */
+diff --git a/web/loro_wasm.d.ts b/web/loro_wasm.d.ts
+index 4f48702a06dd70efc2f39e1eefa20244343e85d3..42348e48ba1ca61f40c0bb6deff47efa291fa85e 100644
+--- a/web/loro_wasm.d.ts
++++ b/web/loro_wasm.d.ts
+@@ -301,7 +301,7 @@ interface LoroDoc {
+      * });
+      * ```
+      */
+-    toJsonWithReplacer(replacer: (key: string | index, value: Value | Container) => Value | Container | undefined): Value;
++    toJsonWithReplacer(replacer: (key: string | number, value: Value | Container) => Value | Container | undefined): Value;
+ 
+     /**
+      * Calculate the differences between two frontiers
+@@ -1608,7 +1608,7 @@ interface EphemeralStoreWasm<T extends Value = Value> {
+     set(key: string, value: T): void;
+     get(key: string): T | undefined;
+     getAllStates(): Record<string, T>;
+-    removeOutdated();
++    removeOutdated(): void;
+     subscribeLocalUpdates(f: EphemeralLocalListener): () => void;
+     subscribe(f: EphemeralListener): () => void;
+ }
+@@ -3474,7 +3474,7 @@ export class LoroText {
+    * text.iter((str) => (console.log(str), true));
+    * ```
+    */
+-  iter(callback: (string) => boolean): void;
++  iter(callback: (text: string) => boolean): void;
+   /**
+    * "Text"
+    */

@@ -1,5 +1,18 @@
 packages:
   - .
+  - packages/*
+  - vendor/lody/packages/ui
+catalog:
+  '@types/node': ^26.0.0
+  '@types/react': ^19.2.0
+  '@types/react-dom': ^19.2.0
+  react: 19.3.0
+  react-dom: 19.3.0
+  typescript: npm:@typescript/typescript6@^6.0.2
+overrides:
+  '@base-ui/react': 1.8.0
+  '@stylexjs/stylex': 0.19.1
+  '@stylexjs/unplugin': 0.19.1
 minimumReleaseAge: 1440
 minimumReleaseAgeStrict: true
 blockExoticSubdeps: true
@@ -8,6 +21,7 @@ trustPolicy: no-downgrade
 trustPolicyExclude:
   - semver@6.3.1
 allowBuilds:
+  '@ast-grep/cli': true
   esbuild: true
   sharp: true
   unrs-resolver: true
@@ -21,3 +35,5 @@ minimumReleaseAgeExclude:
   - motion-dom@14.0.0
   - motion-utils@14.0.0
   - motion@14.0.0
+patchedDependencies:
+  loro-crdt@1.16.3: patches/loro-crdt-1.16.3.patch
