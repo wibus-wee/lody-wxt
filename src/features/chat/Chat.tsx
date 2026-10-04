@@ -1,10 +1,11 @@
 import * as stylex from '@stylexjs/stylex';
 import type { ComponentProps, ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import * as v from 'valibot';
 
 import { text } from '../../../vendor/lody/packages/ui/src/tokens/scales.stylex';
 import { Icon } from '../../shared/icons/Icon';
-import { Button } from '../../shared/ui';
+import { Button, Menu } from '../../shared/ui';
 import { composer as composerTokens } from '../../shared/ui/composer.stylex';
 import { messageSurface } from '../../shared/ui/message.stylex';
 import { Composer } from './Composer';
@@ -62,13 +63,24 @@ const styles = stylex.create({
   },
 });
 
+const scrollSchema = v.object({ top: v.number(), following: v.boolean() });
+function readScroll(key?: string) {
+  if (!key) return null;
+  try {
+    const raw = sessionStorage.getItem(`lody:scroll:${key}`);
+    return raw ? v.parse(scrollSchema, JSON.parse(raw)) : null;
+  } catch {
+    return null; /* Presentation state is optional; invalid scroll data never changes messages. */
+  }
+}
 export interface ChatProps {
   messages: readonly ChatMessage[];
   composer: ComponentProps<typeof Composer>;
   onSubmit: () => void;
   conversationControl: ReactNode;
   title?: string | undefined;
-  onSuggestion?: (kind: 'summary' | 'selection' | 'question') => void;
+  scrollKey?: string;
+  onSuggestion?: (kind: 'summary' | 'selection' | 'question' | 'translate' | 'reply') => void;
   suggestionsDisabled?: boolean;
   feedback?: ReactNode;
   status?: ReactNode;
@@ -86,14 +98,40 @@ export function Chat({
   title,
   onSuggestion,
   suggestionsDisabled,
+  scrollKey,
 }: ChatProps) {
-  const [following, setFollowing] = useState(true);
+  const [restored] = useState(() => readScroll(scrollKey));
+  const [following, setFollowing] = useState(restored?.following ?? true);
   const scrollRef = useRef<HTMLElement>(null);
   const last = messages.at(-1);
   useEffect(() => {
+    if (restored && !restored.following && scrollRef.current)
+      scrollRef.current.scrollTop = restored.top;
+  }, [restored]);
+  useEffect(() => {
+    if (!scrollKey) return;
+    const node = scrollRef.current;
+    const save = () => {
+      try {
+        if (node)
+          sessionStorage.setItem(
+            `lody:scroll:${scrollKey}`,
+            JSON.stringify({ top: node.scrollTop, following }),
+          );
+      } catch {
+        /* Scroll persistence is optional. */
+      }
+    };
+    window.addEventListener('pagehide', save);
+    return () => {
+      save();
+      window.removeEventListener('pagehide', save);
+    };
+  }, [scrollKey, following]);
+  useEffect(() => {
     if (following && scrollRef.current)
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [following, last?.text, messages.length]);
+  }, [following, last?.text, last?.content, messages.length]);
   return (
     <section {...stylex.props(styles.chat)} aria-label="Lody 会话">
       {conversationControl}
@@ -104,6 +142,13 @@ export function Chat({
         aria-label="消息记录"
         // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Keyboard users need to scroll the transcript.
         tabIndex={0}
+        onClickCapture={(event) => {
+          if (event.target instanceof Element && event.target.closest('button[aria-expanded]'))
+            setFollowing(false);
+        }}
+        onPointerUp={() => {
+          if (window.getSelection()?.toString()) setFollowing(false);
+        }}
         onScroll={() => {
           const node = scrollRef.current;
           if (node) setFollowing(node.scrollHeight - node.clientHeight - node.scrollTop < 60);
@@ -143,6 +188,17 @@ export function Chat({
                   <Icon name="chat" size={18} />
                   帮我梳理思路
                 </Button>
+                <Menu.Root>
+                  <Menu.Trigger
+                    render={<Button variant="ghost" size="small" disabled={suggestionsDisabled} />}
+                  >
+                    翻译与写作
+                  </Menu.Trigger>
+                  <Menu.Content>
+                    <Menu.Item onClick={() => onSuggestion('translate')}>翻译选中的文字</Menu.Item>
+                    <Menu.Item onClick={() => onSuggestion('reply')}>根据网页起草回复</Menu.Item>
+                  </Menu.Content>
+                </Menu.Root>
               </div>
             )}
           </div>

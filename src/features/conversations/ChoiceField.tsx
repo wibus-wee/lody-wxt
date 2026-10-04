@@ -18,6 +18,7 @@ export function ChoiceField({
     <Field.Root disabled={disabled}>
       <Field.Label>{label}</Field.Label>
       <Select.Root
+        items={choices}
         value={value}
         onValueChange={(next) => {
           if (next !== null) onChange(next);

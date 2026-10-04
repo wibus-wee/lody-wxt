@@ -30,7 +30,7 @@ export default defineDevframe({
         jsonSerializable: true,
         handler: () => ({
           runtime: 'WXT',
-          surfaces: ['popup', 'options', 'web'],
+          surfaces: ['popup', 'sidepanel', 'options', 'web'],
           moods: ['outline', 'duotone', 'fill', 'pixel', 'glass'],
         }),
       }),

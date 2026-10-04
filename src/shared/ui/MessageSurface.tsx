@@ -1,127 +1,16 @@
 import * as stylex from '@stylexjs/stylex';
-import { useReducedMotion } from 'motion/react';
-import * as m from 'motion/react-m';
 import type { ReactNode } from 'react';
-import { useId, useState } from 'react';
+import { useState } from 'react';
 
 import { Icon } from '../icons/Icon';
 import { ActivityStatus } from './ActivityStatus';
+import { AssistantTurn } from './conversation/AssistantTurn';
+import type { MessageContent } from './conversation/content';
+import { ConversationContentContext } from './conversation/content-actions-context';
+import type { ConversationContentActions } from './conversation/specialized-content';
 import { Button, Tooltip } from './index';
 import { messageSurface as styles } from './message.stylex';
-import { MessageMarkdown } from './MessageMarkdown';
 import { useCopyFeedback } from './use-copy-feedback';
-
-export interface MessageActivity {
-  id: string;
-  title: string;
-  command?: string | undefined;
-  output?: string | undefined;
-  status: 'running' | 'complete' | 'failed';
-}
-
-function Disclosure({
-  label,
-  open,
-  onClick,
-  header = false,
-  controls,
-}: {
-  label: string;
-  open: boolean;
-  onClick: () => void;
-  header?: boolean;
-  controls: string;
-}) {
-  const reduced = useReducedMotion();
-  const [hovered, setHovered] = useState(false);
-  return (
-    <Button
-      variant="ghost"
-      size="small"
-      type="button"
-      {...stylex.props(styles.processButton, header && styles.processHeader)}
-      aria-expanded={open}
-      aria-controls={controls}
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onFocus={() => setHovered(true)}
-      onBlur={() => setHovered(false)}
-    >
-      <span>{label}</span>
-      <m.span
-        {...stylex.props(styles.chevron, hovered && styles.visibleChevron)}
-        animate={{ rotate: open ? 90 : 0 }}
-        transition={reduced ? { duration: 0 } : { type: 'spring', stiffness: 450, damping: 35 }}
-      >
-        <Icon name="chevron" size={14} />
-      </m.span>
-    </Button>
-  );
-}
-
-function ToolStep({ activity }: { activity: MessageActivity }) {
-  const [open, setOpen] = useState(false);
-  const id = useId();
-  return (
-    <div>
-      <Disclosure label={activity.title} open={open} onClick={() => setOpen(!open)} controls={id} />
-      <div id={id} hidden={!open}>
-        <div {...stylex.props(styles.toolSheet)} data-tool-detail-sheet="">
-          {activity.command && (
-            <div {...stylex.props(styles.toolSection)}>
-              <pre {...stylex.props(styles.toolText)}>
-                <code>{activity.command}</code>
-              </pre>
-            </div>
-          )}
-          {activity.output && (
-            <div {...stylex.props(styles.toolSection)}>
-              <pre {...stylex.props(styles.toolText)}>{activity.output}</pre>
-            </div>
-          )}
-          {activity.status === 'failed' && (
-            <div {...stylex.props(styles.toolSection, styles.error)}>执行失败</div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ProcessRegion({
-  activities,
-  finished,
-  hasAnswer,
-  duration,
-}: {
-  activities: readonly MessageActivity[];
-  finished: boolean;
-  hasAnswer: boolean;
-  duration: string;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const id = useId();
-  const folded = finished && hasAnswer;
-  return (
-    <div data-message-process="">
-      {folded && (
-        <Disclosure
-          label={duration ? `已工作 ${duration}` : '已完成工作'}
-          open={expanded}
-          onClick={() => setExpanded(!expanded)}
-          header
-          controls={id}
-        />
-      )}
-      <div id={id} hidden={folded && !expanded}>
-        {activities.map((activity) => (
-          <ToolStep key={activity.id} activity={activity} />
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export function MessageSurface({
   role,
@@ -131,7 +20,9 @@ export function MessageSurface({
   duration = '',
   attachments,
   configuration,
-  activities = [],
+  content,
+  actions: messageActions,
+  contentActions,
 }: {
   role: 'user' | 'agent';
   text: string;
@@ -140,15 +31,32 @@ export function MessageSurface({
   duration?: string;
   attachments?: ReactNode;
   configuration?: ReactNode;
-  activities?: readonly MessageActivity[] | undefined;
+  actions?: ReactNode;
+  contentActions?: ConversationContentActions | undefined;
+  content?: readonly MessageContent[] | undefined;
 }) {
   const [expanded, setExpanded] = useState(false);
   const { copied, error, copy } = useCopyFeedback();
   const user = role === 'user';
+  const lastContent = content?.at(-1);
+  const liveProcess =
+    lastContent?.type === 'thought' ||
+    (lastContent?.type === 'tool_call' &&
+      lastContent.kind !== 'switch_mode' &&
+      lastContent.activityKind === undefined);
   const lineSlice = text.split('\n').slice(0, 10).join('\n').slice(0, 900);
   const long = lineSlice.length < text.length;
   const showFull = !long || expanded;
-  const copyButton = text.trim() ? (
+  const copyText =
+    !user && content
+      ? content
+          .map((item) =>
+            item.type === 'text' ? item.text : item.type === 'proposed_plan' ? item.markdown : '',
+          )
+          .filter(Boolean)
+          .join('\n\n')
+      : text;
+  const copyButton = copyText.trim() ? (
     <Tooltip.Root>
       <Tooltip.Trigger
         delay={500}
@@ -160,7 +68,7 @@ export function MessageSurface({
             aria-label="复制消息"
             data-copied={copied || undefined}
             {...stylex.props(styles.action)}
-            onClick={() => void copy(text)}
+            onClick={() => void copy(copyText)}
           >
             <Icon name={copied ? 'check' : 'copy'} size={14} />
           </Button>
@@ -173,10 +81,14 @@ export function MessageSurface({
     <div {...stylex.props(styles.actions)} data-message-actions="">
       <div {...stylex.props(styles.buttons)}>
         {copyButton}
+        {messageActions}
         {!user && configuration}
       </div>
       {!user && status !== 'streaming' && timestamp && <span>{timestamp}</span>}
-      {!user && status !== 'streaming' && !activities.length && duration && <span>{duration}</span>}
+      {!user &&
+        status !== 'streaming' &&
+        !content?.some((item) => item.type === 'tool_call') &&
+        duration && <span>{duration}</span>}
     </div>
   );
   return (
@@ -226,17 +138,15 @@ export function MessageSurface({
         </>
       ) : (
         <div {...stylex.props(styles.rail)}>
-          {!!activities.length && (
-            <ProcessRegion
-              activities={activities}
-              finished={status === 'complete'}
-              hasAnswer={!!text.trim()}
+          <ConversationContentContext value={contentActions ?? {}}>
+            <AssistantTurn
+              items={content ?? [{ type: 'text', text }]}
+              status={status}
               duration={duration}
             />
-          )}
-          {text && <MessageMarkdown value={text} />}
+          </ConversationContentContext>
           {attachments}
-          {status === 'streaming' && (
+          {status === 'streaming' && !liveProcess && (
             <div data-message-live="">
               <ActivityStatus busy>生成中</ActivityStatus>
             </div>

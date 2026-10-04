@@ -6,6 +6,7 @@ Application controls consume the upstream source through the modules here: Butto
 These modules preserve upstream APIs.
 Component props own appearance; application StyleX classes compose layout.
 Native elements provide document structure and text, while Lody components own controls and styled surfaces.
+The [conversation adapter](./conversation/README.md) owns ordered assistant items, official activity groups and per-segment work folding.
 
 | Concern                      | Owner                                                             | Consumer                             |
 | ---------------------------- | ----------------------------------------------------------------- | ------------------------------------ |

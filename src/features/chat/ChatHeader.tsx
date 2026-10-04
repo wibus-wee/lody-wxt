@@ -49,7 +49,7 @@ export function ChatHeader({ children }: { children?: ReactNode }) {
         render={<NavLink to="/" />}
         {...stylex.props(styles.home)}
       >
-        <Icon name="chat" size={18} />
+        <Icon name="lody" size={18} />
         <h1 {...stylex.props(styles.brand)}>
           {preferences.displayName === defaults.displayName ? 'Lody' : preferences.displayName}
         </h1>

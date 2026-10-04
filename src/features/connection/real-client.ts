@@ -1,4 +1,5 @@
 import type {
+  AttachmentRequestOptions,
   LodyClient as SdkClient,
   SendTurn,
   SessionHandle,
@@ -7,7 +8,13 @@ import type {
 import {
   BetterAuthConvexJwtProvider,
   ConvexCloudDirectory,
+  ConvexShareManagement,
+  createAttachmentClient,
+  openStaticShare,
+  prepareSharePackage,
+  skillResultSchema,
   StreamsMachineCommands,
+  uploadPreparedShare,
 } from '@lody-mobile/sdk';
 import { createLoroSessionRuntime } from '@lody-mobile/sdk/loro';
 import { JsonRpcStreams } from '@lody-mobile/sdk/rpc';
@@ -15,6 +22,7 @@ import { IndexedDBStorageAdaptor } from 'loro-repo/storage/indexeddb';
 import * as v from 'valibot';
 
 import { agentIdentity } from '../../shared/icons/agent-identity';
+import { SyncedShortcuts } from '../automations/shortcut-client';
 import { contextInput, contextSchema, mapHistory } from '../chat/real-adapter';
 import { turnSchema } from '../conversations/admission';
 import { createDocumentCursorStore } from '../conversations/runtime-storage';
@@ -22,9 +30,13 @@ import {
   refreshMachineCapabilities,
   SessionAdmissionError,
   startSession,
+  steerTurn,
 } from '../conversations/session-flows';
 import { creationSchema, firstTurnSchema, sameMetadata } from './admission';
 import type {
+  ChatAttachment,
+  ChatSchedules,
+  ChatSharing,
   ClientSnapshot,
   Conversation,
   ExecutionTarget,
@@ -36,10 +48,11 @@ import { requireApiAccess } from './state';
 import { cloudFetch } from './worker-fetch';
 
 type SdkConnection = Awaited<ReturnType<typeof createLoroSessionRuntime>>;
-export type RealConnection = Pick<SdkConnection, 'runtime' | 'close'> & {
-  machines: Pick<SdkConnection['machines'], 'open'> &
-    Partial<Pick<SdkConnection['machines'], 'listMachineInfos' | 'subscribeMachineInfos'>>;
-};
+export type RealConnection = Pick<SdkConnection, 'runtime' | 'close'> &
+  Partial<Pick<SdkConnection, 'schedules' | 'mcpCatalog'>> & {
+    machines: Pick<SdkConnection['machines'], 'open'> &
+      Partial<Pick<SdkConnection['machines'], 'listMachineInfos' | 'subscribeMachineInfos'>>;
+  };
 type Connection = RealConnection;
 type MachineHandle = Awaited<ReturnType<Connection['machines']['open']>>;
 export interface RealClientOptions {
@@ -49,6 +62,9 @@ export interface RealClientOptions {
   authOrigin: string;
   convexUrl: string;
   token: string;
+  attachmentOrigin?: string;
+  shareOrigin?: string;
+  shareApiOrigin?: string;
   client: SdkClient;
   ports?: {
     createConnection?: (
@@ -63,8 +79,11 @@ const pendingSchema = v.object({
   sessionId: v.string(),
   input: turnSchema,
   contexts: v.array(contextSchema),
+  kind: v.exactOptional(v.picklist(['edit', 'steer', 'queue'])),
+  expectedTurnId: v.exactOptional(v.string()),
 });
 type Pending = v.InferOutput<typeof pendingSchema>;
+class TurnRejectedError extends Error {}
 function latestMessageTime(messages: Conversation['messages'], fallback: number) {
   return messages.reduce((time, message) => Math.max(time, message.createdAt ?? 0), fallback);
 }
@@ -73,6 +92,7 @@ export class RealLodyClient implements LodyClient {
   readonly mode = 'real' as const;
   readonly capabilities = { cancel: true, approvals: true, pageActions: false } as const;
   readonly accountKey: string;
+  readonly shortcuts: SyncedShortcuts;
   private state: ClientSnapshot = {
     mode: 'real',
     status: 'disconnected',
@@ -109,6 +129,20 @@ export class RealLodyClient implements LodyClient {
   private starting: Promise<void> | null = null;
   constructor(private readonly options: RealClientOptions) {
     this.accountKey = options.accountKey;
+    this.shortcuts = new SyncedShortcuts({
+      accountKey: options.accountKey,
+      workspaceId: options.workspaceId,
+      userId: options.accountId,
+      authOrigin: options.authOrigin,
+      convexOrigin: options.convexUrl,
+      getToken: () => {
+        this.active();
+        return options.token;
+      },
+      ...(options.ports?.requireAccess ? { requireAccess: options.ports.requireAccess } : {}),
+    });
+    Object.defineProperty(this.sharing, 'publicOrigin', { get: () => this.options.shareOrigin });
+    Object.defineProperty(this.sharing, 'apiOrigin', { get: () => this.options.shareApiOrigin });
   }
   get error() {
     return this.state.error;
@@ -120,6 +154,33 @@ export class RealLodyClient implements LodyClient {
     return this.state.permissionModes;
   }
   getSnapshot = () => this.state;
+  shortcutContext: LodyClient['shortcutContext'] = () => {
+    this.active();
+    const target = this.state.target;
+    const agent = this.state.agents.find((row) => row.id === target?.agentConfigId);
+    return {
+      workspaceId: this.options.workspaceId,
+      userId: this.options.accountId,
+      scope: {
+        ...(target ? { machineId: target.machineId } : {}),
+        ...(agent?.cliType && agent.agentType
+          ? { providerKey: `${agent.cliType}:${agent.agentType}` }
+          : {}),
+        ...(target?.project.kind === 'github'
+          ? { project: { kind: 'github' as const, repository: target.project.repo } }
+          : {}),
+        ...(target?.project.kind === 'local'
+          ? {
+              project: {
+                kind: 'local' as const,
+                id: target.project.localProjectId,
+                machineId: target.machineId,
+              },
+            }
+          : {}),
+      },
+    };
+  };
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -241,6 +302,8 @@ export class RealLodyClient implements LodyClient {
           machines: machineIds.map((id) => ({
             id,
             name: byId.get(id)?.name?.trim() || null,
+            schedules: (byId.get(id)?.protocolCapabilities?.schedules ?? 0) >= 1,
+            ...(byId.get(id)?.timeZone ? { timeZone: byId.get(id)!.timeZone! } : {}),
           })),
         });
       };
@@ -293,12 +356,14 @@ export class RealLodyClient implements LodyClient {
   private conversation(
     meta: SessionMetadata,
     messages: Conversation['messages'] = [],
+    queued: NonNullable<Conversation['queued']> = [],
   ): Conversation {
     const project = meta.project;
     const agentId = v.safeParse(v.string(), meta.agentConfigId);
     const activity = v.safeParse(v.pipe(v.number(), v.finite()), meta.lastMessageAt);
     return {
       id: meta.id,
+      isArchived: meta.isArchived,
       title:
         meta.title?.trim() ||
         messages.find((message) => message.role === 'user')?.text.slice(0, 80) ||
@@ -323,6 +388,7 @@ export class RealLodyClient implements LodyClient {
         Math.max(Date.parse(meta.createdAt), activity.success ? activity.output : 0),
       ),
       messages,
+      queued,
     };
   }
   list = async () => {
@@ -337,6 +403,7 @@ export class RealLodyClient implements LodyClient {
           this.conversation(
             meta,
             this.state.conversations.find((row) => row.id === meta.id)?.messages,
+            this.state.conversations.find((row) => row.id === meta.id)?.queued,
           ),
         ),
       });
@@ -361,6 +428,9 @@ export class RealLodyClient implements LodyClient {
       runModels: [],
       permissionModes: [],
       configOptions: [],
+      availableCommands: [],
+      canSteer: false,
+      canFork: false,
       modelConfigOptions: {},
     });
     await old?.close();
@@ -398,6 +468,9 @@ export class RealLodyClient implements LodyClient {
           name: agent.name,
           ...agentIdentity(agent),
         })),
+        canSteer: caps?.acknowledgedSteer === true,
+        canFork: caps?.sessionFork === true,
+        availableCommands: caps?.availableCommands ?? [],
         configOptions: caps?.configOptions ?? [],
         modelConfigOptions: Object.fromEntries(
           caps?.models.map((model) => [
@@ -439,6 +512,17 @@ export class RealLodyClient implements LodyClient {
     );
     this.active();
   };
+  readConversation = async (sessionId: string) => {
+    const metadata = await this.metadataFor(sessionId);
+    const handle = await this.required().runtime.openSession(sessionId);
+    try {
+      this.active();
+      const snapshot = handle.read();
+      return this.conversation(metadata, mapHistory(snapshot.history), snapshot.queue);
+    } finally {
+      await handle.close();
+    }
+  };
   open = async (sessionId: string) => {
     const connection = this.required();
     const opening = ++this.opening;
@@ -472,6 +556,7 @@ export class RealLodyClient implements LodyClient {
             ? {
                 ...row,
                 messages,
+                queued: snapshot.queue,
                 updatedAt: latestMessageTime(messages, row.updatedAt),
                 title:
                   row.title === '新对话'
@@ -599,6 +684,26 @@ export class RealLodyClient implements LodyClient {
           this.report(error);
           throw error;
         }
+      }
+      if (pending.kind) {
+        if (pending.input.userId !== this.options.accountId)
+          throw new Error('Delivery identity mismatch.');
+        this.pending = pending;
+        if (!resume) return false;
+        try {
+          await this.deliverMutation(pending);
+        } catch (error) {
+          if (error instanceof TurnRejectedError) {
+            localStorage.removeItem(this.journalKey());
+            this.pending = null;
+            this.publish({ admission: null });
+          }
+          throw error;
+        }
+        localStorage.removeItem(this.journalKey());
+        this.pending = null;
+        this.publish({ error: null, admission: null });
+        return true;
       }
       const savedAdmission = v.parse(
         v.nullable(firstTurnSchema),
@@ -772,7 +877,7 @@ export class RealLodyClient implements LodyClient {
     this.required();
     if (input.fail || input.retry)
       throw new Error('Demo failure and retry flags are not supported by the real runtime.');
-    if (!input.operationId || !input.text.trim())
+    if (!input.operationId || (!input.text.trim() && !input.attachments?.length))
       throw new Error('A request ID and message are required.');
     const target = this.state.target;
     const snapshot = this.machine?.read();
@@ -781,17 +886,23 @@ export class RealLodyClient implements LodyClient {
     if (!target || !agent || !caps)
       throw new Error('Real agent capabilities are required before sending.');
     const config = validateRunConfiguration(input.inputConfig, caps);
+    const content = contextInput(
+      input.text.trim() || '请阅读附加的资料并提供帮助。',
+      input.contexts,
+    );
     return v.parse(turnSchema, {
       requestId: input.operationId,
       timestamp: new Date().toISOString(),
       userId: this.options.accountId,
       inputConfig: {
-        ...contextInput(input.text, input.contexts),
+        ...content,
+        inputBlocks: [...content.inputBlocks, ...(input.attachments ?? [])],
         cliType: agent.cliType,
         agentType: agent.agentType,
         modelId: config.modelId,
         ...(config.modeId ? { modeId: config.modeId } : {}),
         configOptionValues: config.configOptionValues,
+        ...(config.mcpServerIds === undefined ? {} : { mcpServerIds: config.mcpServerIds }),
       },
     });
   }
@@ -812,6 +923,11 @@ export class RealLodyClient implements LodyClient {
           JSON.parse(localStorage.getItem(this.creationKey()) ?? 'null'),
         );
         const meta = this.metadata(frozenTarget, stored?.metadata);
+        if (frozen.reservedSessionId) {
+          if (stored && stored.metadata.id !== frozen.reservedSessionId)
+            throw new Error('Recover the existing admission before replacing its identity.');
+          meta.id = frozen.reservedSessionId;
+        }
         const creation =
           stored ?? v.parse(creationSchema, { scope: this.accountKey, metadata: meta });
         if (
@@ -852,6 +968,9 @@ export class RealLodyClient implements LodyClient {
       const before = previous.configOptionValues ?? {};
       const after = next.configOptionValues ?? {};
       if (
+        (previous.mcpServerIds === undefined) !== (next.mcpServerIds === undefined) ||
+        (previous.mcpServerIds ?? []).length !== (next.mcpServerIds ?? []).length ||
+        (previous.mcpServerIds ?? []).some((id, index) => id !== next.mcpServerIds?.[index]) ||
         previous.modelId !== next.modelId ||
         previous.modeId !== next.modeId ||
         previous.prompt !== next.prompt ||
@@ -860,7 +979,31 @@ export class RealLodyClient implements LodyClient {
         (previous.inputBlocks ?? []).length !== (next.inputBlocks ?? []).length ||
         (previous.inputBlocks ?? []).some((block, index) => {
           const other = next.inputBlocks?.[index];
-          return block.type !== 'text' || other?.type !== 'text' || block.text !== other.text;
+          if (!other || block.type !== other.type) return true;
+          if (block.type === 'text' && other.type === 'text') return block.text !== other.text;
+          if (block.type === 'image' && other.type === 'image')
+            return (
+              block.imageId !== other.imageId ||
+              block.mimeType !== other.mimeType ||
+              block.fileName !== other.fileName ||
+              block.sizeBytes !== other.sizeBytes ||
+              block.width !== other.width ||
+              block.height !== other.height ||
+              block.storageSessionId !== other.storageSessionId
+            );
+          if (block.type === 'file' && other.type === 'file')
+            return (
+              block.fileId !== other.fileId ||
+              block.fileName !== other.fileName ||
+              block.mimeType !== other.mimeType ||
+              block.sizeBytes !== other.sizeBytes ||
+              block.sha256 !== other.sha256 ||
+              block.textPreview !== other.textPreview ||
+              block.transport !== other.transport ||
+              block.uploadedAt !== other.uploadedAt ||
+              block.storageSessionId !== other.storageSessionId
+            );
+          return true;
         })
       )
         throw new Error('Saved request configuration is immutable. Recover its original delivery.');
@@ -948,6 +1091,505 @@ export class RealLodyClient implements LodyClient {
       this.publish({ busy: false });
     }
   };
+  listSkills = async () => {
+    const target = this.state.target;
+    if (!target) throw new Error('请先选择对话助手。');
+    const result = v.parse(
+      skillResultSchema,
+      await this.required().runtime.listSkills(
+        target.machineId,
+        this.options.workspaceId,
+        this.options.accountId,
+        crypto.randomUUID(),
+        undefined,
+        this.lifecycle.signal,
+      ),
+    );
+    this.active();
+    if (!result.ok) throw new Error(result.message ?? result.error);
+    return result.result.groups;
+  };
+  private scheduleRepository() {
+    const repository = this.required().schedules;
+    if (!repository) throw new Error('当前连接没有定时任务协议。');
+    return repository;
+  }
+  private async checkScheduleMachine(machineId: string) {
+    const machines = await this.required().machines.listMachineInfos?.([machineId]);
+    this.active();
+    if (
+      !this.state.machineIds.includes(machineId) ||
+      (machines?.[0]?.protocolCapabilities?.schedules ?? 0) < 1
+    )
+      throw new Error('所选机器尚不支持定时任务，请更新 Lody。');
+  }
+  readonly schedules: ChatSchedules = {
+    list: () => this.scheduleRepository().list(),
+    read: (id) => this.scheduleRepository().read(id),
+    runtimeRows: () => this.scheduleRepository().runtimeRows(),
+    save: async (input) => {
+      await this.checkScheduleMachine(input.draft.machineId);
+      return this.scheduleRepository().save({ ...input, actorId: this.options.accountId });
+    },
+    setEnabled: async (input) => {
+      if (input.enabled) {
+        const document = await this.scheduleRepository().read(input.scheduleId);
+        if (!document) throw new Error('定时任务不存在。');
+        await this.checkScheduleMachine(document.definition.machineId);
+      }
+      return this.scheduleRepository().setEnabled({ ...input, actorId: this.options.accountId });
+    },
+    requestRun: async (input) => {
+      const document = await this.scheduleRepository().read(input.scheduleId);
+      if (!document) throw new Error('定时任务不存在。');
+      await this.checkScheduleMachine(document.definition.machineId);
+      return this.scheduleRepository().requestRun({ ...input, actorId: this.options.accountId });
+    },
+    delete: (id) => this.scheduleRepository().delete(id, this.options.accountId, Date.now()),
+  };
+  private async metadataFor(sessionId: string) {
+    const metadata = (await this.required().runtime.listSessions()).find(
+      (row) => row.id === sessionId,
+    );
+    this.active();
+    if (!metadata) throw new Error('会话已不可用，请刷新历史。');
+    return metadata;
+  }
+  rename = async (sessionId: string, title: string) => {
+    if (!title.trim()) throw new Error('请输入会话名称。');
+    await this.metadataFor(sessionId);
+    await this.required().runtime.renameSession(sessionId, title);
+    this.active();
+    await this.list();
+  };
+  private async machineMutation(sessionId: string, kind: 'archive' | 'delete') {
+    const metadata = await this.metadataFor(sessionId);
+    const machine = await this.required().machines.open(metadata.machineId);
+    try {
+      this.active();
+      if (kind === 'archive') await machine.archiveSession(sessionId, this.options.accountId);
+      else await machine.deleteSession(sessionId);
+      this.active();
+      await this.list();
+    } finally {
+      await machine.close();
+    }
+  }
+  archive = (sessionId: string) => this.machineMutation(sessionId, 'archive');
+  delete = (sessionId: string) => this.machineMutation(sessionId, 'delete');
+  restore = async (sessionId: string) => {
+    const metadata = await this.metadataFor(sessionId);
+    if (metadata.project?.kind === 'local') {
+      const machine = await this.required().machines.open(metadata.machineId);
+      try {
+        const projectId = metadata.project.localProjectId;
+        if (!machine.read().projects.some((project) => project.localProjectId === projectId))
+          throw new Error('请先在 Lody 中重新添加此本地项目，再恢复会话。');
+      } finally {
+        await machine.close();
+      }
+    }
+    await this.required().runtime.patchMetadata(sessionId, { isArchived: false });
+    this.active();
+    await this.list();
+  };
+  private async awaitForkMetadata(sessionId: string) {
+    const runtime = this.required().runtime;
+    const signal = AbortSignal.any([this.lifecycle.signal, AbortSignal.timeout(30_000)]);
+    let cleanup = () => {};
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const aborted = () =>
+          reject(
+            new Error('分叉已受理，正在等待目标会话同步。请使用同一请求重试。', {
+              cause: signal.reason,
+            }),
+          );
+        const inspect = async () => {
+          signal.throwIfAborted();
+          const rows = await runtime.listSessions();
+          if (rows.some((row) => row.id === sessionId)) resolve();
+        };
+        const check = () => {
+          void inspect().catch(reject);
+        };
+        const unsubscribe = runtime.subscribeSessions(check);
+        cleanup = () => {
+          unsubscribe();
+          signal.removeEventListener('abort', aborted);
+        };
+        signal.addEventListener('abort', aborted, { once: true });
+        check();
+      });
+    } finally {
+      cleanup();
+    }
+    this.active();
+    await this.list();
+  }
+  fork = async (
+    sessionId: string,
+    turnId: string,
+    operationId: string,
+    targetSessionId: string,
+  ) => {
+    const metadata = await this.metadataFor(sessionId);
+    const result = v.parse(
+      v.object({
+        success: v.boolean(),
+        targetSessionId: v.string(),
+        partial: v.boolean(),
+        disposition: v.exactOptional(v.string()),
+        error: v.exactOptional(v.object({ message: v.string() })),
+      }),
+      await this.required().runtime.fork(
+        metadata.machineId,
+        {
+          sourceSessionId: sessionId,
+          sourceTurnId: turnId,
+          targetSessionId,
+          requestedByUserId: this.options.accountId,
+          targetContext: { kind: 'shared' },
+        },
+        operationId,
+        this.lifecycle.signal,
+      ),
+    );
+    this.active();
+    if (!result.success || result.partial || result.disposition === 'confirmation-required')
+      throw new Error(result.error?.message ?? '分叉尚未完成，请检查原会话和目标会话。');
+    if (result.targetSessionId !== targetSessionId)
+      throw new Error('Fork response identity mismatch.');
+    await this.awaitForkMetadata(targetSessionId);
+    return { sessionId: targetSessionId };
+  };
+  private async deliverMutation(pending: Pending) {
+    const metadata = await this.metadataFor(pending.sessionId);
+    if (pending.kind === 'queue') {
+      await this.required().runtime.send(pending.sessionId, pending.input, 'queue');
+      this.active();
+      return;
+    }
+    if (!pending.expectedTurnId) throw new Error('Missing expected turn identity.');
+    if (pending.kind === 'steer') {
+      await steerTurn(
+        this.required().runtime,
+        metadata.machineId,
+        pending.sessionId,
+        pending.expectedTurnId,
+        pending.input,
+        this.lifecycle.signal,
+      );
+    } else if (pending.kind === 'edit') {
+      const result = v.parse(
+        v.object({
+          success: v.boolean(),
+          sessionId: v.string(),
+          replacementUserTurnId: v.string(),
+          error: v.exactOptional(v.object({ message: v.string() })),
+        }),
+        await this.required().runtime.editAndResend(
+          metadata.machineId,
+          pending.sessionId,
+          pending.expectedTurnId,
+          pending.input,
+          this.lifecycle.signal,
+        ),
+      );
+      if (
+        result.sessionId !== pending.sessionId ||
+        result.replacementUserTurnId !== pending.input.requestId
+      )
+        throw new Error('Edit response identity mismatch.');
+      if (!result.success)
+        throw new TurnRejectedError(result.error?.message ?? '修改被拒绝，请检查会话。');
+    }
+    this.active();
+  }
+  private async mutateTurn(
+    input: SendInput,
+    expectedTurnId: string,
+    kind: 'edit' | 'steer' | 'queue',
+  ) {
+    if (this.sending) throw new Error('A send is already in progress.');
+    this.sending = true;
+    try {
+      const frozen = structuredClone(input);
+      const metadata = await this.metadataFor(frozen.sessionId);
+      await this.selectTarget(this.conversation(metadata).target);
+      const turn = this.prepare(frozen);
+      await navigator.locks.request(this.creationKey(), async () => {
+        this.checkPending(turn);
+        const pending = v.parse(pendingSchema, {
+          sessionId: frozen.sessionId,
+          input: turn,
+          contexts: frozen.contexts,
+          kind,
+          expectedTurnId,
+        });
+        localStorage.setItem(this.journalKey(), JSON.stringify(pending));
+        this.pending = pending;
+        this.publish({
+          busy: true,
+          error: null,
+          admission: {
+            sessionId: frozen.sessionId,
+            phase: 'delivery-unconfirmed',
+            operationId: turn.requestId,
+          },
+        });
+        try {
+          await this.deliverMutation(pending);
+        } catch (error) {
+          if (error instanceof TurnRejectedError) {
+            localStorage.removeItem(this.journalKey());
+            this.pending = null;
+            this.publish({ admission: null });
+          }
+          throw error;
+        }
+        localStorage.removeItem(this.journalKey());
+        this.pending = null;
+        this.publish({ admission: null });
+      });
+    } catch (error) {
+      this.report(error);
+      throw error;
+    } finally {
+      this.sending = false;
+      this.publish({ busy: false });
+    }
+  }
+  edit = (input: SendInput, expectedUserTurnId: string) =>
+    this.mutateTurn(input, expectedUserTurnId, 'edit');
+  queue = (input: SendInput) => this.mutateTurn(input, '', 'queue');
+  steer = (input: SendInput, expectedTurnId: string) =>
+    this.mutateTurn(input, expectedTurnId, 'steer');
+  listMcpServers = async () => {
+    const catalog = this.required().mcpCatalog;
+    if (!catalog) throw new Error('当前连接不支持读取 MCP 目录');
+    return catalog.list();
+  };
+  private async shareManagement() {
+    this.active();
+    const access = this.options.ports?.requireAccess ?? requireApiAccess;
+    await Promise.all([access(this.options.authOrigin), access(this.options.convexUrl)]);
+    this.active();
+    const fetch = cloudFetch();
+    const jwt = new BetterAuthConvexJwtProvider({
+      authOrigin: this.options.authOrigin,
+      fetch,
+      getSessionBearer: async () => {
+        this.active();
+        return this.options.token;
+      },
+    });
+    return new ConvexShareManagement({
+      origin: this.options.convexUrl,
+      fetch,
+      getJwt: (signal) => jwt.getJwt(AbortSignal.any([this.lifecycle.signal, signal])),
+    });
+  }
+  private sharingConfigured() {
+    this.active();
+    if (!this.options.shareOrigin) throw new Error('未配置共享阅读地址');
+    if (!this.options.shareApiOrigin) throw new Error('共享服务不可用，请重试。（缺少服务地址）');
+  }
+  readonly sharing: ChatSharing = {
+    verifyCredential: async (shareId, secret) => {
+      this.active();
+      const origin = this.options.shareApiOrigin;
+      if (!origin) throw new Error('共享服务不可用，请重试。（缺少服务地址）');
+      await (this.options.ports?.requireAccess ?? requireApiAccess)(origin);
+      this.active();
+      await openStaticShare({ origin, shareId, secret, signal: this.lifecycle.signal });
+    },
+    get apiOrigin() {
+      return undefined;
+    },
+    get publicOrigin() {
+      return undefined;
+    },
+    list: async (pagination) =>
+      (await this.shareManagement()).list(this.options.workspaceId, pagination, {
+        signal: this.lifecycle.signal,
+      }),
+    getManagement: async (rootSessionId, shareId) =>
+      (await this.shareManagement()).getManagement(
+        this.options.workspaceId,
+        rootSessionId,
+        shareId,
+        { signal: this.lifecycle.signal },
+      ),
+    prepare: async (input) => {
+      this.sharingConfigured();
+      const conversations = [];
+      for (const sessionId of input.sessionIds) {
+        input.signal?.throwIfAborted();
+        const conversation = await this.readConversation(sessionId);
+        conversations.push({
+          sourceId: conversation.id,
+          title: conversation.title,
+          history: conversation.messages.map((message) => message.turn),
+        });
+      }
+      input.signal?.throwIfAborted();
+      return prepareSharePackage({
+        rootSourceId: input.rootSessionId,
+        conversations,
+        capturedAt: input.capturedAt,
+        ...(input.previousSourceIds ? { previousSourceIds: input.previousSourceIds } : {}),
+        signal: AbortSignal.any([this.lifecycle.signal, ...(input.signal ? [input.signal] : [])]),
+        fileAttachmentOmissionText: '此分享不包含文件附件',
+        readAttachment: async (source, signal) => {
+          const ref = v.parse(
+            v.object({ imageId: v.string(), storageSessionId: v.exactOptional(v.string()) }),
+            source.reference,
+          );
+          if (source.kind !== 'image') throw new Error('此分享不支持文件附件');
+          const service = await this.attachmentService();
+          const blob = await service.downloadImage(
+            {
+              workspaceId: this.options.workspaceId,
+              sessionId: ref.storageSessionId ?? source.conversationSourceId,
+              attachmentId: ref.imageId,
+            },
+            signal ? { signal } : {},
+          );
+          return { bytes: new Uint8Array(await blob.arrayBuffer()), mediaType: blob.type };
+        },
+      });
+    },
+    beginDeployment: async (input, options) => {
+      this.sharingConfigured();
+      return (await this.shareManagement()).beginDeployment(
+        { ...input, workspaceId: this.options.workspaceId },
+        {
+          ...options,
+          signal: AbortSignal.any([
+            this.lifecycle.signal,
+            ...(options?.signal ? [options.signal] : []),
+          ]),
+        },
+      );
+    },
+    upload: async (input) => {
+      this.sharingConfigured();
+      const origin = this.options.shareApiOrigin!;
+      await (this.options.ports?.requireAccess ?? requireApiAccess)(origin);
+      this.active();
+      await uploadPreparedShare({
+        ...input,
+        origin,
+        signal: AbortSignal.any([this.lifecycle.signal, ...(input.signal ? [input.signal] : [])]),
+      });
+    },
+    publishDeployment: async (deploymentId, options) => {
+      this.sharingConfigured();
+      return (await this.shareManagement()).publishDeployment(deploymentId, {
+        ...options,
+        signal: AbortSignal.any([
+          this.lifecycle.signal,
+          ...(options?.signal ? [options.signal] : []),
+        ]),
+      });
+    },
+    resetCredential: async (input, options) =>
+      (await this.shareManagement()).resetCredential(input, {
+        ...options,
+        signal: AbortSignal.any([
+          this.lifecycle.signal,
+          ...(options?.signal ? [options.signal] : []),
+        ]),
+      }),
+    revoke: async (input, options) =>
+      (await this.shareManagement()).revoke(input, {
+        ...options,
+        signal: AbortSignal.any([
+          this.lifecycle.signal,
+          ...(options?.signal ? [options.signal] : []),
+        ]),
+      }),
+  };
+  private async attachmentService() {
+    this.active();
+    const origin = this.options.attachmentOrigin;
+    if (!origin) throw new Error('附件服务不可用，请重试。（缺少服务地址）');
+    await (this.options.ports?.requireAccess ?? requireApiAccess)(origin);
+    this.active();
+    return createAttachmentClient({
+      origin,
+      auth: {
+        getToken: async () => {
+          this.active();
+          return this.options.token;
+        },
+      },
+    });
+  }
+  uploadAttachment = async (
+    storageSessionId: string,
+    file: File,
+    options: AttachmentRequestOptions = {},
+  ): Promise<ChatAttachment> => {
+    const service = await this.attachmentService();
+    const location = { workspaceId: this.options.workspaceId, sessionId: storageSessionId };
+    const request = {
+      ...options,
+      signal: AbortSignal.any([this.lifecycle.signal, ...(options.signal ? [options.signal] : [])]),
+    };
+    if (['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type)) {
+      const [image] = await service.uploadImages(
+        { ...location, images: [{ blob: file, fileName: file.name }] },
+        request,
+      );
+      this.active();
+      if (!image) throw new Error('Attachment service returned no image.');
+      return {
+        type: 'image',
+        imageId: image.imageId,
+        mimeType: image.mimeType,
+        sizeBytes: image.sizeBytes,
+        ...(image.fileName !== undefined ? { fileName: image.fileName } : {}),
+        ...(image.width !== undefined ? { width: image.width } : {}),
+        ...(image.height !== undefined ? { height: image.height } : {}),
+        storageSessionId,
+      };
+    }
+    const attachment = await service.uploadFile(
+      {
+        ...location,
+        blob: file,
+        fileName: file.name,
+        textPreview: file.type.startsWith('text/') || file.type === 'application/json',
+      },
+      request,
+    );
+    this.active();
+    return { ...attachment, storageSessionId };
+  };
+  downloadAttachment = async (
+    sessionId: string,
+    attachment: ChatAttachment,
+    options: AttachmentRequestOptions = {},
+  ) => {
+    const service = await this.attachmentService();
+    const location = {
+      workspaceId: this.options.workspaceId,
+      sessionId: attachment.storageSessionId ?? sessionId,
+      attachmentId: attachment.type === 'image' ? attachment.imageId : attachment.fileId,
+    };
+    const request = {
+      ...options,
+      signal: AbortSignal.any([this.lifecycle.signal, ...(options.signal ? [options.signal] : [])]),
+    };
+    const blob =
+      attachment.type === 'image'
+        ? await service.downloadImage(location, request)
+        : await service.downloadFile(location, request);
+    this.active();
+    return blob;
+  };
   stop = async (sessionId: string) => {
     const connection = this.required();
     await this.open(sessionId);
@@ -994,7 +1636,12 @@ export class RealLodyClient implements LodyClient {
     this.handle = null;
     this.machine = null;
     this.connection = null;
-    await Promise.allSettled([handle?.close(), machine?.close(), connection?.close()]);
+    await Promise.allSettled([
+      handle?.close(),
+      machine?.close(),
+      connection?.close(),
+      this.shortcuts.close(),
+    ]);
     this.listeners.clear();
   };
 }

@@ -38,6 +38,7 @@ export const turnSchema = v.object({
     modelId: v.exactOptional(id),
     modeId: v.exactOptional(id),
     inputBlocks: v.exactOptional(v.array(blockSchema)),
+    mcpServerIds: v.exactOptional(v.array(v.pipe(v.string(), v.minLength(1)))),
     configOptionValues: v.exactOptional(v.record(v.string(), v.union([v.string(), v.boolean()]))),
   }),
 });

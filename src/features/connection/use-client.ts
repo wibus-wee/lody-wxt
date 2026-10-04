@@ -34,6 +34,9 @@ export function useLodyClient(convexOrigin?: string, active = true): RealLodyCli
       token,
       client: sdk,
       convexUrl: origin,
+      attachmentOrigin: productConfig.attachmentOrigin,
+      ...(productConfig.shareOrigin ? { shareOrigin: productConfig.shareOrigin } : {}),
+      ...(productConfig.shareApiOrigin ? { shareApiOrigin: productConfig.shareApiOrigin } : {}),
     });
     let active = true;
     queueMicrotask(() => {

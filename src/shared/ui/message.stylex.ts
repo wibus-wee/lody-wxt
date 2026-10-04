@@ -24,7 +24,7 @@ export const messageSurface = stylex.create({
     overflowWrap: 'anywhere',
     color: composer.label,
   },
-  rail: { paddingInline: 4, minWidth: 0 },
+  rail: { minWidth: 0 },
   body: { fontSize: text.bodySize, lineHeight: text.bodyLeading },
   userRow: {
     display: 'flex',
@@ -134,23 +134,6 @@ export const messageSurface = stylex.create({
     fontWeight: 500,
     overflowWrap: 'anywhere',
   },
-  processButton: {
-    display: 'flex',
-    width: 'fit-content',
-    maxWidth: '100%',
-    minHeight: 24,
-    alignItems: 'center',
-    gap: 2,
-    padding: '2px 4px',
-    textAlign: 'left',
-  },
-  processHeader: { fontSize: text.bodySize, lineHeight: text.bodyLeading },
-  chevron: {
-    display: 'inline-flex',
-    flexShrink: 0,
-    opacity: { default: 0, '@media (hover: none)': 1 },
-  },
-  visibleChevron: { opacity: 1 },
   toolSheet: {
     display: 'flex',
     flexDirection: 'column',

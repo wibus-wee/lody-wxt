@@ -5,6 +5,11 @@ import { useRef } from 'react';
 import { text } from '../../../vendor/lody/packages/ui/src/tokens/scales.stylex';
 import { Field, Textarea } from '../../shared/ui';
 import { composer } from '../../shared/ui/composer.stylex';
+import type { PageContext } from '../connection/client';
+import { ComposerMentionMenu } from './mentions/ComposerMentionMenu';
+import { COMPOSER_MAX_LENGTH } from './mentions/core';
+import type { ComposerMentionRange, ComposerMentionSource } from './mentions/types';
+import { useComposerMentions } from './mentions/use-composer-mentions';
 
 const styles = stylex.create({
   surface: {
@@ -54,7 +59,13 @@ const styles = stylex.create({
     containerType: 'inline-size',
     containerName: 'composer-face',
   },
-  action: { display: 'flex', flexShrink: 0, marginInlineStart: 'auto' },
+  action: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+    flexShrink: 0,
+    marginInlineStart: 'auto',
+  },
 });
 
 export function Composer({
@@ -62,27 +73,59 @@ export function Composer({
   disabled,
   onChange,
   onKeyDown,
+  contextControls,
   attachments,
   attachmentAction,
   configuration,
   primaryAction,
+  onFiles,
+  mentionSource,
+  mentionRanges,
+  onMentionCommit,
 }: {
   value: string;
   disabled: boolean;
   onChange: (value: string) => void;
   onKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
+  contextControls?: ReactNode;
   attachments: ReactNode;
   attachmentAction: ReactNode;
   configuration: ReactNode;
   primaryAction: ReactNode;
+  onFiles?: ((files: File[]) => void) | undefined;
+  mentionSource?: ComposerMentionSource | undefined;
+  mentionRanges?: readonly ComposerMentionRange[] | undefined;
+  onMentionCommit?:
+    | ((text: string, ranges?: readonly ComposerMentionRange[], context?: PageContext) => void)
+    | undefined;
 }) {
   const promptRef = useRef<HTMLTextAreaElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
   const composingRef = useRef(false);
+  const mentions = useComposerMentions({
+    source: mentionSource,
+    ranges: mentionRanges,
+    value,
+    disabled,
+    inputRef: promptRef,
+    onCommit: onMentionCommit ?? onChange,
+  });
   return (
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- Frame clicks focus the keyboard-accessible textarea; the frame is not another control.
     <div
+      ref={frameRef}
       {...stylex.props(styles.surface)}
       data-testid="composer"
+      data-mention-frame=""
+      onDragOver={(event) => {
+        if (!disabled && onFiles && event.dataTransfer.types.includes('Files'))
+          event.preventDefault();
+      }}
+      onDrop={(event) => {
+        if (disabled || !onFiles || !event.dataTransfer.files.length) return;
+        event.preventDefault();
+        onFiles(Array.from(event.dataTransfer.files));
+      }}
       onClick={(event) => {
         if (
           event.target instanceof Element &&
@@ -92,7 +135,26 @@ export function Composer({
           promptRef.current?.focus({ preventScroll: true });
       }}
     >
+      {contextControls}
       {attachments}
+      {mentions.open && (
+        <ComposerMentionMenu
+          anchor={frameRef}
+          listId={mentions.listId}
+          rows={mentions.rows}
+          view={mentions.view}
+          onBack={mentions.back}
+          selected={mentions.selected}
+          loading={mentions.loading}
+          preparing={mentions.preparing}
+          retrying={mentions.retrying}
+          error={mentions.error}
+          onClose={mentions.close}
+          onSelect={mentions.select}
+          onHighlight={mentions.setSelected}
+          onRetry={mentions.retry}
+        />
+      )}
       <Field.Root disabled={disabled}>
         <Field.Label className="sr-only">消息</Field.Label>
         <Textarea
@@ -101,19 +163,47 @@ export function Composer({
           appearance="bare"
           resize="none"
           rows={2}
-          maxLength={16000}
+          maxLength={COMPOSER_MAX_LENGTH}
           data-keyboard-nav="composer"
-          placeholder="问点什么…"
+          placeholder={mentionSource ? '输入消息，/ 使用命令，@ 添加提及，$ 使用技能' : '问点什么…'}
+          aria-autocomplete={mentionSource ? 'list' : undefined}
+          aria-controls={mentions.open ? mentions.listId : undefined}
+          aria-activedescendant={
+            mentions.open && mentions.rows[mentions.selected]
+              ? `${mentions.listId}-${mentions.selected}`
+              : undefined
+          }
           value={value}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(event) => {
+            onChange(event.target.value);
+            if (!composingRef.current) mentions.inspect(event.target);
+          }}
+          onSelect={(event) => {
+            if (!composingRef.current) mentions.inspect(event.currentTarget);
+          }}
+          onPaste={(event) => {
+            if (disabled || !onFiles || !event.clipboardData.files.length) return;
+            event.preventDefault();
+            onFiles(Array.from(event.clipboardData.files));
+            const pasted = event.clipboardData.getData('text/plain');
+            if (pasted) {
+              const start = event.currentTarget.selectionStart;
+              const end = event.currentTarget.selectionEnd;
+              onChange(
+                (value.slice(0, start) + pasted + value.slice(end)).slice(0, COMPOSER_MAX_LENGTH),
+              );
+            }
+          }}
           onCompositionStart={() => {
             composingRef.current = true;
+            mentions.close();
           }}
-          onCompositionEnd={() => {
+          onCompositionEnd={(event) => {
             composingRef.current = false;
+            mentions.inspect(event.currentTarget, true);
           }}
           onKeyDown={(event) => {
-            if (!composingRef.current) onKeyDown(event);
+            if (!composingRef.current && !mentions.keyDown(event)) onKeyDown(event);
           }}
         />
       </Field.Root>

@@ -1,11 +1,25 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { useState } from 'react';
 
 import { Icon } from '../../shared/icons/Icon';
 import { Button, Tooltip } from '../../shared/ui';
 import { ActivityStatus } from '../../shared/ui/ActivityStatus';
-import { MessageAttachments } from '../../shared/ui/MessageAttachments';
+import { ContextStrip } from '../page-context/ContextStrip';
+import type { PageContext } from '../page-context/model';
 import { Chat } from './Chat';
 import { ChatHeader } from './ChatHeader';
+import { ComposerContextBar } from './ComposerContextBar';
+
+function ContextControlsPreview() {
+  const [currentPage, setCurrentPage] = useState(false);
+  return (
+    <ComposerContextBar
+      currentPage={currentPage}
+      onCurrentPageChange={setCurrentPage}
+      onSelectTabs={() => {}}
+    />
+  );
+}
 
 const meta = {
   title: 'Chat/Transcript',
@@ -35,14 +49,19 @@ const meta = {
         text: '## 可选属性\n\n属性可以不存在，但存在时仍须满足类型。\n\n```ts\ninterface Settings {\n  theme?: string;\n}\n```\n\n| 属性 | 类型 |\n| --- | --- |\n| theme | string |',
         status: 'complete',
         timestamp: '09:42',
-        activities: [
+        content: [
           {
-            id: 'read',
+            type: 'tool_call',
+            toolCallId: 'read',
             title: '读取类型定义',
-            command: 'read settings.ts',
-            output: 'interface Settings { theme?: string }',
-            status: 'complete',
+            kind: 'read',
+            status: 'completed',
+            content: [
+              { type: 'terminal_command', command: 'read settings.ts' },
+              { type: 'terminal_output', output: 'interface Settings { theme?: string }' },
+            ],
           },
+          { type: 'text', text: '## 可选属性\n\n属性可以不存在，但存在时仍须满足类型。' },
         ],
       },
     ],
@@ -63,6 +82,7 @@ const meta = {
       onChange: () => {},
       onKeyDown: () => {},
       attachments: null,
+      contextControls: <ContextControlsPreview />,
       attachmentAction: (
         <Button variant="ghost" size="small" icon aria-label="附加上下文">
           <Icon name="plus" size={16} />
@@ -89,7 +109,6 @@ export const NewConversation: Story = {
   args: {
     messages: [],
     onSuggestion: () => {},
-    footer: '仅发送你附加的网页',
   },
   parameters: { viewport: { defaultViewport: 'mobile1' } },
 };
@@ -109,6 +128,20 @@ export const DeliveryRecovery: Story = {
   },
 };
 
+const pageAttachments: PageContext[] = Array.from({ length: 8 }, (_, index) => ({
+  id: `page-${index}`,
+  kind: 'page',
+  title:
+    index === 0
+      ? 'LodyAI/Lody: Share coding agents with your team on phone and desktop — '.repeat(2)
+      : index < 3
+        ? 'Menu · Raycast UI'
+        : `资料 ${index + 1} — ${'LongUnbrokenPageTitle'.repeat(6)}`,
+  url: `https://example.com/source/${index}`,
+  text: `Source ${index + 1} contents`,
+  trust: 'untrusted',
+}));
+
 export const LongPageTitle: Story = {
   args: {
     messages: [
@@ -118,22 +151,30 @@ export const LongPageTitle: Story = {
         status: 'complete',
         timestamp: '02:18',
         text: '能告诉我现在在看什么页面吗？有什么信息',
-        attachments: (
-          <MessageAttachments
-            contexts={[
-              {
-                id: 'page',
-                title:
-                  'LodyAI/Lody: Share coding agents with your team on phone and desktop — '.repeat(
-                    5,
-                  ),
-              },
-            ]}
-          />
-        ),
+        attachments: <ContextStrip contexts={pageAttachments.slice(0, 1)} layout="message" />,
       },
     ],
     status: <ActivityStatus busy>等待助手回复</ActivityStatus>,
+  },
+};
+
+export const ManyPageAttachments: Story = {
+  args: {
+    ...LongPageTitle.args,
+    messages: [
+      {
+        id: 'many-sources',
+        role: 'user',
+        status: 'complete',
+        timestamp: '01:12',
+        text: '看看我都给你发了什么东西，全部说一下？',
+        attachments: <ContextStrip contexts={pageAttachments} layout="message" />,
+      },
+    ],
+    composer: {
+      ...meta.args.composer,
+      attachments: <ContextStrip contexts={pageAttachments} remove={() => {}} />,
+    },
   },
 };
 

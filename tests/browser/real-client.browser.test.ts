@@ -1,4 +1,4 @@
-import type { SessionMetadata, SessionSnapshot } from '@lody-mobile/sdk';
+import type { MachineCommandPort, SessionMetadata, SessionSnapshot } from '@lody-mobile/sdk';
 import { createLodyClient, SessionRuntime } from '@lody-mobile/sdk';
 import { expect, it } from 'vitest';
 
@@ -13,8 +13,14 @@ const target = {
   agentConfigId: 'agent',
   project: { kind: 'chat' as const },
 };
-function fixture(scope: string, failFlush = false, failMetadata = true) {
+function fixture(
+  scope: string,
+  failFlush = false,
+  failMetadata = true,
+  commands: MachineCommandPort = { request: async () => null },
+) {
   const rows: SessionMetadata[] = [];
+  const metadataListeners = new Set<() => void>();
   const snapshot: SessionSnapshot = { sessionId: '', history: [], queue: [], session: {} };
   let failCreate = failMetadata;
   let creates = 0;
@@ -22,7 +28,12 @@ function fixture(scope: string, failFlush = false, failMetadata = true) {
   const runtime = new SessionRuntime(
     {
       list: async () => rows,
-      subscribe: () => () => {},
+      subscribe: (listener) => {
+        metadataListeners.add(listener);
+        return () => {
+          metadataListeners.delete(listener);
+        };
+      },
       patch: async () => {},
       close: async () => {},
       create: async (meta) => {
@@ -58,7 +69,7 @@ function fixture(scope: string, failFlush = false, failMetadata = true) {
         close: async () => {},
       }),
     },
-    { request: async () => null },
+    commands,
   );
   const machine = {
     machineId: 'machine',
@@ -139,7 +150,19 @@ function fixture(scope: string, failFlush = false, failMetadata = true) {
       },
     },
   });
-  return { client, rows, snapshot, machine, creates: () => creates, closes: () => closes };
+  return {
+    client,
+    rows,
+    snapshot,
+    machine,
+    runtime,
+    notifyMetadata: () => {
+      for (const listener of metadataListeners) listener();
+    },
+    metadataListeners,
+    creates: () => creates,
+    closes: () => closes,
+  };
 }
 it('recovers the same empty metadata admission after a lost acknowledgement and sends its first turn', async () => {
   const scope = crypto.randomUUID();
@@ -497,4 +520,235 @@ it('keeps invalid legacy admission identity visible and leaves its storage intac
   expect(localStorage.getItem(key)).toBe(saved);
   expect(restored.creates()).toBe(0);
   await restored.client.close();
+});
+
+it('keeps the reserved attachment identity in the first single user turn', async () => {
+  const state = fixture(crypto.randomUUID(), false, false);
+  await state.client.connect();
+  const reservedSessionId = crypto.randomUUID();
+  const attachment = {
+    type: 'image' as const,
+    imageId: 'image-one',
+    mimeType: 'image/png' as const,
+    sizeBytes: 12,
+    storageSessionId: reservedSessionId,
+  };
+  const conversation = await state.client.start(target, {
+    reservedSessionId,
+    operationId: 'attachment-turn',
+    text: '',
+    contexts: [],
+    attachments: [attachment],
+    inputConfig: { modelId: 'real-model', reasoningEffort: '', planMode: false, fastMode: false },
+  });
+  expect(conversation.id).toBe(reservedSessionId);
+  expect(state.snapshot.history).toHaveLength(1);
+  expect(state.snapshot.history[0]?.inputConfig?.inputBlocks).toEqual([
+    { type: 'text', text: '请阅读附加的资料并提供帮助。' },
+    attachment,
+  ]);
+  await state.client.close();
+});
+it('retries an uncertain edit with exactly the saved replacement identity and timestamp', async () => {
+  const calls: Array<{ requestId: string; params: Record<string, unknown> }> = [];
+  const state = fixture(crypto.randomUUID(), false, false, {
+    request: async (_machine, method, params, requestId) => {
+      expect(method).toBe('session/edit-and-resend');
+      calls.push({ requestId, params: structuredClone(params) });
+      if (calls.length === 1) throw new Error('lost edit acknowledgement');
+      return { success: true, sessionId: params.sessionId, replacementUserTurnId: requestId };
+    },
+  });
+  await state.client.connect();
+  const conversation = await state.client.start(target, {
+    operationId: 'original',
+    text: 'original question',
+    contexts: [],
+    inputConfig: { modelId: 'real-model', reasoningEffort: '', planMode: false, fastMode: false },
+  });
+  await expect(
+    state.client.edit(
+      {
+        sessionId: conversation.id,
+        operationId: 'replacement',
+        text: 'edited question',
+        contexts: [],
+        inputConfig: {
+          modelId: 'real-model',
+          reasoningEffort: '',
+          planMode: false,
+          fastMode: false,
+        },
+      },
+      'original',
+    ),
+  ).rejects.toThrow('lost edit acknowledgement');
+  expect(state.client.getSnapshot().admission?.operationId).toBe('replacement');
+  await expect(state.client.recoverDelivery()).resolves.toBe(true);
+  expect(calls).toHaveLength(2);
+  expect(calls[0]).toEqual(calls[1]);
+  expect(state.client.getSnapshot().admission).toBeNull();
+  expect(state.snapshot.history).toHaveLength(1);
+  await state.client.close();
+});
+it('keeps rejected edits visible and never treats an unsuccessful fork as a new conversation', async () => {
+  const state = fixture(crypto.randomUUID(), false, false, {
+    request: async (_machine, method, params) =>
+      method === 'session/fork'
+        ? {
+            success: false,
+            partial: false,
+            targetSessionId: params.targetSessionId,
+            error: { message: 'UNSUPPORTED_AGENT' },
+          }
+        : {
+            success: false,
+            sessionId: params.sessionId,
+            replacementUserTurnId: params.replacementUserTurnId,
+            error: { message: 'STALE_USER_TURN' },
+          },
+  });
+  await state.client.connect();
+  const conversation = await state.client.start(target, {
+    operationId: 'original',
+    text: 'question',
+    contexts: [],
+    inputConfig: { modelId: 'real-model', reasoningEffort: '', planMode: false, fastMode: false },
+  });
+  await expect(
+    state.client.fork(conversation.id, 'assistant', 'fork-op', 'fork-target'),
+  ).rejects.toThrow('UNSUPPORTED_AGENT');
+  expect(state.rows).toHaveLength(1);
+  await expect(
+    state.client.edit(
+      {
+        sessionId: conversation.id,
+        operationId: 'replacement',
+        text: 'edited',
+        contexts: [],
+        inputConfig: {
+          modelId: 'real-model',
+          reasoningEffort: '',
+          planMode: false,
+          fastMode: false,
+        },
+      },
+      'original',
+    ),
+  ).rejects.toThrow('STALE_USER_TURN');
+  expect(state.client.error).toBe('STALE_USER_TURN');
+  expect(state.snapshot.history).toHaveLength(1);
+  await state.client.close();
+});
+
+it('recovers queued input as a queue operation without falling back to dispatch', async () => {
+  const state = fixture(crypto.randomUUID(), false, false);
+  await state.client.connect();
+  const conversation = await state.client.start(target, {
+    operationId: 'original',
+    text: 'first',
+    contexts: [],
+    inputConfig: { modelId: 'real-model', reasoningEffort: '', planMode: false, fastMode: false },
+  });
+  const operations: Array<{ kind: string | undefined; input: unknown }> = [];
+  const send = state.runtime.send;
+  state.runtime.send = async (sessionId, input, kind) => {
+    operations.push({ kind, input: structuredClone(input) });
+    if (operations.length === 1) throw new Error('lost queue acknowledgement');
+    return send(sessionId, input, kind);
+  };
+  await expect(
+    state.client.queue({
+      sessionId: conversation.id,
+      operationId: 'queued',
+      text: 'later',
+      contexts: [],
+      inputConfig: { modelId: 'real-model', reasoningEffort: '', planMode: false, fastMode: false },
+    }),
+  ).rejects.toThrow('lost queue acknowledgement');
+  await state.client.recoverDelivery();
+  expect(operations[0]?.kind).toBe('queue');
+  expect(operations[1]).toEqual(operations[0]);
+  await state.client.close();
+});
+
+it('reads and exports an independent session without replacing active target or queue projection', async () => {
+  const state = fixture(crypto.randomUUID(), false, false);
+  await state.client.connect();
+  const conversation = await state.client.start(target, {
+    operationId: 'active-turn',
+    text: 'Hello',
+    contexts: [],
+    inputConfig: {
+      modelId: 'real-model',
+      reasoningEffort: '',
+      planMode: false,
+      fastMode: false,
+      mcpServerIds: ['research'],
+    },
+  });
+  state.rows.push({
+    ...state.rows[0]!,
+    id: 'exported',
+    machineId: 'another-machine',
+    title: 'Export me',
+  });
+  state.snapshot.queue = [
+    { task: 'Later', userId: 'user', timestamp: new Date().toISOString(), userTurnId: 'later' },
+  ];
+  const before = state.client.getSnapshot();
+  const exported = await state.client.readConversation('exported');
+  expect(exported.id).toBe('exported');
+  expect(exported.queued?.[0]?.userTurnId).toBe('later');
+  expect(exported.messages[0]?.inputConfig?.mcpServerIds).toEqual(['research']);
+  expect(state.client.getSnapshot()).toBe(before);
+  expect(state.client.getSnapshot().target?.machineId).toBe(target.machineId);
+  expect(
+    state.client.getSnapshot().conversations.find((row) => row.id === conversation.id),
+  ).toBeDefined();
+  await state.client.close();
+});
+
+it('waits for authoritative fork metadata after RPC completion and releases its watcher on close', async () => {
+  const calls: string[] = [];
+  const state = fixture(crypto.randomUUID(), false, false, {
+    request: async (_machine, method, params) => {
+      calls.push(method);
+      return {
+        type: 'session/fork_response',
+        success: true,
+        partial: false,
+        sourceSessionId: params.sourceSessionId,
+        targetSessionId: params.targetSessionId,
+        disposition: 'completed',
+      };
+    },
+  });
+  await state.client.connect();
+  const source = await state.client.start(target, {
+    operationId: 'original',
+    text: 'Source',
+    contexts: [],
+    inputConfig: { modelId: 'real-model', reasoningEffort: '', planMode: false, fastMode: false },
+  });
+  let settled = false;
+  const fork = state.client
+    .fork(source.id, 'assistant-turn', 'fork-request', 'fork-target')
+    .then((value) => {
+      settled = true;
+      return value;
+    });
+  await expect.poll(() => state.metadataListeners.size).toBe(2);
+  expect(settled).toBe(false);
+  state.rows.push({ ...state.rows[0]!, id: 'fork-target' });
+  state.notifyMetadata();
+  await expect(fork).resolves.toEqual({ sessionId: 'fork-target' });
+  expect(calls).toEqual(['session/fork']);
+  expect(state.metadataListeners.size).toBe(1);
+  const missing = state.client.fork(source.id, 'assistant-turn', 'next-request', 'not-synced');
+  const cancelled = expect(missing).rejects.toThrow('分叉已受理');
+  await expect.poll(() => state.metadataListeners.size).toBe(2);
+  await state.client.close();
+  await cancelled;
+  expect(state.metadataListeners.size).toBe(0);
 });

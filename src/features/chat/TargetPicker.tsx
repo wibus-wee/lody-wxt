@@ -21,6 +21,7 @@ export function TargetPicker({
   locked,
   onMachine,
   onAgent,
+  onDiagnostics,
 }: {
   snapshot: ClientSnapshot;
   open: boolean;
@@ -29,6 +30,7 @@ export function TargetPicker({
   locked: boolean;
   onMachine: (id: string) => void;
   onAgent: (id: string) => void;
+  onDiagnostics?: () => void;
 }) {
   const machineId = snapshot.selectedMachineId ?? snapshot.target?.machineId;
   const machine = snapshot.machines.find((item) => item.id === machineId);
@@ -40,7 +42,7 @@ export function TargetPicker({
             type="button"
             variant="ghost"
             size="mini"
-            disabled={locked}
+            disabled={busy}
             aria-label="选择对话助手"
             {...stylex.props(styles.trigger)}
           />
@@ -54,14 +56,18 @@ export function TargetPicker({
       <Popover.Content side="top" align="start" {...stylex.props(styles.panel)}>
         <Popover.Header>
           <Popover.Title>对话助手</Popover.Title>
-          <Popover.Description>选好一次，后续新对话会沿用。</Popover.Description>
+          <Popover.Description>
+            {locked
+              ? '当前会话沿用已有机器与助手。新建对话后可重新选择。'
+              : '选好一次，后续新对话会沿用。'}
+          </Popover.Description>
         </Popover.Header>
         {!snapshot.machines.length ? (
           <p {...stylex.props(styles.hint)}>
             还没有连接的机器。在电脑上打开 Lody，并登录同一工作区。
           </p>
         ) : (
-          <Field.Root disabled={busy}>
+          <Field.Root disabled={busy || locked}>
             <Field.Label>运行于</Field.Label>
             <Select.Root
               items={snapshot.machines.map((row) => ({
@@ -91,7 +97,7 @@ export function TargetPicker({
           </Field.Root>
         )}
         {machineId && (
-          <Field.Root disabled={busy || !snapshot.agents.length}>
+          <Field.Root disabled={busy || locked || !snapshot.agents.length}>
             <Field.Label>助手</Field.Label>
             <Select.Root
               items={snapshot.agents.map((row) => ({ value: row.id, label: row.name }))}
@@ -130,6 +136,18 @@ export function TargetPicker({
         {snapshot.target && (
           <Button size="small" disabled={busy} onClick={() => onOpenChange(false)}>
             完成
+          </Button>
+        )}
+        {onDiagnostics && (
+          <Button
+            variant="ghost"
+            size="small"
+            onClick={() => {
+              onOpenChange(false);
+              onDiagnostics();
+            }}
+          >
+            连接诊断
           </Button>
         )}
       </Popover.Content>
