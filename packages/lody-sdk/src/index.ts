@@ -86,6 +86,27 @@ export type {
   HttpResponse,
   HttpTransport,
 } from './shared/infrastructure/http/transport.js';
+export type { ShareManagementPort } from './sharing/application/ports.js';
+export type * from './sharing/domain/models.js';
+export {
+  ConvexShareManagement,
+  type ConvexShareManagementOptions,
+} from './sharing/infrastructure/convex-share-management.js';
+export { openStaticShare, uploadPreparedShare } from './sharing/infrastructure/share-client.js';
+export { decodeShareHistoryBytes } from './sharing/infrastructure/share-codec.js';
+export {
+  createSessionShareSecret,
+  createSessionShareUrl,
+  hashSessionShareSecret,
+  parseSessionShareFragment,
+} from './sharing/infrastructure/share-credentials.js';
+export { prepareSharePackage } from './sharing/infrastructure/share-export.js';
+export {
+  SharePackageManifestSchema,
+  validateShareHistory,
+} from './sharing/infrastructure/share-package.js';
+export { parseManifest as validateShareManifest } from './sharing/infrastructure/share-package.js';
+export { verifyShareObject } from './sharing/infrastructure/share-package.js';
 export type { GrantOptions, StreamsGrantGateway } from './streams/application/ports.js';
 export { StreamsService } from './streams/application/streams-service.js';
 export type { StreamsGrant } from './streams/domain/models.js';
