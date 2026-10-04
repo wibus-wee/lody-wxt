@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "jsx": "react-jsx",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "rootDir": "../../vendor/lody/packages/ui/src",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noImplicitOverride": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "noEmitOnError": true,
+    "outDir": "../../dist/lody-ui",
+    "skipLibCheck": true
+  },
+  "files": [
+    "../../vendor/lody/packages/ui/src/button/button.tsx",
+    "../../vendor/lody/packages/ui/src/field/input.tsx",
+    "../../vendor/lody/packages/ui/src/field/textarea.tsx",
+    "../../vendor/lody/packages/ui/src/field/select.tsx",
+    "../../vendor/lody/packages/ui/src/field/field.tsx",
+    "../../vendor/lody/packages/ui/src/field/switch.tsx",
+    "../../vendor/lody/packages/ui/src/card/card.tsx",
+    "../../vendor/lody/packages/ui/src/dialog/dialog.tsx",
+    "../../vendor/lody/packages/ui/src/badge/badge.tsx",
+    "../../vendor/lody/packages/ui/src/feedback/alert.tsx",
+    "../../vendor/lody/packages/ui/src/disclosure/tabs.tsx",
+    "../../vendor/lody/packages/ui/src/disclosure/collapsible.tsx",
+    "../../vendor/lody/packages/ui/src/menu/menu.tsx",
+    "../../vendor/lody/packages/ui/src/popover/popover.tsx",
+    "../../vendor/lody/packages/ui/src/tooltip/tooltip.tsx",
+    "../../vendor/lody/packages/ui/src/theme/theme.tsx",
+    "../../vendor/lody/packages/ui/src/feedback/spinner.tsx",
+    "../../vendor/lody/packages/ui/src/focus/focus-modality.ts"
+  ]
+}

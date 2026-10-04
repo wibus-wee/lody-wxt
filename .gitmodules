@@ -1,6 +1,6 @@
 [submodule "vendor/runeicons"]
 	path = vendor/runeicons
-	url = https://github.com/wibus-wee/runeicons.git
+	url = https://github.com/Runeicons/runeicons.git
 [submodule "vendor/lody"]
 	path = vendor/lody
 	url = https://github.com/LodyAI/Lody.git
