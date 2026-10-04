@@ -240,6 +240,7 @@ export class LoroSessionRepository implements SessionRepository {
           if (
             owner &&
             (!stored ||
+              canonical(stored.mcpServerIds) !== canonical(input.inputConfig.mcpServerIds) ||
               Object.entries(input.inputConfig).some(
                 ([key, value]) =>
                   canonical(stored[key as keyof typeof stored]) !== canonical(value),

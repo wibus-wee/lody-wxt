@@ -7,6 +7,7 @@ export interface TurnInput {
   inputBlocks?: SubmissionInputBlock[];
   modelId?: string;
   modeId?: string;
+  mcpServerIds?: string[];
   configOptionValues?: Record<string, string | boolean>;
 }
 

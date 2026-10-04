@@ -2,6 +2,7 @@ import * as v from 'valibot';
 
 import type { MachineCommandPort } from '../application/runtime-ports.js';
 import { binaryProgressSchema, refreshResultSchema } from './machine-protocol.js';
+import { skillRequestSchema, skillResultSchema } from './skills-protocol.js';
 
 export type RpcPayload = Record<string, unknown>;
 type RpcListener = (message: RpcPayload) => void;
@@ -29,6 +30,7 @@ const responseSchema = v.variant('jsonrpc', [
 ]);
 const idSchema = v.pipe(v.string(), v.minLength(1));
 const paramsSchemas = {
+  'local-project/control': v.strictObject({ request: skillRequestSchema }),
   'session/cancel': v.strictObject({
     sessionId: idSchema,
     turnId: idSchema,
@@ -82,6 +84,7 @@ const paramsSchemas = {
 const methodSchema = v.picklist(Object.keys(paramsSchemas) as Array<keyof typeof paramsSchemas>);
 const failure = v.exactOptional(v.looseObject({ code: idSchema, message: idSchema }));
 const resultSchemas = {
+  'local-project/control': skillResultSchema,
   'session/cancel': v.looseObject({
     type: v.literal('session/cancel_response'),
     sessionId: idSchema,
@@ -135,6 +138,7 @@ const resultSchemas = {
 };
 
 const responseIdentities = {
+  'local-project/control': [],
   'session/cancel': ['sessionId'],
   'session/steer': ['sessionId', 'userTurnId'],
   'session/dispatch-turn': ['sessionId', 'userTurnId'],
@@ -167,6 +171,11 @@ export class StreamsMachineCommands implements MachineCommandPort {
     v.parse(idSchema, requestId);
     const validMethod = v.parse(methodSchema, method);
     const validParams: Record<string, unknown> = v.parse(paramsSchemas[validMethod], params);
+    if (validMethod === 'local-project/control') {
+      const request = v.parse(skillRequestSchema, validParams.request);
+      if (request.machineId !== machineId || request.workspaceId !== this.options.workspaceId)
+        throw new Error('request_identity_mismatch');
+    }
     const timeoutMs = this.options.timeoutMs ?? 30_000;
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error('invalid_configuration');
     const controller = new AbortController();
@@ -221,10 +230,18 @@ export class StreamsMachineCommands implements MachineCommandPort {
                   return;
                 }
               }
-              const result = v.parse(resultSchemas[validMethod], parsed.result);
+              const result: Record<string, unknown> = v.parse(
+                resultSchemas[validMethod],
+                parsed.result,
+              );
               if (
                 validMethod === 'machine/acp-capabilities-refresh' &&
                 result.machineId !== machineId
+              )
+                throw new Error('response_identity_mismatch');
+              if (
+                validMethod === 'local-project/control' &&
+                result.type !== v.parse(skillRequestSchema, validParams.request).type
               )
                 throw new Error('response_identity_mismatch');
               if (responseIdentities[validMethod].some((key) => result[key] !== validParams[key]))

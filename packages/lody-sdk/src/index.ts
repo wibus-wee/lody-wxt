@@ -74,6 +74,7 @@ export {
   type SubmissionGatewayOptions,
 } from './sessions/infrastructure/http-submission-gateway.js';
 export type { LoroSessionRepositoryOptions } from './sessions/infrastructure/loro-session-repository.js';
+export { skillResultSchema } from './sessions/infrastructure/skills-protocol.js';
 export {
   type JsonRpcStreamsPort,
   StreamsMachineCommands,
@@ -131,4 +132,5 @@ export { StreamsService } from './streams/application/streams-service.js';
 export type { StreamsGrant } from './streams/domain/models.js';
 export type { WorkspaceRepository } from './workspaces/application/ports.js';
 export { WorkspaceService } from './workspaces/application/workspace-service.js';
+export type { WorkspaceMcpServer } from './workspaces/domain/mcp.js';
 export type { Workspace } from './workspaces/domain/models.js';

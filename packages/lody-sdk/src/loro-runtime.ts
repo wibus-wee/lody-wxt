@@ -10,6 +10,7 @@ import { SessionRuntime } from './sessions/application/session-runtime.js';
 import { acquireWithin, bounded } from './sessions/infrastructure/lifecycle.js';
 import { LoroSessionRepository } from './sessions/infrastructure/loro-session-repository.js';
 import { MachineFlockDirectory } from './sessions/infrastructure/machine-flock.js';
+import { WorkspaceMcpCatalog } from './workspaces/infrastructure/workspace-mcp-catalog.js';
 
 export { LoroSessionRepository } from './sessions/infrastructure/loro-session-repository.js';
 export {
@@ -123,12 +124,20 @@ export async function createLoroSessionRuntime(options: LoroRuntimeOptions) {
         timeoutMs,
       }),
     );
-    return { runtime, machines, schedules, repo, close };
+    const mcpCatalog = new WorkspaceMcpCatalog({
+      repo,
+      workspaceId: options.workspaceId,
+      signal: lifetime,
+      timeoutMs,
+    });
+    return { runtime, machines, schedules, mcpCatalog, repo, close };
   } catch (error) {
     await repo.destroy();
     throw error;
   }
 }
+
+export { WorkspaceMcpCatalog } from './workspaces/infrastructure/workspace-mcp-catalog.js';
 
 /** Creates a shortcut-only replica; callers own its storage namespace and destruction. */
 export function createPromptShortcutRepo(options: {

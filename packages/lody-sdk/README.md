@@ -1,21 +1,26 @@
 # @lody-mobile/sdk
 
-Lody SDK for caller-controlled authentication, cloud discovery, session synchronization, Machine commands and attachment transfer.
+Lody SDK for caller-controlled authentication, cloud discovery, session synchronization, Machine commands, schedules, MCP/skill discovery, synchronized prompt shortcuts, attachment transfer and static session sharing.
 The package is currently private.
 It ships ESM JavaScript and declarations in `dist`, plus explicit TypeScript source entry points.
 Implemented adapters describe protocol behavior; they do not establish that a deployment or native runtime has been verified for production.
 
-| Area                         | Public entry / owner                                                                                                            | Responsibility                                                                                                           |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Identity, workspaces, grants | `createLodyClient` from `@lody-mobile/sdk`; [client](./src/client.ts)                                                           | Device authorization, account/organization reads and one Streams grant request per call.                                 |
-| Cloud directory              | `BetterAuthConvexJwtProvider`, `ConvexCloudDirectory`; [cloud](./src/cloud)                                                     | Exchange a session bearer for a Convex JWT; query visible machines and local project identifiers.                        |
-| Sessions                     | `SessionRuntime`, `LoroSessionRepository`; [sessions](./src/sessions)                                                           | Persist and synchronize session metadata/history through repository ports; invoke commands through `MachineCommandPort`. |
-| Loro composition             | `createLoroSessionRuntime` from `@lody-mobile/sdk/loro`; [composition root](./src/loro-runtime.ts)                              | Wire caller-provided storage, remote cursors, Streams auth and commands into LoroRepo; expose Machine Flock data.        |
-| Machine RPC                  | `StreamsMachineCommands` from the root; `JsonRpcStreams` from `@lody-mobile/sdk/rpc`                                            | Correlate JSON-RPC commands and replies over Streams.                                                                    |
-| Submission gateway           | `SessionSubmissionService`, `HttpSessionSubmissionGateway`; [gateway](./src/sessions/infrastructure/http-submission-gateway.ts) | Submit or look up a server receipt using a caller-owned request UUID.                                                    |
-| Attachments                  | `createAttachmentClient`, `AttachmentService`; [attachments](./src/attachments)                                                 | Upload files/images, download bytes and fetch bounded text previews.                                                     |
-| Offline bridge               | `OfflineDataRuntime`; [documents](./src/documents)                                                                              | Import/read/export documents through a caller-owned isolated engine host.                                                |
-| Shared contracts             | [shared](./src/shared)                                                                                                          | Clock, request options, primitive rules and the identity/workspace/grant HTTP pipeline.                                  |
+| Area                         | Public entry / owner                                                                                                                      | Responsibility                                                                                                           |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Identity, workspaces, grants | `createLodyClient` from `@lody-mobile/sdk`; [client](./src/client.ts)                                                                     | Device authorization, account/organization reads and one Streams grant request per call.                                 |
+| Cloud directory              | `BetterAuthConvexJwtProvider`, `ConvexCloudDirectory`; [cloud](./src/cloud)                                                               | Exchange a session bearer for a Convex JWT; query visible machines and local project identifiers.                        |
+| Sessions                     | `SessionRuntime`, `LoroSessionRepository`; [sessions](./src/sessions)                                                                     | Persist and synchronize session metadata/history through repository ports; invoke commands through `MachineCommandPort`. |
+| Loro composition             | `createLoroSessionRuntime` from `@lody-mobile/sdk/loro`; [composition root](./src/loro-runtime.ts)                                        | Wire storage, cursors, Streams auth and commands into session, Machine, schedule and MCP adapters.                       |
+| Machine RPC                  | `StreamsMachineCommands` from the root; `JsonRpcStreams` from `@lody-mobile/sdk/rpc`                                                      | Correlate JSON-RPC commands and replies over Streams.                                                                    |
+| Submission gateway           | `SessionSubmissionService`, `HttpSessionSubmissionGateway`; [gateway](./src/sessions/infrastructure/http-submission-gateway.ts)           | Submit or look up a server receipt using a caller-owned request UUID.                                                    |
+| Attachments                  | `createAttachmentClient`, `AttachmentService`; [attachments](./src/attachments)                                                           | Upload files/images, download bytes and fetch bounded text previews.                                                     |
+| Schedules                    | `ScheduleRepository`, `ProtocolScheduleRepository`; [schedules](./src/schedules)                                                          | Synchronize definitions, registry requests and machine-reported runtime state; preview trigger times.                    |
+| MCP catalog                  | `WorkspaceMcpCatalog` from `@lody-mobile/sdk/loro`; [catalog](./src/workspaces/infrastructure/workspace-mcp-catalog.ts)                   | Read workspace server summaries without exposing connection credentials; selection travels in turn input.                |
+| Skills                       | `SessionRuntime.listSkills`, `skillResultSchema`; [protocol](./src/sessions/infrastructure/skills-protocol.ts)                            | Discover global or project skills through the target machine's existing RPC.                                             |
+| Prompt shortcuts             | `PromptShortcutRuntime`, `LocalShortcutStore`, `PromptShortcutSync`, `ConvexPromptShortcuts`; [shortcuts](./src/shortcuts)                | Synchronize authorized private/workspace catalogs and immutable bodies; preserve local edits and publication recovery.   |
+| Static sharing               | `ShareManagementPort`, `ConvexShareManagement`, `prepareSharePackage`, `uploadPreparedShare`, `openStaticShare`; [sharing](./src/sharing) | Capture bounded packages, manage publication and credentials, upload sealed objects and read a fixed deployment.         |
+| Offline bridge               | `OfflineDataRuntime`; [documents](./src/documents)                                                                                        | Import/read/export documents through a caller-owned isolated engine host.                                                |
+| Shared contracts             | [shared](./src/shared)                                                                                                                    | Clock, request options, primitive rules and the identity/workspace/grant HTTP pipeline.                                  |
 
 ## Architecture and ownership
 
@@ -24,9 +29,16 @@ Domain and application modules do not import external packages.
 Domain modules depend only on domain modules; application modules depend on domain and application ports.
 Infrastructure owns Valibot schemas, HTTP, Streams, Loro/Flock and bridge libraries.
 Composition roots select and wire adapters.
-The declared context dependency is Streams → the workspace identifier domain value; shared modules never import a context. [Architecture checks](./test/architecture.test.mjs) enforce import direction, context boundaries and cycles.
+Schedules, sharing and prompt shortcuts are independent contexts; MCP discovery belongs to workspaces, and skill discovery belongs to sessions.
+The Loro composition root wires session, schedule and workspace adapters to the same caller-configured repository and lifetime.
+Sharing composes separately through explicit HTTP origins and credential providers.
+Prompt shortcuts require a separate caller-owned repository with no workspace transport, plus resource-specific grants; they are not part of `createLoroSessionRuntime`.
+The only permitted direct dependency between contexts remains Streams → the workspace identifier domain value.
+Schedules use shared lifecycle helpers without importing session infrastructure; shared modules never import a context. [Architecture checks](./test/architecture.test.mjs) enforce these import boundaries and reject cycles.
 
-Credentials, secure storage, grant caching, drafts, submission journals, session admission progress, steering recovery policy, React state, browser navigation and account lifecycle belong to the caller.
+Credentials, secure storage, grant caching, drafts, mutation journals, session admission progress, recovery policy, React state, browser navigation and account lifecycle belong to the caller.
+This includes schedule operation identities and sharing secrets, frozen package bytes, deployment receipts and revision checks.
+Shortcut working copies and their publication journal are the exception: `LocalShortcutStore` manages that protocol inside the caller-supplied repository; the caller still owns durable storage and account isolation.
 The SDK owns protocol validation, request correlation and persistence/synchronization ordering.
 Network and storage adapters perform explicit caller-requested I/O; domain rules remain dependency-free.
 SDK application ports do not depend on React, WXT or device storage.
@@ -170,7 +182,8 @@ try {
 Configure a confirmed HTTPS Streams base URL and auth provider.
 The composition root uses bucket `lody`, workspace metadata stream `${workspaceId}:meta`, session stream `${workspaceId}:s:${sessionId}` and Machine Flock stream `${workspaceId}:mf:${machineId}`.
 It creates LoroRepo, installs Streams transport and snapshot compression, then waits for initial metadata synchronization with a 30,000 ms bound.
-It returns `runtime`, `machines`, `repo` and `close`; retain the connection and close it to release the metadata subscription and repository as well as runtime handles.
+It returns `runtime`, `machines`, `schedules`, `mcpCatalog`, `repo` and `close`; retain the connection and close it to abort pending adapter waits and release runtime handles, Machine subscriptions, the metadata subscription and repository.
+Schedule and MCP operations acquire and release their own document leases within that connection lifetime.
 
 The Loro repository validates metadata/history at its boundary, serializes writes within an open session and persists document state before awaiting synchronization and publishing dispatch metadata. `send` appends and flushes, returning `{sessionId, turnId: input.requestId, state: 'synced'}`. **`synced` does not mean the Agent accepted, started or finished a task.** Observe history and session state separately.
 Queued sends write Lody's `mq` movable list with stable `userTurnId` and `operationId`, then synchronize before publishing `messageQueueUpdatedAt`.
@@ -230,6 +243,7 @@ Replies are correlated by ID; unrelated IDs are ignored.
 
 The [command adapter](./src/sessions/infrastructure/streams-machine-commands.ts) validates supported method parameters and method-specific results, including the session and turn identities corresponding to the request.
 Fork replies must match both source and target session IDs.
+RPC completion and metadata synchronization are separate: the caller must observe the target in synchronized session metadata before opening or selecting it.
 Capability refresh validates machine/config identities and distinguishes binary progress from the final response.
 Progress keeps the request pending and renews its silence deadline; final failure results retain their `success: false` and error fields for the caller.
 Default command silence timeout is 30,000 ms.
@@ -240,6 +254,119 @@ Validation, abort and transport errors are not a stable SDK-wide code hierarchy.
 Persist request identities when command delivery is uncertain; the adapter supplies no durable command journal or general retry/server deduplication guarantee.
 Steering recovery belongs to the caller, as described above.
 This protocol is separate from the offline birpc bridge.
+
+## MCP and skill discovery
+
+`connection.mcpCatalog.list()` returns `WorkspaceMcpServer[]` after initial synchronization of the workspace Flock document `${workspaceId}:wf:workspace`.
+Rows contain ID, name, transport, optional description, `enabledByDefault` and `hasConnection`; connection URLs, commands, environment variables and authorization headers remain inside the adapter.
+The catalog validates identity and transport consistency, releases its lease after each read and exposes no install, authorization or mutation API.
+
+The caller chooses defaults and passes selected IDs through `TurnInput.mcpServerIds` or `SessionSubmission.mcpServerIds`.
+Omission and an explicit empty array remain distinct inputs.
+Preserve the selection with the rest of the immutable payload through dispatch, queue, edits and recovery; a conflicting same-ID send rejects.
+A catalog row establishes configured availability, not successful connection or agent compatibility.
+The machine's ACP initialization determines supported transports and resolves its environment.
+This catalog does not establish a browser-control bridge or authorize access to browser tabs.
+
+`runtime.listSkills(machineId, workspaceId, requestedByUserId, requestId, project?, signal?)` uses `local-project/control` RPC.
+With `{localProjectId, skillDirs}`, it requests `local-project/list-skills`; otherwise it requests `local-project/list-global-skills`.
+The command adapter validates responses with the exported `skillResultSchema`; a custom `MachineCommandPort` still returns `unknown`, so callers must validate its result.
+Groups retain scope, directory, truncation and error information; a partial discovery failure must remain visible.
+Discovery does not install or execute a skill.
+Choosing a skill and including its invocation in a user-visible prompt belong to the host application.
+
+## Prompt shortcuts
+
+The root exports `PromptShortcutRuntime`, `LocalShortcutStore`, `PromptShortcutSync` and `ConvexPromptShortcuts` with their [models](./src/shortcuts/domain/models.ts) and [ports](./src/shortcuts/application/ports.ts).
+These implement Lody's synchronized prompt shortcuts independently of machine slash commands and skills.
+`parsePromptShortcut` validates the bounded prompt, coherent UTF-16 mention ranges and explicit project/machine/provider scope; `resolveShortcutAvailability` combines that scope with caller-provided dependency availability.
+Selecting a shortcut and applying its text/mentions to a composer are caller responsibilities.
+
+The caller creates an isolated repository with `createPromptShortcutRepo({storageAdapter})` from `@lody-mobile/sdk/loro`, then calls `LocalShortcutStore.open({repo, workspaceId, userId})`.
+The factory uses the SDK's LoroRepo implementation and requires the caller's account/workspace-scoped storage adapter.
+Opening rejects a repository that already has a transport.
+Never attach the session workspace transport to this repository: its working-copy bodies, discovery cache and publication ledger must remain local.
+The SDK chooses neither a database nor browser storage; the caller owns repository creation, persistence policy, credential lifetime and serialized close/reopen on identity changes.
+
+Construct `ConvexPromptShortcuts({origin, workspaceId, userId, getJwt, fetch?, timeoutMs?})` with an explicit Convex origin and JWT provider.
+`listAccessibleDocuments(options?)` returns authorization pointers through `promptShortcuts:listAccessibleDocuments`; call `runtime.setDirectory(rows)` after initial query and subsequent refreshes.
+The caller schedules directory refresh/retry; the SDK does not open a Convex reactive subscription.
+`getStreamToken(resource, write, options?)` invokes the `promptShortcuts:getStreamToken` action with the requested index owner/visibility or body ID.
+The returned grant binds `token`, `expiresIn`, `gatewayBaseUrl` and exact `streamId`.
+Private indexes are owner-only; other workspace members may read shared indexes but cannot write them.
+The server authorizes body resources, including staged-owner-only writes and immutable published bodies.
+
+`PromptShortcutSync({repo, grant, now})` acquires those individual index/body grants and validates resource identity on acquisition and renewal.
+Its resources are `shortcut-index:${encodedWorkspaceId}:${encodedOwnerId}:${visibility}` and `shortcut-body:${encodedBodyId}`, outside the workspace stream prefix.
+Workspace grants cannot substitute for these credentials.
+Read-only adapters suppress local update traffic, and cursors remain in memory so a restart replays against the persisted replica.
+Combine sync's `acquire`/`dispose` with the cloud adapter's `stage`, `activate`, `settle` and `revoke` to implement `ShortcutPublicationPort`, then construct `PromptShortcutRuntime(store, publicationPort)`.
+
+The runtime exposes `getSnapshot`, `subscribe`, `read(entry)`, `save({value, base, bodyDocId})`, `remove(entry)`, `prefetch`, `flush`, `retry` and `dispose`.
+Snapshots distinguish entries, pending IDs and errors. `save` resolves after local persistence; publication runs separately, and that resolution is not proof of cloud synchronization.
+The directory controls remote access, while live Flock indexes supply display metadata; directory revocation hides cached entries before network work and prevents subsequent cached-body reads.
+Bodies must match the indexed revision.
+Concurrent document heads remain an explicit conflict; they are never collapsed into a field-wise prompt/mention mixture.
+
+Before network publication, the store persists a frozen body and immutable publication record separate from the editable working copy.
+Publication stages the body identity, uploads/synchronizes it, activates it with the previous body/revision as conflict preconditions, then publishes the index.
+Visibility changes require a fresh body and withdraw the old index projection.
+An uncertain job retains the same body/revision and is retried or settled before newer edits publish; deleting a shortcut revokes its bodies and tombstones both visibility domains.
+The local store's ledger uses the injected persistence adapter; the caller must retain that storage across reconnects and never replace a pending job with a newly generated identity.
+On account/workspace changes, fence credentials and UI immediately, await `runtime.dispose()`, then destroy the caller-owned repository.
+Cancellation stops local waiting and does not undo a server mutation.
+
+## Schedules
+
+`connection.schedules` implements the root-exported [ScheduleRepository](./src/schedules/application/ports.ts): `list()`, `runtimeRows()`, `read(scheduleId)`, `save(input)`, `setEnabled(input)`, `delete(scheduleId, actorId, now)` and `requestRun(input)`.
+For another storage transport, construct `ProtocolScheduleRepository` with a `ScheduleStorage` implementation.
+The Loro adapter synchronizes `${workspaceId}:schedule:${scheduleId}` documents and the `${workspaceId}:sr` Flock registry.
+
+The [schedule models](./src/schedules/domain/models.ts) define agent/project selection, destination, trigger, misfire, overlap and dispatch retry policies.
+`validateScheduleTrigger(raw)` validates manual, once, interval and five-field cron triggers; `previewSchedule(trigger, activeFrom, now, count?)` returns future epoch-millisecond times using the upstream Croner semantics and explicit cron time zone.
+A preview does not register timers or execute jobs.
+Before enabling or requesting execution, the caller must verify that the chosen machine advertises `protocolCapabilities.schedules >= 1`; the repository does not discover that capability itself.
+
+`save` checks ownership, persists and synchronizes the definition and prompt, then publishes the fingerprinted registry row.
+Deletion publishes a tombstone while retaining the document.
+These are ordered writes across separate documents, not a transaction: a timeout can leave the definition persisted before registry publication.
+Journal the complete mutation arguments before writing, including schedule/activation/activity/request IDs, actor, timestamps and draft, and recover with those same values.
+Do not allocate a new activation or manual-run ID to resolve an uncertain write.
+Machine-written `runtimeRows()` are authoritative for observation, queue state and dispatch; a successful request write does not establish that the machine ran the schedule.
+
+## Static session sharing
+
+Sharing separates authenticated management, binary transfer and public reading.
+Configure each origin explicitly; the SDK supplies no production deployment defaults.
+`ConvexShareManagement({origin, getJwt, fetch?, timeoutMs?})` implements [ShareManagementPort](./src/sharing/application/ports.ts) against the Convex `sessionSharing:*` query/mutation functions.
+Its methods are paginated `list`, `getManagement`, `beginDeployment`, `publishDeployment`, `resetCredential` and `revoke`.
+Management uses a Convex JWT; uploads use a separate upload secret, and public reads use the reader secret.
+Neither transfer nor reader calls receive the account credential.
+
+`prepareSharePackage({rootSourceId, conversations, capturedAt, readAttachment, ...})` captures caller-supplied readable history before attachment I/O and returns a detached `PreparedSharePackage`: manifest, manifest bytes/hash, object bytes and source-ID mappings.
+The exporter removes live execution configuration and known credential fields, preserves visible user text, remaps source identities and copies only typed attachment references through the supplied callback.
+Opaque tool content remains inert display data; preparation is not a guarantee that user-authored text contains no secrets.
+The caller must preview the actual prepared package and obtain publication confirmation.
+The current transfer policy permits copied images and omits binary files.
+Limits bound conversations, attachments, object bytes, total bytes and decoded history; invalid references, hashes or compressed content reject.
+`verifyShareObject`, `decodeShareHistoryBytes`, `validateShareHistory` and `validateShareManifest` are public helpers for inspecting that same package without rereading a changing live conversation.
+
+The publication sequence is capture/confirm, `beginDeployment`, `uploadPreparedShare({origin, deploymentId, secret, prepared, ...})`, then authenticated `publishDeployment(deploymentId)`.
+Upload validates immutable object hashes, transfers the objects and seals the manifest; the upload credential cannot publish.
+Before the first mutation, the caller must durably retain the confirmed package, source mappings, request ID, expected revision, reader/upload secrets and configured origins.
+Save the returned deployment identity before transfer, and retain the reader secret before publishing.
+After uncertain delivery, query management and reconcile the same request/deployment, bytes and credentials rather than recapturing current history or generating new secrets.
+Reset and revoke require the observed revision.
+A changed management revision alone does not prove that an uncertain reset installed this caller's secret; verify that secret through a public read before accepting recovery.
+
+`createSessionShareSecret`, `hashSessionShareSecret` and `createSessionShareUrl(shareId, secret, origin)` provide credential generation, hashing and a public-reader URL with its secret in the fragment.
+`openStaticShare({origin, shareId, secret, signal?, fetch?})` resolves the active deployment once; its history, attachment and object reads stay pinned to that deployment and verify object integrity.
+The HTTP adapters omit cookies and reject redirects.
+Management has a default 30,000 ms deadline.
+Each data-plane request has a 120,000 ms bound; supply a caller signal to cancel or bound the entire multi-request operation.
+A successful revoke must be confirmed by management; a failed public read on its own can also be a network failure and is not proof of revocation.
+The caller owns secret retention/deletion, journal isolation across account/workspace/origin changes and lifecycle cancellation.
+These operations provide no automatic retry or durable browser storage.
 
 ## HTTP submissions and recovery
 
@@ -369,6 +496,7 @@ Build clears generated `dist` and emits ES2022 ESM/declarations with TypeScript 
 Root build commands build the SDK before consuming it; source-entry consumers must configure their own TypeScript/bundler pipeline.
 
 [Protocol regression tests](./test/upstream-protocol.test.mjs) cover Lody queue layout and notification ordering, progress/final RPC responses, and versioned model capability rows.
+The [shortcut](./test/shortcuts.test.mjs), [schedule](./test/schedules.test.mjs), [MCP catalog](./test/mcp-catalog.test.mjs), [skill RPC](./test/skills-protocol.test.mjs) and [sharing](./test/sharing.test.mjs) tests cover their protocol boundaries and recovery/integrity rules.
 Their source baseline is the vendored Lody protocol; runtime adapters remain independent of the vendor checkout.
 [SDK tests](./test) use Node's test runner, fake HTTP/Streams ports, controlled clocks and real local CRDT operations. [Package smoke](../../scripts/sdk-package-smoke.mjs) packs the SDK into an isolated consumer and checks runtime imports, declarations and private-path rejection.
 The [upstream compatibility probe](../../tools/sdk/verify-upstream.mjs) loads an installed Lody OSS checkout's real Mirror/schema and RPC validators:

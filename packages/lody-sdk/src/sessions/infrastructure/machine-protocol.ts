@@ -53,6 +53,9 @@ export const capabilitySchema = v.looseObject({
   sessionTitle: v.exactOptional(v.boolean()),
   sessionForkWorktree: v.exactOptional(v.boolean()),
   modelReasoningEfforts: v.exactOptional(v.record(v.string(), v.array(v.string()))),
+  availableCommands: v.exactOptional(
+    v.array(v.object({ name: idSchema, description: v.exactOptional(v.string()) })),
+  ),
 });
 
 export const binaryProgressSchema = v.looseObject({

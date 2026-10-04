@@ -40,6 +40,7 @@ const turnInputSchema = v.strictObject({
   inputBlocks: v.exactOptional(blocksSchema),
   modelId: v.exactOptional(idSchema),
   modeId: v.exactOptional(idSchema),
+  mcpServerIds: v.exactOptional(v.array(v.pipe(v.string(), v.minLength(1)))),
   configOptionValues: v.exactOptional(v.record(v.string(), v.union([v.string(), v.boolean()]))),
 });
 const sendSchema = v.strictObject({

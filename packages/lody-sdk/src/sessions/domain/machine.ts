@@ -6,4 +6,5 @@ export interface MachineInfo {
   cliVersion?: string;
   os?: string;
   timeZone?: string;
+  protocolCapabilities?: Record<string, number>;
 }

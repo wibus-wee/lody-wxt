@@ -32,6 +32,7 @@ test('real Loro writer preserves history, persists before dispatch, and deduplic
     userId: 'user',
     inputConfig: {
       prompt: 'Hello',
+      mcpServerIds: ['research'],
       cliType: 'builtin',
       agentType: 'codex',
       inputBlocks: [
@@ -50,6 +51,14 @@ test('real Loro writer preserves history, persists before dispatch, and deduplic
   ]);
   assert.equal(handle.read().history[0].items[0].text, 'Hello');
   assert.deepEqual(handle.read().history[0].inputConfig.inputBlocks, input.inputConfig.inputBlocks);
+  assert.deepEqual(handle.read().history[0].inputConfig.mcpServerIds, ['research']);
+  await assert.rejects(
+    handle.append(
+      { ...input, inputConfig: { ...input.inputConfig, mcpServerIds: [] } },
+      'dispatch',
+    ),
+    /request_conflict/,
+  );
   await handle.append(input, 'dispatch');
   assert.equal(handle.read().history.length, 1);
   await assert.rejects(

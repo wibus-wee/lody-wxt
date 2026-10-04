@@ -120,5 +120,31 @@ export class SessionRuntime {
       signal,
     );
 
+  listSkills = (
+    machineId: string,
+    workspaceId: string,
+    requestedByUserId: string,
+    requestId: string,
+    project?: { localProjectId: string; skillDirs: string[] },
+    signal?: AbortSignal,
+  ) =>
+    this.commands.request(
+      machineId,
+      'local-project/control',
+      {
+        request: {
+          type: project ? 'local-project/list-skills' : 'local-project/list-global-skills',
+          machineId,
+          workspaceId,
+          requestedByUserId,
+          ...(project
+            ? { localProjectId: project.localProjectId, skillDirs: project.skillDirs }
+            : {}),
+        },
+      },
+      requestId,
+      signal,
+    );
+
   close = () => this.repository.close();
 }

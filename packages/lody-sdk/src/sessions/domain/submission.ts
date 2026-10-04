@@ -13,6 +13,7 @@ export type SubmissionInputBlock =
   | {
       type: 'image';
       imageId: string;
+      storageSessionId?: string;
       mimeType: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif';
       fileName?: string;
       sizeBytes: number;
@@ -22,6 +23,7 @@ export type SubmissionInputBlock =
   | {
       type: 'file';
       fileId: string;
+      storageSessionId?: string;
       fileName: string;
       mimeType: string;
       sizeBytes: number;
@@ -43,6 +45,7 @@ export interface SessionSubmission {
   agentType: string;
   modelId?: string;
   modeId?: string;
+  mcpServerIds?: string[];
   configOptionValues?: Record<string, string | boolean>;
 }
 

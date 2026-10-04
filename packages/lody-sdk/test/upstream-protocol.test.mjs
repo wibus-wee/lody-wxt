@@ -12,7 +12,13 @@ const input = {
   requestId: 'queued-turn',
   timestamp: '2026-10-04T00:00:00Z',
   userId: 'user',
-  inputConfig: { prompt: 'Queued task', cliType: 'builtin', agentType: 'claude', modelId: 'model' },
+  inputConfig: {
+    mcpServerIds: ['research'],
+    prompt: 'Queued task',
+    cliType: 'builtin',
+    agentType: 'claude',
+    modelId: 'model',
+  },
 };
 
 // Lody 9bdac285: shared/schema.ts messageQueueItemSchema; workspace-writer-impl.ts enqueueSessionMessage.
@@ -70,6 +76,18 @@ for (const failedStep of ['persist', 'sync', 'notify', 'metadata-sync']) {
         acpSessionConfig: input.inputConfig,
       });
       assert.equal(handle.read().queue[0].userTurnId, input.requestId);
+      const { mcpServerIds: _selection, ...withoutSelection } = input.inputConfig;
+      await assert.rejects(
+        handle.append({ ...input, inputConfig: withoutSelection }, 'queue'),
+        /request_conflict/,
+      );
+      await assert.rejects(
+        handle.append(
+          { ...input, inputConfig: { ...input.inputConfig, mcpServerIds: [] } },
+          'queue',
+        ),
+        /request_conflict/,
+      );
       await assert.rejects(
         handle.append(
           { ...input, inputConfig: { ...input.inputConfig, prompt: 'Changed' } },

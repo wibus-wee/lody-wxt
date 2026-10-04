@@ -13,6 +13,9 @@ const machineInfoSchema = v.object({
   cliVersion: v.exactOptional(v.string()),
   os: v.exactOptional(v.string()),
   timeZone: v.exactOptional(v.string()),
+  protocolCapabilities: v.exactOptional(
+    v.record(v.string(), v.pipe(v.number(), v.integer(), v.minValue(1))),
+  ),
 });
 
 const rowSchema = v.object({
