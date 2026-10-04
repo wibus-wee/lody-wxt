@@ -37,7 +37,7 @@ The composer and feedback have viewport-relative height limits. Routine connecti
 
 Recent conversations use the cloud `lastMessageAt` and loaded message timestamps, falling back to creation time when no activity is available. A live update advances the displayed activity time without waiting for a metadata refresh.
 
-Sent webpage badges constrain and truncate long titles within the message width; their full titles remain available on hover. Narrow transcripts omit the decorative user avatar. Transcript and history scroll independently, so send and navigation stay reachable in a 320 × 480 sidebar. Rendered behavior is covered by `tests/e2e/features/quick-chat.feature`, cloud-history scenarios, axe and the chat Storybook stories. Web preview and infrastructure browser tests use separate Vite caches: sharing the optimizer cache caused pending dependency requests when both runners were active.
+Sent webpage badges constrain and truncate long titles within the message width; their full titles remain available on hover. Narrow transcripts omit the decorative user avatar. Transcript and history scroll independently, so send and navigation stay reachable in a 320 × 480 sidebar. Rendered behavior is exercised through the independently authored [product journeys](../../tools/assurance/model.mjs), axe and chat Storybook states. The [assurance contract](../../tools/assurance/README.md) owns lifecycle/state evidence and action-to-response measurement. Web preview and infrastructure browser tests use separate Vite caches: sharing the optimizer cache caused pending dependency requests when both runners were active.
 
 ## SDK dependency direction
 

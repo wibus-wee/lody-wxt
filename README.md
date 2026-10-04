@@ -3,18 +3,18 @@
 Lody browser extension built with WXT and Vite 8, with an independent TypeScript SDK.
 The popup, side panel, options page and browser preview share one application; Lody's own `@lody/ui` is the component-library source behind the shared UI boundary.
 
-| Area            | Entry                                                                                                  | Responsibility                                                                     |
-| --------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| Extension       | [`src/entrypoints`](./src/entrypoints)                                                                 | Popup, options and MV3 background worker                                           |
-| Application     | [`src/app`](./src/app)                                                                                 | React Query, Jotai, hash routing and spring motion                                 |
-| Features        | [`src/features`](./src/features)                                                                       | Account lifecycle, conversation submission journals, page context and preferences  |
-| SDK             | [`packages/lody-sdk`](./packages/lody-sdk)                                                             | Protocol adapters and domain use cases independent of React and Chrome             |
-| Structural lint | [`rules`](./rules), [`sgconfig.yml`](./sgconfig.yml)                                                   | Sorbet ast-grep rules enforced for TypeScript and TSX                              |
-| Lody UI         | [`vendor/lody/packages/ui`](./vendor/lody/packages/ui), [`src/shared/ui`](./src/shared/ui/README.md)   | Own component-library source tracking upstream `main`; local adapter boundary      |
-| Icons           | [`vendor/runeicons`](./vendor/runeicons), [`scripts/generate-icons.mjs`](./scripts/generate-icons.mjs) | Pinned fork and global five-mood SVG adapter                                       |
-| Documentation   | [`docs`](./docs)                                                                                       | Fumadocs MDX + Core on Vite, with native HTML presentation                         |
-| Developer tools | [`tools/devframe`](./tools/devframe)                                                                   | Read-only Devframe RPC for coverage and metadata                                   |
-| Verification    | [`tests`](./tests), [`COVERAGE.md`](./COVERAGE.md)                                                     | Real browser infrastructure checks, Cucumber journeys and packaged extension tests |
+| Area            | Entry                                                                                                  | Responsibility                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| Extension       | [`src/entrypoints`](./src/entrypoints)                                                                 | Popup, options and MV3 background worker                                             |
+| Application     | [`src/app`](./src/app)                                                                                 | React Query, Jotai, hash routing and spring motion                                   |
+| Features        | [`src/features`](./src/features)                                                                       | Account lifecycle, conversation submission journals, page context and preferences    |
+| SDK             | [`packages/lody-sdk`](./packages/lody-sdk)                                                             | Protocol adapters and domain use cases independent of React and Chrome               |
+| Structural lint | [`rules`](./rules), [`sgconfig.yml`](./sgconfig.yml)                                                   | Sorbet ast-grep rules enforced for TypeScript and TSX                                |
+| Lody UI         | [`vendor/lody/packages/ui`](./vendor/lody/packages/ui), [`src/shared/ui`](./src/shared/ui/README.md)   | Own component-library source tracking upstream `main`; local adapter boundary        |
+| Icons           | [`vendor/runeicons`](./vendor/runeicons), [`scripts/generate-icons.mjs`](./scripts/generate-icons.mjs) | Pinned fork and global five-mood SVG adapter                                         |
+| Documentation   | [`docs`](./docs)                                                                                       | Fumadocs MDX + Core on Vite, with native HTML presentation                           |
+| Developer tools | [`tools/devframe`](./tools/devframe)                                                                   | Read-only Devframe RPC for coverage and metadata                                     |
+| Verification    | [`tests`](./tests), [`COVERAGE.md`](./COVERAGE.md)                                                     | Authored product obligations, lifecycle receipts and action-to-response measurements |
 
 ## Start
 
@@ -43,7 +43,9 @@ Load `.output/chrome-mv3` from Chrome's extension developer mode after `pnpm bui
 | `pnpm check`                                                | Strict TypeScript 7, ast-grep rule tests and scan, Oxlint, Hyoban ESLint, Oxfmt and Knip |
 | `pnpm test:sdk`, `pnpm test:sdk:package`                    | SDK protocol tests and independent tarball JS/TS consumer verification                   |
 | `pnpm test`                                                 | Vitest Browser Mode, Cucumber + Playwright + axe, packaged extension integration         |
-| `pnpm coverage:generate`                                    | Evidence-based journey graph, state fusion and namespace disposition                     |
+| `pnpm coverage:generate`                                    | Architecture-derived lifecycle evidence and observed interaction latency                 |
+| `pnpm test:assurance`                                       | Web journeys and packaged boundaries in one source-scoped run                            |
+| `pnpm assurance:audit`, `pnpm assurance:baseline`           | Audit fresh obligations; explicitly promote observed latency baselines                   |
 | `pnpm run doctor`                                           | React Doctor diagnostics                                                                 |
 | `pnpm dev:tools`                                            | Local authenticated Devframe RPC runtime                                                 |
 | `pnpm ui:update`                                            | Fetch and check out the latest Lody `main`; leave Runeicons pinned                       |
@@ -70,6 +72,10 @@ A submission receipt records delivery state, while agent output comes from the s
 Retain each request ID when resolving uncertain delivery; starting a new request can create another conversation.
 Production verification requires a deployed backend, workspace membership and an online configured machine.
 
+The composer follows Lody's inline `/` commands and Prompt Shortcuts, `@` mentions and `$` skills.
+[Prompt Shortcuts](./src/features/automations/README.md) synchronize with the existing Lody directory using resource-scoped grants and immutable body revisions.
+Legacy browser templates remain local until an explicit migration preview is confirmed; choosing a shortcut fills the draft without sending.
+
 React Query owns asynchronous preference loads and saves.
 Jotai exposes current preferences to mood-aware icons and effects.
 Extension pages use `browser.storage.local` and subscribe to storage changes; the web preview uses localStorage.
@@ -93,4 +99,7 @@ Production builds remove the development import branches.
 Devframe remains Node-only and is not shipped in the extension; see the [Devframe getting-started guide](https://devfra.me/raw/guide/getting-started.md).
 
 Read the [architecture](./docs/content/architecture.mdx), [testing policy](./docs/content/testing.mdx) and [interaction guidance](./docs/content/design.mdx) before extending features.
-The coverage generator reports missing evidence as “not run”; infrastructure percentages do not stand in for end-to-end product coverage.
+The [browser assistant SPEC](./docs/content/browser-assistant-spec.mdx) defines the target feature set, ChatGPT/Claude extension comparison, protocol dependencies and acceptance journeys; it is not a claim of implemented capabilities.
+The [implementation record](./docs/content/browser-assistant-implementation.mdx) maps every feature ID to current code, protocol limits and validation entrypoints.
+The [assurance contract](./tools/assurance/README.md) derives obligations from product architecture and state ownership.
+The generated report keeps missing journeys visible and measures authored user actions against observable responses; verification framework counts do not define coverage.
