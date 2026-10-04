@@ -14,6 +14,16 @@
     "owner": "src/features/introduction",
     "reason": "Host-controlled Cuelens onboarding."
   },
+  "account": {
+    "disposition": "active",
+    "owner": "src/features/account",
+    "reason": "Device authorization, session validation and workspace selection through controlled HTTP."
+  },
+  "conversations": {
+    "disposition": "active",
+    "owner": "src/features/conversations",
+    "reason": "Authenticated submission and recovery of uncertain delivery through controlled HTTP."
+  },
   "extension": {
     "disposition": "integration",
     "owner": "tests/extension",

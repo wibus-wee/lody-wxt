@@ -17,23 +17,53 @@ test('built MV3 popup and options synchronize durable preferences through the se
       args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
     });
     const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+    const toolbar = await worker.evaluate(async () => {
+      const api = (
+        globalThis as typeof globalThis & {
+          chrome: { runtime: { getManifest: () => { action?: { default_popup?: string } } } };
+        }
+      ).chrome;
+      return api.runtime.getManifest().action;
+    });
+    expect(toolbar?.default_popup).toBeUndefined();
+    await expect
+      .poll(() =>
+        worker.evaluate(async () => {
+          const api = (
+            globalThis as typeof globalThis & {
+              chrome: {
+                sidePanel: {
+                  getPanelBehavior: () => Promise<{ openPanelOnActionClick?: boolean }>;
+                };
+              };
+            }
+          ).chrome;
+          return (await api.sidePanel.getPanelBehavior()).openPanelOnActionClick;
+        }),
+      )
+      .toBe(true);
     const id = new URL(worker.url()).host;
     const popup = await context.newPage();
     const options = await context.newPage();
     await popup.goto(`chrome-extension://${id}/popup.html`);
     await options.goto(`chrome-extension://${id}/options.html#/settings`);
-    await popup.getByRole('button', { name: 'glass', exact: true }).click();
+    await options.getByRole('button', { name: 'glass', exact: true }).click();
     await expect(popup.locator('main')).toHaveAttribute('data-mood', 'glass');
     await expect(options.locator('main')).toHaveAttribute('data-mood', 'glass');
-    await options.getByRole('textbox', { name: 'Workspace name' }).fill('Extension studio');
-    await options.getByRole('button', { name: 'Save name' }).click();
-    await expect(popup.getByRole('heading', { name: 'Extension studio' })).toBeVisible();
+    await options.getByRole('textbox', { name: '侧栏名称' }).fill('Extension studio');
+    await options.getByRole('button', { name: '保存名称' }).click();
+    await expect(options.getByRole('button', { name: '保存名称' })).toBeDisabled();
+    await expect(popup.getByRole('heading', { name: '让 Lody 陪你浏览' })).toBeVisible();
+    await expect(popup.getByRole('textbox', { name: '消息' })).toHaveCount(0);
+    await expect(popup.getByRole('button', { name: '打开侧栏' })).toBeEnabled();
     await popup.reload();
     await expect(popup.locator('main')).toHaveAttribute('data-mood', 'glass');
     const backgroundState = await popup.evaluate(async () => {
       const chromeApi = (
-        globalThis as unknown as {
-          chrome: { runtime: { sendMessage: (message: unknown) => Promise<unknown> } };
+        globalThis as typeof globalThis & {
+          chrome: {
+            runtime: { sendMessage: (message: { type: 'preferences:get' }) => Promise<unknown> };
+          };
         }
       ).chrome;
       return chromeApi.runtime.sendMessage({ type: 'preferences:get' });
