@@ -1,0 +1,26 @@
+id: no-native-ui-controls
+language: Tsx
+severity: error
+files:
+  - src/**/*.tsx
+message: >-
+  Use the corresponding Lody component from src/shared/ui. Application controls
+  must use vendor/lody/packages/ui so behavior and appearance share one owner.
+rule:
+  all:
+    - any:
+        - pattern: <button $$$>$$$</button>
+        - pattern: <input $$$ />
+        - pattern: <select $$$>$$$</select>
+        - pattern: <textarea $$$>$$$</textarea>
+        - pattern: <dialog $$$>$$$</dialog>
+        - pattern: <details $$$>$$$</details>
+        - pattern: <m.button $$$>$$$</m.button>
+        - pattern: <m.button $$$ />
+        - pattern: <motion.button $$$>$$$</motion.button>
+        - pattern: <motion.button $$$ />
+    - not:
+        inside:
+          kind: jsx_attribute
+          regex: ^render=
+          stopBy: end

@@ -9,8 +9,14 @@ Vitest Browser Mode is scoped to non-component infrastructure.
 
 WXT entrypoints only mount surfaces or register browser lifecycle listeners.
 Feature modules own behavior.
+The independent SDK lives in `packages/lody-sdk`; its domain and application layers do not depend on React, WXT or device storage.
+SDK requests use explicit origins and credentials.
+Keep protocol failures visible; do not substitute data, endpoints or successful results.
+Feature adapters own credentials, drafts and submission journals.
+Reuse a submission's request ID when resolving uncertain delivery.
 Keep Node-only tooling in `tools`.
-Lody's own component library lives in `vendor/lody/packages/ui` and belongs behind `src/shared/ui`; do not add a third-party styled UI library.
+All application UI controls use Lody's component library in `vendor/lody/packages/ui` through `src/shared/ui`.
+Use StyleX for layout composition; do not build separately styled native controls or add a third-party styled UI library.
 Keep the Lody submodule tracking `main` through `pnpm ui:update`; never force over upstream checkout changes.
 Runeicons stays pinned.
 

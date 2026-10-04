@@ -1,0 +1,76 @@
+id: no-unknown-parameter
+language: Tsx
+severity: warning
+ignores:
+  - '**/*.gen.ts'
+message: >-
+  Decode unknown input at its boundary, then pass a specific type internally.
+  Schema decoders and Promise rejection callbacks may accept unknown; document
+  other open-data boundaries when suppressing the rule.
+utils:
+  function:
+    any:
+      - kind: function_declaration
+      - kind: function_expression
+      - kind: arrow_function
+      - kind: method_definition
+  decode:
+    any:
+      - pattern: Check($SCHEMA, $VALUE)
+      - pattern: Parse($SCHEMA, $VALUE)
+      - pattern: safeParse($SCHEMA, $VALUE)
+      - pattern: parse($SCHEMA, $VALUE)
+      - pattern: $PARSER.is($SCHEMA, $VALUE)
+      - pattern: $PARSER.parse($SCHEMA, $VALUE)
+      - pattern: $PARSER.safeParse($SCHEMA, $VALUE)
+      - pattern: $PARSER.safeParse($VALUE)
+      - pattern: toError($VALUE)
+rule:
+  all:
+    - any:
+        - kind: required_parameter
+        - kind: optional_parameter
+    - has:
+        field: pattern
+        pattern: $VALUE
+    - has:
+        kind: type_annotation
+        has:
+          kind: predefined_type
+          regex: ^unknown$
+    - not:
+        inside:
+          kind: catch_clause
+    - not:
+        inside:
+          stopBy:
+            matches: function
+          all:
+            - matches: function
+            - any:
+                - has:
+                    field: body
+                    any:
+                      - has:
+                          nthChild:
+                            position: 1
+                            ofRule:
+                              not:
+                                kind: comment
+                          any:
+                            - matches: decode
+                            - has:
+                                stopBy:
+                                  matches: function
+                                matches: decode
+                      - matches: decode
+                - inside:
+                    kind: arguments
+                    inside:
+                      pattern: $PROMISE.catch($CALLBACK)
+                - all:
+                    - inside:
+                        kind: arguments
+                        inside:
+                          pattern: $PROMISE.then($SUCCESS, $CALLBACK)
+                    - pattern: $CALLBACK

@@ -1,0 +1,16 @@
+id: no-result-rewrap
+language: Tsx
+severity: error
+ignores:
+  - '**/*.gen.ts'
+message: >-
+  Manually unwrapping and rewrapping a Result is banned:
+  `x.ok ? { ok: true, ... } : { ok: false, ... }` is a hand-written translation layer
+  between two protocol levels — error codes and shapes each get mapped twice and
+  inevitably drift. Either pass the underlying Result through directly, or make the
+  underlying contract return the target shape (modeled once in a schema); do not add a
+  manual mapping layer in between.
+rule:
+  any:
+    - pattern: '$R.ok ? { ok: true, $$$A } : { ok: false, $$$B }'
+    - pattern: '$R.ok ? { ok: false, $$$A } : { ok: true, $$$B }'

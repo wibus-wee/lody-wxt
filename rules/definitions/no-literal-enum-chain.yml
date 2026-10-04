@@ -1,0 +1,15 @@
+id: no-literal-enum-chain
+language: Tsx
+severity: error
+ignores:
+  - '**/*.gen.ts'
+message: >-
+  Hand-written literal enumeration chains on the same variable
+  (`x === 'a' || x === 'b'`) are banned: the shape of an enum/error code belongs in a
+  Valibot picklist schema or a Set, checked via safeParse or set.has.
+  A hand-written enumeration and the real type are two sources of truth; adding a new
+  member will inevitably leave one unchanged.
+rule:
+  any:
+    - pattern: $V === $A || $V === $B
+    - pattern: $V !== $A && $V !== $B

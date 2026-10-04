@@ -1,0 +1,13 @@
+id: no-unknown-cast
+language: Tsx
+severity: warning
+ignores:
+  - '**/*.gen.ts'
+message: >-
+  Beware an architectural problem: `as unknown` erases type information. Feed external
+  data straight into a schema decode (parse/safeParse already accept unknown); do not add
+  an assertion layer in between. If erasing an `any` is genuinely justified, write the
+  reason in a comment on the preceding line, then add
+  `// ast-grep-ignore: no-unknown-cast` on its own line.
+rule:
+  pattern: $X as unknown

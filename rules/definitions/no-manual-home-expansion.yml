@@ -1,0 +1,16 @@
+id: no-manual-home-expansion
+language: Tsx
+severity: error
+ignores:
+  - '**/*.gen.ts'
+message: >-
+  Hand-written `~`/home-directory expansion and path normalization are banned: this
+  reinvents platform behavior (edge cases like `~user` and trailing slashes are
+  guaranteed to be handled wrong). Path resolution must have a single authoritative
+  implementation; Node tooling should compose node:os homedir with node:path
+  capabilities instead of duplicating path handling.
+rule:
+  any:
+    - pattern: $X === '~'
+    - pattern: $X.startsWith('~/')
+    - pattern: $X.startsWith("~/")

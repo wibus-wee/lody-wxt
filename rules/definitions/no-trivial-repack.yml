@@ -1,0 +1,42 @@
+id: no-trivial-repack
+language: Tsx
+severity: warning
+ignores:
+  - '**/*.gen.ts'
+message: >-
+  This function only repacks fields into an object. Inline a local one-use mapping,
+  or document the public contract that this projection owns.
+rule:
+  any:
+    - pattern: 'function $F($P): $R { return $OBJECT; }'
+    - pattern: 'function $F($P) { return $OBJECT; }'
+    - pattern: const $F = ($P) => ($OBJECT)
+constraints:
+  OBJECT:
+    all:
+      - kind: object
+      - has:
+          any:
+            - kind: pair
+            - kind: shorthand_property_identifier
+      - not:
+          has:
+            any:
+              - kind: spread_element
+              - kind: method_definition
+              - has:
+                  field: key
+                  kind: computed_property_name
+              - all:
+                  - kind: pair
+                  - has:
+                      field: value
+                      not:
+                        any:
+                          - kind: identifier
+                          - all:
+                              - kind: member_expression
+                              - not:
+                                  has:
+                                    stopBy: end
+                                    kind: call_expression

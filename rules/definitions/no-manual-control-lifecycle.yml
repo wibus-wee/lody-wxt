@@ -1,0 +1,18 @@
+id: no-manual-control-lifecycle
+language: Tsx
+severity: error
+files:
+  - 'packages/runtime/src/session/control/**/*.ts'
+  - 'packages/node-agent/src/children/control/**/*.ts'
+ignores:
+  - packages/node-agent/src/children/control/client.ts
+message: >-
+  Effect-owned control state must use Effect lifecycle primitives. Promise construction,
+  Promise chains, AbortController ownership, and Promise.race belong in the explicit
+  Promise boundary, not inside control services.
+rule:
+  any:
+    - pattern: new Promise($$$ARGS)
+    - pattern: $PROMISE.then($$$ARGS)
+    - pattern: new AbortController()
+    - pattern: Promise.race($$$ARGS)

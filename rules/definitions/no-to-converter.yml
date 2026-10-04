@@ -1,0 +1,25 @@
+id: no-to-converter
+language: Tsx
+severity: warning
+ignores:
+  - '**/*.gen.ts'
+message: >-
+  Beware `toXxx` converter functions: they usually mean a private vocabulary/mapping
+  was invented to rename data that already has canonical names. Prefer passing through
+  existing names or Valibot schema transforms. Allowed
+  only for genuine protocol-boundary translation (e.g. mapping external error codes) —
+  ignore with a comment explaining why a private mapping is required.
+rule:
+  any:
+    - kind: function_declaration
+      has:
+        field: name
+        regex: ^to[A-Z]
+    - kind: variable_declarator
+      all:
+        - has:
+            field: name
+            regex: ^to[A-Z]
+        - has:
+            field: value
+            kind: arrow_function

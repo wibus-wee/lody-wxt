@@ -1,14 +1,80 @@
 ---
 title: Architecture
-description: Runtime ownership and extension points.
+description: Application and SDK boundaries, state ownership and recovery.
 ---
 
-Entrypoints only mount the application or register background listeners. Features own behavior. Shared modules hold tokens, icons and your UI adapter. Node-only developer tools live in `tools`, outside the extension bundle.
+## Application boundaries
 
-React Query owns loading, writes and failure states. Jotai projects the current preferences into the app. React Hook Form owns form state. Preference writes commit to storage before the app publishes their result; storage notifications synchronize open extension pages.
+Entrypoints mount the application or register browser lifecycle listeners. Features own behavior. Shared modules hold tokens, icons and the UI adapter. Node-only developer tools live in `tools`, outside the extension bundle. The independent SDK lives in `packages/lody-sdk`; its public contracts and configuration are maintained in the [SDK README](../../packages/lody-sdk/README.md).
 
-WXT and the browser preview reuse one Vite plugin factory: StyleX extracts CSS, Vite's OXC transforms TypeScript/JSX, and the official React Compiler Babel preset compiles eligible components. Motion uses springs and follows the system Reduce Motion setting. Paper shaders load lazily only after users enable ambient effects, and are suppressed under Reduce Motion.
+| Area                            | Owner                               | Boundary                                                                                      |
+| ------------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------- |
+| Surface lifecycle               | `src/entrypoints`                   | Mounts surfaces and registers browser listeners.                                              |
+| Account and session integration | `src/features`                      | Owns credentials, drafts, journals, account changes, session admission and steering recovery. |
+| UI and preferences              | `src/shared`, application providers | Adapts Lody UI and coordinates persisted preferences with open surfaces.                      |
+| Protocol use cases              | `packages/lody-sdk`                 | Owns protocol validation, request correlation, sync ordering and explicit I/O adapters.       |
+| Developer tooling               | `tools`, `scripts`                  | Runs build, preview and verification outside product bundles.                                 |
 
-Runeicons is a pinned fork submodule. Git submodules operate on repositories, so the full upstream is checked out; the app derives selected SVG assets from its `public` sources, alongside the framework-free package at `packages/runeicons`. Outline maps to normal; pixel maps to pixelated. The glass collection has different identifiers, so its home glyph is explicitly mapped.
+React Query owns application loading, writes and failure states. Jotai projects preferences into the app. React Hook Form owns form state. Preference writes commit to storage before the app publishes their result; storage notifications synchronize open extension pages.
 
-Cuelens owns the introduction step controller. The application owns content, buttons and navigation. There is no automatic playback, external command execution or camera animation in this starter.
+## Browser conversation flow
+
+The sidebar is a quick conversation surface. `ChatHeader`, `ChatHistory`, `Chat`, and `Composer` in `src/features/chat` own navigation, history search, the transcript and message entry. The toolbar action opens the side panel directly; the popup remains a compatibility surface. Settings contains account/workspace selection, appearance and the advanced workspace link. The chat stays mounted while visiting another route so its current session and draft survive a settings round trip.
+
+WXT synthesizes an action popup from the popup entrypoint; the manifest hook removes that default for Chrome so the installed side-panel action can take effect.
+
+A new conversation is a local draft until the first send. The new button never calls `create`; `ConnectedChat` calls `start` with the first message and a plain-chat project. This avoids orphan empty sessions and the admission warning previously caused by creating before the user had a message. `TargetPicker` sits beside the composer: the client restores an account/workspace-scoped machine and Agent choice, or selects a machine and Agent only when each choice is unambiguous. Multiple choices require an explicit selection. A stale saved choice remains a visible error; it is never silently replaced with another machine or model.
+
+Model and permission controls follow the official `vendor/lody/packages/components/src/components/chat/chat-composer.tsx` and `sessions/desktop-run-config-menu.tsx` composition: configuration belongs near the prompt. The extension keeps page-specific actions and a compact source strip there. Summarize/explain suggestions capture the requested source and prepare an editable draft; they never send immediately. Captured source content can be previewed and removed. The [chat adapter](../../src/features/chat/real-adapter.ts) appends the references as JSON marked as untrusted data to the user's question. Both `inputConfig.prompt` and its single text input block carry that complete prompt. The official CLI rebuilds the first model text input from `prompt`, while subsequent turns can read `inputBlocks`; keeping them identical prevents references from being lost during session creation. The transcript projects it back into the question and source badges. Existing separate reference blocks remain readable; saved delivery journals retain their original payload and request ID during recovery.
+
+The [page capture adapter](../../src/features/page-context/capture.ts) reads only after an attachment action. The `tabs` permission exposes the active tab URL so the adapter can request access to that specific HTTP or HTTPS origin, including after a tab switch; it does not authorize page-content injection. Existing host access and temporary `activeTab` injection access are reused before requesting a site grant. Capture chooses a visible main/article, preserves inline text and paragraph boundaries, and excludes hidden, editable, form and marked-sensitive content. Returned URLs omit credentials, query and fragment. Injected extraction returns an explicit success/error result because script exceptions can otherwise become an empty Chrome injection result and produce a misleading schema error. Empty selection and unreadable-page errors preserve the draft.
+
+The history adapter reads official tool `content` blocks for terminal commands/output and ACP text, with raw input/output available when no supported text block exists. A nullable tool title must not discard its permission request. The official `canceled` turn status ends streaming while preserving partial content. Command response-stream failures reach the caller immediately instead of leaving the composer waiting for an unrelated timeout.
+
+Drafts are scoped by account, workspace and conversation. Text remains editable during connection loss. Opening or sending temporarily disables editing until the destination draft or delivery outcome is known. After uncertain delivery the recovery action reuses the stored admission/request, opens that conversation and clears a draft only when it matches the confirmed message. On reconnect, a legacy metadata-only reservation is released under the submission lock without changing cloud history or scoped drafts. A saved first-turn record still requires delivery recovery, even if an older version already removed its delivery journal during interrupted cleanup. Successful cleanup removes the delivery journal last. Expected recovery state has one notice; it is not also synthesized as a connection error. Client synchronization confirms persistence, not an Agent answer.
+
+The composer and feedback have viewport-relative height limits. Routine connection, configuration and delivery activity uses `ActivityStatus`: a 24px row with 12px text and an upstream spinner sized through its theme token. It sits above the composer until a reply starts, then generation status belongs to that reply. Errors and pending approvals retain their actions; routine status does not duplicate them. System Reduce Motion disables the status entrance and spinner rotation.
+
+Recent conversations use the cloud `lastMessageAt` and loaded message timestamps, falling back to creation time when no activity is available. A live update advances the displayed activity time without waiting for a metadata refresh.
+
+Sent webpage badges constrain and truncate long titles within the message width; their full titles remain available on hover. Narrow transcripts omit the decorative user avatar. Transcript and history scroll independently, so send and navigation stay reachable in a 320 × 480 sidebar. Rendered behavior is covered by `tests/e2e/features/quick-chat.feature`, cloud-history scenarios, axe and the chat Storybook stories. Web preview and infrastructure browser tests use separate Vite caches: sharing the optimizer cache caused pending dependency requests when both runners were active.
+
+## SDK dependency direction
+
+SDK contexts separate domain, application and infrastructure. Domain modules own models and invariants without external libraries or outer-layer imports. Application services depend on domain and ports, without external libraries, React, WXT or device storage. Infrastructure implements those ports and owns HTTP, validation libraries, Streams, Loro/Flock and bridge protocols. Composition roots may wire all layers. Shared modules never import a context; the declared context dependency is Streams to the workspace identifier domain value. The SDK's architecture checks inspect these import boundaries and cycles.
+
+`createLodyClient` composes identity, organization reads and Streams grants. Cloud discovery separately exchanges the caller's session bearer for a Convex JWT and queries an explicit Convex deployment. `SessionRuntime` coordinates session repository and Machine command ports. `LoroSessionRepository` adapts CRDT metadata/history; `createLoroSessionRuntime` is exported through `@lody-mobile/sdk/loro` and wires caller-supplied storage, remote cursors, Streams auth and commands. `JsonRpcStreams` is exported through `@lody-mobile/sdk/rpc`; `StreamsMachineCommands` implements command correlation. Attachments and HTTP submissions expose their own services/gateways. The offline birpc document bridge remains a separate import/read/export facility.
+
+These entry points expose different composition responsibilities. They do not establish compatibility with every JavaScript runtime or guarantee that importing the root excludes CRDT dependencies. The package manifest also declares explicit TypeScript source entry points for consumers whose toolchain transforms them.
+
+## State and core flows
+
+The application supplies each origin explicitly: authentication, Convex query deployment, submission site, Streams routing and attachment service have separate configuration contracts. A session bearer, Convex JWT and Streams grant serve different protocols. The caller owns credential persistence and grant caching, including credential-generation fences after logout or account switch. Missing routing is not replaced with a guessed gateway. Protocol failures remain visible.
+
+Identity obtains a device code and polls using its original deadline and cumulative slowdown. The application validates the verification URL against its browser-origin allowlist before opening it, then stores a resulting credential only if the account context is still current. Account/session results can contain sensitive extensions and must not be logged.
+
+For cloud sessions, the Loro composition root joins workspace metadata, then session handles join document rooms. The repository persists history before awaiting synchronization and publishing dispatch metadata. `SessionRuntime.send` appends and flushes a turn, returning `state: 'synced'`. This confirms the repository synchronization boundary, not Agent acceptance, execution or completion. UI execution state must be derived from subsequent history/session observations. Machine Flock supplies agent configurations, projects and capabilities; its archive/delete helpers synchronize command records, not completed machine actions.
+
+Machine RPC subscribes to the response stream before appending a request envelope. The command adapter validates supported parameters and correlates replies by caller request ID. A cancel reply does not establish that the Agent has stopped. The application's [session flows](../../src/features/conversations/session-flows.ts) write a guide turn and interpret the steering reply, choosing whether to retry, promote or reconcile it. Each SDK steering call issues one command. The same feature module owns session admission progress across metadata creation and the first turn. Session metadata derives identity from the canonical document key, matching the upstream projection; a conflicting stored ID still fails validation. Invalid metadata and history report document and field paths without conversation contents. History subscribers can receive validation errors and resume on the next valid snapshot. Session and Machine Flock handles own leases/subscriptions; callers close them and unsubscribe listeners. Closing the Loro connection also releases metadata and destroys the repository.
+
+The caller journals a UUID and submission payload before sending through the HTTP gateway, then uses lookup with the same identity after uncertain delivery. Receipts can be pending, submitted or unconfirmed; they do not report Agent completion. Attachment uploads produce metadata for input blocks; they do not dispatch a turn. The application owns attachment retention and orphan reconciliation.
+
+## Failure and recovery
+
+The Loro writer classifies arrays before record values so message input blocks remain lists after a write/read round trip. Local metadata subscriptions wait for the metadata event following a newly created existence entry; remote malformed metadata still fails validation.
+
+SDK surfaces have distinct error contracts. Identity/workspace/grant HTTP uses bounded `LodySdkError` codes; attachments use `AttachmentError` and can expose both transfer and cleanup failures through `AttachmentCleanupError`. Cloud and submission adapters expose their own code/status errors, while validation, fetch and abort errors may propagate. Session/RPC and offline bridge failures are not converted into a single stable code hierarchy. Callers must handle errors at the owning boundary instead of parsing arbitrary library messages as SDK codes.
+
+Deadlines and cancellation limit waits; they do not undo server requests or persisted CRDT mutations. Injected credential providers, storage and network adapters must honor their contracts. Session document duplicate handling preserves an existing turn for a matching request identity and rejects changed content; it does not guarantee exactly-once remote execution. Recover using the original request ID and immutable input before allocating a new ID.
+
+Multipart attachment failures attempt independent bounded cleanup when an upload identity is known. Cleanup can itself fail. An unknown upload identity, completed single upload or earlier image in a failed sequential batch may remain on the server. The SDK does not provide atomic image batches or deletion of completed attachments. Detailed limits, timeouts and public examples belong to the SDK README.
+
+## Rendering and extension points
+
+WXT and the browser preview reuse one Vite plugin factory: StyleX extracts CSS, Vite's OXC transforms TypeScript/JSX, and the React Compiler Babel preset compiles eligible components. Motion uses springs and follows system Reduce Motion. Paper shaders load lazily after users enable ambient effects and are suppressed under Reduce Motion.
+
+Lody's component library stays behind `src/shared/ui`. Runeicons is a pinned fork submodule. The app derives selected SVG assets from its `public` sources, alongside the framework-free package at `packages/runeicons`. Outline maps to normal; pixel maps to pixelated. The glass collection has different identifiers, so its home glyph is explicitly mapped. Add glyphs through the generator. Agent controls additionally use official Lody brand assets and its provider-brand resolver; identity projection, asset refresh and mood rules are documented at the [UI boundary](../../src/shared/ui/README.md).
+
+Cuelens owns the introduction step controller. The application owns content, buttons and navigation. It does not automatically play steps, execute external commands or animate a camera.
+
+Extend SDK behavior by implementing the owning application port or adding an infrastructure adapter; keep protocol paths and schemas out of domain/application layers. Extend product behavior in features and expose it through entrypoint mounts. Verification scope and production evidence boundaries are described in [Testing](./testing.mdx).

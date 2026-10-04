@@ -1,0 +1,15 @@
+id: no-native-ui-controls
+valid:
+  - '<Button type="submit">Send</Button>'
+  - '<Input value={name} onChange={change} />'
+  - <Dialog.Content><Textarea /></Dialog.Content>
+  - <main><section><p>Conversation</p></section></main>
+  - '<Button render={<m.button whileTap={{ scale: 0.96 }} />}>Send</Button>'
+invalid:
+  - '<button type="submit">Send</button>'
+  - '<input value={name} onChange={change} />'
+  - <select><option>Agent</option></select>
+  - '<textarea value={prompt}></textarea>'
+  - <dialog open>Settings</dialog>
+  - <details><summary>Tool</summary>Result</details>
+  - '<m.button whileTap={{ scale: 0.96 }}>Send</m.button>'

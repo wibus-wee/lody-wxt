@@ -1,0 +1,16 @@
+id: no-conditional-spread-default
+language: Tsx
+severity: error
+ignores:
+  - '**/*.gen.ts'
+message: >-
+  Defensive conditional spread `...(cond ? {} : {...})` is banned: the shape of a
+  protocol/config object must be declared explicitly, not assembled via spreads. Model
+  optional fields in the schema/type; when building an object, declare it first and
+  assign conditionally. If this is genuinely needed for exactOptionalPropertyTypes
+  compatibility, write the reason in a comment on the preceding line, then add
+  `// ast-grep-ignore: no-conditional-spread-default` on its own line.
+rule:
+  any:
+    - pattern: '{ ...($C ? {} : $O) }'
+    - pattern: '{ ...($C ? $O : {}) }'

@@ -1,0 +1,12 @@
+id: no-manual-type-guard
+language: Tsx
+severity: error
+ignores:
+  - '**/*.gen.ts'
+message: >-
+  Hand-written type predicates (`x is T`) are banned: they are manual validation
+  parallel to the type system — a second source of truth that inevitably drifts from
+  the real type. Define shapes with Valibot schemas and narrow via parse/safeParse;
+  predicates are derived from the schema, never hand-written.
+rule:
+  kind: type_predicate

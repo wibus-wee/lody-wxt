@@ -1,0 +1,7 @@
+id: no-typeof-operator
+valid:
+  - type Input = typeof schema;
+  - 'const View = () => <span>{value}</span>;'
+invalid:
+  - const kind = typeof value;
+  - 'const View = () => <span>{typeof value}</span>;'

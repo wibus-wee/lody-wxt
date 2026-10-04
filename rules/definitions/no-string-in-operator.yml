@@ -1,0 +1,15 @@
+id: no-string-in-operator
+language: Tsx
+severity: error
+ignores:
+  - '**/*.gen.ts'
+message: >-
+  String-literal property checks with the `in` operator are banned: use an explicit
+  discriminant or an existing schema/type guard at the boundary instead of ad hoc
+  property-shape detection.
+rule:
+  all:
+    - pattern: $KEY in $OBJECT
+    - has:
+        field: left
+        kind: string

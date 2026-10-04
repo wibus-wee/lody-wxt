@@ -1,0 +1,12 @@
+id: no-trivial-repack
+valid:
+  - 'function tool(client: Client) { return { name: "read", execute: async args => client.read(args) }; }'
+  - 'function source(command: string) { return { kind: "tui.stdin", data: { command } }; }'
+  - 'function reverse(find: Find) { return { direction: find.direction === "forward" ? "backward" : "forward", till: find.till }; }'
+  - 'function policy(names: string[]) { return { tools: Object.fromEntries(names.map(name => [name, true])) }; }'
+  - 'function empty(value: string) { return {}; }'
+  - 'function indexed(value: string) { return { [keyOf(value)]: value }; }'
+invalid:
+  - 'function summary(model: Model): Summary { return { id: model.id, name: model.name }; }'
+  - 'function wrap(value: string) { return { value }; }'
+  - 'const wrap = (value: string) => ({ renamed: value });'

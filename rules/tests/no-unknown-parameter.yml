@@ -1,0 +1,26 @@
+id: no-unknown-parameter
+valid:
+  - 'const validate = (value: unknown) => v.is(Schema, value);'
+  - 'function decode(value: unknown) { return v.safeParse(Schema, value); }'
+  - 'function decode(value: unknown) { return v.parse(Schema, value); }'
+  - 'function decode(value: unknown) { return parse(Schema, value); }'
+  - 'function decode(value: unknown) { return Parse(Schema, value); }'
+  - 'function decode(value: unknown) { if (!Check(Schema, value)) throw new Error(); return value; }'
+  - 'const decode = (value: unknown) => Parse(Schema, value);'
+  - 'function decode(value: unknown) { const parsed = parser.safeParse(value); return parsed; }'
+  - 'function fail(cause: unknown) { const error = toError(cause); report(error); }'
+  - 'promise.catch((cause: unknown) => report(cause));'
+  - 'promise.then(done, (cause: unknown) => report(cause));'
+  - |
+    function decode(value: unknown) {
+      // Input comes from an external transport.
+      return Check(Schema, value) ? value : undefined;
+    }
+  - 'try { run(); } catch (cause: unknown) { report(cause); }'
+invalid:
+  - 'function forward(value: unknown) { return consume(value); }'
+  - 'function wrong(value: unknown) { return Parse(Schema, another); }'
+  - 'function late(value: unknown) { consume(value); return Parse(Schema, value); }'
+  - 'function nested(value: unknown) { return () => Parse(Schema, value); }'
+  - 'promise.then((value: unknown) => consume(value));'
+  - 'promise.then((value: unknown) => consume(value), report);'

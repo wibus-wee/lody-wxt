@@ -1,0 +1,18 @@
+id: no-managed-runtime-outside-composition
+language: Tsx
+severity: error
+files:
+  - '**/*.ts'
+  - '**/*.tsx'
+ignores:
+  - '**/*.gen.ts'
+  - '**/*.test.ts'
+  - '**/*.spec.ts'
+  - packages/runtime/src/session/session.ts
+  - packages/node-agent/src/children/manager.ts
+message: >-
+  ManagedRuntime construction belongs only in the SorbetSession and ChildAgentManager
+  composition roots. Lower-level control modules must receive their Effect runtime
+  capabilities from those roots.
+rule:
+  pattern: ManagedRuntime.make($$$ARGS)

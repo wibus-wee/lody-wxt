@@ -1,12 +1,46 @@
 ---
 title: Testing
-description: Browser journeys and evidence-based coverage.
+description: Verification boundaries for SDK protocols, browser journeys and packaged surfaces.
 ---
 
-Never write unit tests for web components. Exercise UI through Cucumber + Playwright journeys and Storybook accessibility checks. Vitest Browser Mode verifies the preference storage and state infrastructure in Chromium, without mounting components.
+## Verification map
 
-`pnpm test:e2e` starts an isolated Vite preview, runs all Gherkin scenarios, closes the server and regenerates `COVERAGE.md` even on failures. Journey tags declare transition edges and fused states. Namespace disposition is owned by `tests/e2e/namespaces.json`. Missing result files are reported as not run.
+Verification follows the boundary that owns behavior. SDK application and protocol checks run independently of React/WXT. UI behavior is exercised through browser journeys and Storybook accessibility checks; never write unit tests for web components. Vitest Browser Mode covers non-component infrastructure.
 
-`pnpm test:extension` builds and loads the real MV3 extension in Chromium, then verifies popup/options storage synchronization and the background message contract. This catches extension CSP and packaging failures that a web preview cannot detect.
+| Boundary               | Command / owner                                              | What it checks                                                                      |
+| ---------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| SDK types and build    | `pnpm --filter @lody-mobile/sdk typecheck`, `pnpm build:sdk` | TypeScript 7 contracts and emitted ESM/declarations.                                |
+| SDK local behavior     | `pnpm test:sdk`; `packages/lody-sdk/test`                    | Domain/application ports, protocol validation, failures and local CRDT behavior.    |
+| SDK distribution       | `pnpm test:sdk:package`; `scripts/sdk-package-smoke.mjs`     | Packed runtime/type consumption in an isolated consumer and private-path rejection. |
+| Browser infrastructure | `pnpm test:browser`                                          | Storage/state infrastructure in Chromium without mounting components.               |
+| Product journeys       | `pnpm test:e2e`                                              | Cucumber and Playwright flows through an isolated browser preview.                  |
+| Packaged extension     | `pnpm test:extension`                                        | Built MV3 surfaces, CSP, routing/storage integration and browser messaging.         |
+| Static checks          | `pnpm check`                                                 | Type checks, repository rules, lint, formatting and unused-code checks.             |
 
-The generated report includes the System Journey Graph, State-Fusion Matrix, Feature Namespace Disposition and browser infrastructure percentages. It does not equate line coverage with product coverage or claim that observed state combinations cover every possible combination.
+A listed check is an available verification path, not evidence that it ran or passed on the current revision. Preserve failures and missing results. Source inspection, compilation and synthetic protocol fixtures do not establish that a cloud deployment or production environment works.
+
+## SDK contracts and evidence
+
+SDK tests use Node's built-in runner with injected HTTP/Streams ports, controlled promises/clocks and local CRDT operations. Architecture checks inspect imports for domain/application external dependencies, direction violations, undeclared context dependencies and cycles. Package smoke builds and packs the SDK, copies runtime dependencies to an isolated consumer, executes JavaScript imports and compiles public types. It also checks that undeclared private paths cannot be imported. This does not exercise deployment authorization, a remote Agent or target-device fetch/WASM behavior.
+
+Identity checks cover original Device Flow deadlines, pending/slowdown handling, request cancellation/timeouts, credentials and protocol validation. Cloud fixtures check explicit Convex deployment/JWT requests and malformed/error responses. Submission fixtures cover UUID normalization, receipt identity, absence and server conflict. Session/RPC fixtures cover local history writes, request duplicate/conflict handling and correlated command envelopes. Attachment fixtures cover size thresholds, sequential parts, hashes, response bounds and multipart cleanup failures. Offline bridge checks cover handshake/isolation, binary limits, revisions, pending calls and disposal. Read the current tests before relying on a specific recovery path; their presence does not show that every server or concurrency case is covered.
+
+Observable outcomes must retain their meaning. A session `synced` receipt or synchronized archive/delete command is not proof of Agent completion. A pending/submitted/unconfirmed HTTP receipt is not an execution result. Cancellation or timeout does not prove that a remote request or CRDT write was rolled back. Attachment tests that clean up a known multipart upload do not prove cleanup of completed uploads, unknown identities or earlier images in a failed batch.
+
+Production verification requires evidence from the configured deployment and target runtime: registered client ID and verification URL policy; session-bearer/JWT authorization and workspace visibility; Streams routing/auth expiry; persistence and remote cursor recovery; real Machine command and execution observations; attachment upload/download/partial cleanup; account switch and logout fencing; and network interruption with the same request identity. Existing local fixtures do not replace those checks. Do not declare production readiness from the commands above alone.
+
+Public SDK configuration, error families, lifetime and recovery contracts are maintained in the [SDK README](../../packages/lody-sdk/README.md); application ownership is described in [Architecture](./architecture.mdx).
+
+## Browser journeys and packaged surfaces
+
+`pnpm test:e2e` starts an isolated Vite preview, runs Gherkin scenarios, closes the server and regenerates `COVERAGE.md` even on failures. New scenarios declare a registered namespace, journey, state tags and transition tags where applicable. `tests/e2e/namespaces.json` owns namespace disposition. Missing result files are reported as not run.
+
+The [live-chat scenarios](../../tests/e2e/features/live-chat.feature) use the real application SDK against a controlled HTTP Streams boundary. The boundary imports browser writes into Loro/Flock documents and sends remote updates back through SSE and framed incremental reads. Journeys cover streaming text, official tool content, permission outcomes, cancellation RPC identity, reconnect catch-up, malformed-turn recovery and unresolved-delivery cleanup without duplicate turns. Both read transports must return the updates represented by their next offset; advancing an empty response past unread updates invalidates this evidence. These checks exercise the browser protocol path, not a deployed Agent.
+
+`pnpm test:extension` builds and loads the real MV3 extension in Chromium. It exercises packaged surfaces, storage synchronization and the background message contract. The [page capture tests](../../tests/extension/page-context.spec.ts) load actual HTTP/HTTPS tabs and invoke the packaged attachment controls, `tabs`/`permissions` APIs and injected extraction before checking the submitted cloud document. They cover a hidden article before visible content, inline links, partial selections, excluded content, URL cleanup and draft preservation after empty-selection errors. The HTTP fixture grants only its own origin through Chrome extension settings in the isolated test profile; the native permission dialog is not automated. CDP toolbar activation and extension-install auto-confirm flags did not resolve the optional-permission prompt in headless Chromium, so they are not used as evidence of approval. A web preview cannot establish extension CSP or packaging behavior; storage, routing, CSP and packaged-entrypoint changes require this boundary's checks.
+
+Storybook and axe verify rendered component/accessibility behavior. Browser infrastructure tests do not substitute for these rendered checks. Run the checks affected by a change and report the actual command, revision and result; documentation-only validation should describe formatting/lint results without claiming product tests ran.
+
+## Coverage reports
+
+The generated report includes the System Journey Graph, State-Fusion Matrix, Feature Namespace Disposition and browser infrastructure percentages. It does not equate line coverage with product coverage or claim observed state combinations cover every possible combination. Regenerate `COVERAGE.md` from real reports; never hand-edit evidence or convert an unexecuted gate into a passing claim.

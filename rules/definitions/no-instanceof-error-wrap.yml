@@ -1,0 +1,11 @@
+id: no-instanceof-error-wrap
+language: Tsx
+severity: error
+ignores:
+  - '**/*.gen.ts'
+message: >-
+  Hand-rolled `x instanceof Error ? x : new Error(...)` fallbacks are banned: use
+  a declared error contract at the boundary. Preserve the original rejection with
+  Error.cause when a public operation needs context; do not guess its shape.
+rule:
+  pattern: '$X instanceof Error ? $X : new Error($$$ARGS)'

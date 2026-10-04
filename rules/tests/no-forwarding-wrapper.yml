@@ -1,0 +1,13 @@
+id: no-forwarding-wrapper
+valid:
+  - 'function messages(values: Message[]) { return values.flatMap(value => value.role === "user" ? [value] : []); }'
+  - 'function decode(value: unknown) { return Parse(Schema, value); }'
+  - 'function digest(value: string) { return createHash("sha256").update(value).digest("hex"); }'
+  - 'function scoped(value: string) { return lookup("session", value); }'
+  - 'const options = (id: string) => queryOptions({ queryKey: [id] });'
+  - 'function selected(ignored: string) { return lookup(current); }'
+  - 'function defaulted(value = "default") { return lookup(value); }'
+invalid:
+  - 'function digest(value: object): string { return hash(value); }'
+  - 'function lookup(value) { return store.get(value); }'
+  - 'const digest = (value: object) => hash(value);'

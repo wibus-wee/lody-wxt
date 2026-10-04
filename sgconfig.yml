@@ -1,0 +1,6 @@
+languageGlobs:
+  Tsx: ['*.ts', '*.tsx']
+ruleDirs:
+  - rules/definitions
+testConfigs:
+  - testDir: rules/tests

@@ -1,0 +1,36 @@
+id: no-unbounded-loop
+language: Tsx
+severity: error
+ignores:
+  - '**/*.gen.ts'
+message: >-
+  An unconditionally repeating loop hides its terminal boundary among `break`, `continue`,
+  and `return` branches, often leaving the surrounding state machine without an explicit
+  lifecycle. Model the terminal condition directly or extract a state transition with named
+  terminal outcomes. If an intentionally open-ended async iterator or event loop is the
+  clearest design, explain its external termination contract in a preceding comment, then
+  add `// ast-grep-ignore: no-unbounded-loop` on its own line.
+rule:
+  any:
+    - all:
+        - kind: for_statement
+        - has:
+            field: condition
+            kind: empty_statement
+    - all:
+        - kind: for_statement
+        - has:
+            field: condition
+            any:
+              - pattern: 'true'
+              - pattern: '1'
+    - all:
+        - any:
+            - kind: while_statement
+            - kind: do_statement
+        - has:
+            field: condition
+            has:
+              any:
+                - pattern: 'true'
+                - pattern: '1'

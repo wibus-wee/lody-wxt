@@ -1,0 +1,10 @@
+id: no-manual-array-guard
+language: Tsx
+severity: error
+ignores:
+  - '**/*.gen.ts'
+message: >-
+  Hand-written array validation `Array.isArray(x) && x.every(...)` is banned: model the
+  element shape with Valibot array and parse/safeParse once at the boundary.
+rule:
+  pattern: Array.isArray($X) && $X.every($F)

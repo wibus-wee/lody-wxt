@@ -1,0 +1,15 @@
+id: no-typeof-operator
+language: Tsx
+severity: error
+ignores:
+  - '**/*.gen.ts'
+message: >-
+  Runtime `typeof` discrimination is banned: it usually means guessing the type of data
+  whose source was never modeled. Boundary data should be parsed once at the boundary
+  with a Valibot schema (parse/safeParse), with types inferred via InferOutput. Allowed
+  only to discriminate a compile-time-known union (e.g. string | Uint8Array) — to
+  exempt, write the reason in a comment on the preceding line, then add
+  `// ast-grep-ignore: no-typeof-operator` on its own line. `typeof` in type positions
+  (InferOutput<typeof Schema>) is not covered by this rule.
+rule:
+  pattern: typeof $X

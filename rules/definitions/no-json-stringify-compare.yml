@@ -1,0 +1,13 @@
+id: no-json-stringify-compare
+language: Tsx
+severity: error
+ignores:
+  - '**/*.gen.ts'
+message: >-
+  Comparing objects via JSON.stringify is banned: it is sensitive to key order, slow,
+  and silently drops undefined/function fields. Compare the declared fields directly,
+  or use node:util isDeepStrictEqual in Node-only tooling.
+rule:
+  any:
+    - pattern: JSON.stringify($A) === JSON.stringify($B)
+    - pattern: JSON.stringify($A) !== JSON.stringify($B)

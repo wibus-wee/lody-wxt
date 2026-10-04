@@ -1,0 +1,32 @@
+id: no-forwarding-wrapper
+language: Tsx
+severity: warning
+ignores:
+  - '**/*.gen.ts'
+message: >-
+  This function forwards its parameter unchanged. Remove the extra layer unless it
+  owns a narrower public contract; document that contract when suppressing the rule.
+rule:
+  any:
+    - pattern: function $F($P) { return $G($A); }
+    - pattern: 'function $F($P): $R { return $G($A); }'
+    - pattern: const $F = ($P) => $G($A)
+constraints:
+  A:
+    kind: identifier
+  P:
+    all:
+      - any:
+          - pattern: $A
+          - has:
+              field: pattern
+              pattern: $A
+      - not:
+          has:
+            field: value
+            pattern: $_
+  G:
+    not:
+      has:
+        stopBy: end
+        kind: call_expression
