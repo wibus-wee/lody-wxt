@@ -32,6 +32,11 @@ const styles = stylex.create({
     '--lody-shiki-token-punctuation': composer.label,
     '--lody-shiki-token-link': syntax.title,
   },
+  compact: {
+    fontSize: text.subheadlineSize,
+    lineHeight: text.subheadlineLeading,
+    color: composer.hint,
+  },
   paragraph: {
     marginTop: 0,
     marginBottom: { default: 12, ':last-child': 0, ':has(+ul)': 8 },
@@ -309,9 +314,9 @@ function MessageCodeBlock({ code, language }: { code: string; language: string }
   );
 }
 
-export function MessageMarkdown({ value }: { value: string }) {
+export function MessageMarkdown({ value, compact = false }: { value: string; compact?: boolean }) {
   return (
-    <div {...stylex.props(styles.markdown)} data-message-prose="">
+    <div {...stylex.props(styles.markdown, compact && styles.compact)} data-message-prose="">
       <Markdown
         skipHtml
         remarkPlugins={[remarkGfm]}
