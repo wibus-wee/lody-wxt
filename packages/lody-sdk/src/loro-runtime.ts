@@ -3,6 +3,8 @@ import type { LoroRepoOptions } from 'loro-repo';
 import { LoroRepo } from 'loro-repo';
 import { createRepoStreamsPersistence, StreamsTransportAdapter } from 'loro-repo/transport/streams';
 
+import { LoroScheduleStorage } from './schedules/infrastructure/loro-schedule-storage.js';
+import { ProtocolScheduleRepository } from './schedules/infrastructure/schedule-repository.js';
 import type { MachineCommandPort } from './sessions/application/runtime-ports.js';
 import { SessionRuntime } from './sessions/application/session-runtime.js';
 import { acquireWithin, bounded } from './sessions/infrastructure/lifecycle.js';
@@ -55,7 +57,11 @@ export async function createLoroSessionRuntime(options: LoroRuntimeOptions) {
     bucketId: 'lody',
     metaStreamId: `${options.workspaceId}:meta`,
     docStreamId: (docId) =>
-      docId.startsWith('session-') ? `${options.workspaceId}:s:${docId.slice(8)}` : docId,
+      docId.startsWith('session-')
+        ? `${options.workspaceId}:s:${docId.slice(8)}`
+        : docId.startsWith('schedule-')
+          ? `${options.workspaceId}:schedule:${docId.slice(9)}`
+          : docId,
     flockDocStreamId: (id) => id,
     auth: options.auth,
     baseUrl: options.streamsBaseUrl,
@@ -109,7 +115,15 @@ export async function createLoroSessionRuntime(options: LoroRuntimeOptions) {
       },
       { once: true },
     );
-    return { runtime, machines, repo, close };
+    const schedules = new ProtocolScheduleRepository(
+      new LoroScheduleStorage({
+        repo,
+        workspaceId: options.workspaceId,
+        signal: lifetime,
+        timeoutMs,
+      }),
+    );
+    return { runtime, machines, schedules, repo, close };
   } catch (error) {
     await repo.destroy();
     throw error;

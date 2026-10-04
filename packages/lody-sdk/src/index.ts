@@ -36,6 +36,15 @@ export type {
   DeviceToken,
   DeviceTokenResult,
 } from './identity/domain/models.js';
+export type { ScheduleRepository } from './schedules/application/ports.js';
+export type * from './schedules/domain/models.js';
+export { scheduleDefinitionFingerprint } from './schedules/infrastructure/registry.js';
+export { previewSchedule } from './schedules/infrastructure/schedule-preview.js';
+export {
+  ProtocolScheduleRepository,
+  type ScheduleStorage,
+} from './schedules/infrastructure/schedule-repository.js';
+export { validateTrigger as validateScheduleTrigger } from './schedules/infrastructure/schemas.js';
 export type { AuthTokenProvider, SessionSubmissionGateway } from './sessions/application/ports.js';
 export type {
   MachineCommandPort,
