@@ -25,7 +25,10 @@ Icons inherit the global Jotai mood.
 Add glyphs to the generator rather than editing generated SVG data or the submodule checkout.
 
 New Gherkin scenarios must declare a registered `namespace`, a `journey`, state tags and transition tags where applicable.
-Update `tests/e2e/namespaces.json` when adding a feature namespace.
+Derive multi-link journey obligations from product state owners in `tools/assurance/model.mjs` before writing scenarios.
+Declare the model case and assert every obligation in the same attempt.
+Regenerate `tests/e2e/namespaces.json` from the model when adding a namespace; tests do not own the coverage denominator.
+Author interaction start/end boundaries in the model; retain environment, traces and explicit baseline provenance.
 Regenerate `COVERAGE.md` from real reports; never hand-edit evidence.
 
 Run `pnpm check` and the browser tests affected by a change.

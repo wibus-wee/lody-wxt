@@ -13,6 +13,8 @@ const config: KnipConfig = {
         'tests/e2e/steps/**/*.ts',
         'tests/sdk-consumer/*.{mjs,mts}',
         'scripts/*.mjs',
+        'tools/assurance/*.test.mjs',
+        'tests/e2e/journey-steps/**/*.ts',
       ],
       // Upstream UI runtime entrypoints import Base UI from the root installation.
       ignoreDependencies: ['@base-ui/react'],

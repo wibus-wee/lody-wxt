@@ -27,7 +27,7 @@
     "test:rules": "ast-grep test --skip-snapshot-tests",
     "format": "oxfmt --disable-nested-config .",
     "format:check": "oxfmt --disable-nested-config --check .",
-    "test": "pnpm test:sdk && pnpm test:sdk:package && pnpm test:browser && pnpm test:e2e && pnpm test:extension",
+    "test": "pnpm test:sdk && pnpm test:sdk:package && pnpm test:browser && pnpm test:assurance",
     "test:browser": "vitest run --coverage",
     "test:e2e": "node scripts/run-e2e.mjs",
     "test:extension": "pnpm build && playwright test",
@@ -36,8 +36,13 @@
     "build:storybook": "pnpm ui:update && storybook build",
     "doctor": "react-doctor . --verbose",
     "knip": "knip",
-    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm knip",
-    "postinstall": "pnpm prepare"
+    "check": "pnpm assurance:validate && pnpm test:assurance:tools && pnpm typecheck && pnpm lint && pnpm format:check && pnpm knip",
+    "postinstall": "pnpm prepare",
+    "test:assurance": "node tools/assurance/run.mjs --extension",
+    "test:assurance:tools": "node --test tools/assurance/*.test.mjs",
+    "assurance:validate": "node tools/assurance/cli.mjs validate",
+    "assurance:audit": "node tools/assurance/cli.mjs audit",
+    "assurance:baseline": "node tools/assurance/cli.mjs baseline"
   },
   "dependencies": {
     "@base-ui/react": "1.8.0",

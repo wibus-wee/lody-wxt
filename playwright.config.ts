@@ -1,3 +1,5 @@
+import process from 'node:process';
+
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
@@ -5,7 +7,14 @@ export default defineConfig({
   workers: 1,
   reporter: [
     ['list'],
-    ['json', { outputFile: 'reports/extension.json' }],
+    [
+      'json',
+      {
+        outputFile: process.env.ASSURANCE_RUN_DIRECTORY
+          ? `${process.env.ASSURANCE_RUN_DIRECTORY}/extension.json`
+          : 'reports/extension.json',
+      },
+    ],
     ['html', { open: 'never' }],
   ],
   use: { trace: 'retain-on-failure', screenshot: 'only-on-failure' },

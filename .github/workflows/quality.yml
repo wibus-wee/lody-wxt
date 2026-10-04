@@ -19,8 +19,7 @@ jobs:
       - run: pnpm test:sdk
       - run: pnpm test:sdk:package
       - run: pnpm test:browser
-      - run: pnpm test:e2e
-      - run: pnpm test:extension
+      - run: pnpm test:assurance
       - run: pnpm build:firefox
       - run: pnpm build:web
       - run: pnpm build:docs
@@ -28,7 +27,7 @@ jobs:
       - run: pnpm run doctor
       - name: Generate coverage evidence
         if: always()
-        run: pnpm coverage:generate
+        run: pnpm assurance:audit
       - uses: actions/upload-artifact@v4
         if: always()
         with:

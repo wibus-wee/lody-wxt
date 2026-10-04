@@ -1,0 +1,151 @@
+{
+  "version": 1,
+  "policy": {
+    "minimumSamples": 5,
+    "relativeTolerance": 0.25,
+    "absoluteToleranceMs": 50
+  },
+  "provenance": {
+    "modelHash": "841a39f28b31d813a75e237ea8405718d1182dc38cedf57c8428f5b161b938bb",
+    "sourceHash": "61a33d997b796b273a75df301c1ea03240dad99a99cc140c963aaa7d17b544f0",
+    "runId": "1ef8389b-0acb-4637-acb7-13c9cf804323",
+    "createdAt": "2026-10-04T10:04:51.189Z"
+  },
+  "groups": [
+    {
+      "key": "[\"stop-observed\",{\"measurement\":\"trusted-event-to-visible-raf-v2\",\"browser\":\"151.0.7922.34\",\"platform\":\"darwin\",\"architecture\":\"arm64\",\"viewport\":{\"width\":360,\"height\":780},\"reducedMotion\":true,\"surface\":\"web\",\"fixture\":\"controlled-http-streams\",\"workload\":\"active assistant turn; command ACK alone is insufficient\"}]",
+      "id": "stop-observed",
+      "environment": {
+        "measurement": "trusted-event-to-visible-raf-v2",
+        "browser": "151.0.7922.34",
+        "platform": "darwin",
+        "architecture": "arm64",
+        "viewport": {
+          "width": 360,
+          "height": 780
+        },
+        "reducedMotion": true,
+        "surface": "web",
+        "fixture": "controlled-http-streams",
+        "workload": "active assistant turn; command ACK alone is insufficient"
+      },
+      "values": [
+        5179.70000000298, 5185.70000000298, 5201.5, 5202.5999999940395, 5230.0999999940395
+      ],
+      "medianMs": 5201.5,
+      "p95Ms": 5230.0999999940395
+    },
+    {
+      "key": "[\"appearance-applied\",{\"measurement\":\"trusted-event-to-visible-raf-v2\",\"browser\":\"151.0.7922.34\",\"platform\":\"darwin\",\"architecture\":\"arm64\",\"viewport\":{\"width\":360,\"height\":780},\"reducedMotion\":true,\"surface\":\"web\",\"fixture\":\"controlled-http-streams\",\"workload\":\"mounted settings while a chat draft is retained\"}]",
+      "id": "appearance-applied",
+      "environment": {
+        "measurement": "trusted-event-to-visible-raf-v2",
+        "browser": "151.0.7922.34",
+        "platform": "darwin",
+        "architecture": "arm64",
+        "viewport": {
+          "width": 360,
+          "height": 780
+        },
+        "reducedMotion": true,
+        "surface": "web",
+        "fixture": "controlled-http-streams",
+        "workload": "mounted settings while a chat draft is retained"
+      },
+      "values": [
+        20.299999997019768, 19.399999991059303, 23.80000001192093, 21.5, 22.599999994039536
+      ],
+      "medianMs": 21.5,
+      "p95Ms": 23.80000001192093
+    },
+    {
+      "key": "[\"recovery-confirmed\",{\"measurement\":\"trusted-event-to-visible-raf-v2\",\"browser\":\"151.0.7922.34\",\"platform\":\"darwin\",\"architecture\":\"arm64\",\"viewport\":{\"width\":360,\"height\":780},\"reducedMotion\":true,\"surface\":\"web\",\"fixture\":\"controlled-http-streams\",\"workload\":\"first-turn journal after lost confirmation; same request ID\"}]",
+      "id": "recovery-confirmed",
+      "environment": {
+        "measurement": "trusted-event-to-visible-raf-v2",
+        "browser": "151.0.7922.34",
+        "platform": "darwin",
+        "architecture": "arm64",
+        "viewport": {
+          "width": 360,
+          "height": 780
+        },
+        "reducedMotion": true,
+        "surface": "web",
+        "fixture": "controlled-http-streams",
+        "workload": "first-turn journal after lost confirmation; same request ID"
+      },
+      "values": [71.29999999701977, 85.90000000596046, 85.20000000298023, 84.3999999910593, 68.5],
+      "medianMs": 84.3999999910593,
+      "p95Ms": 85.90000000596046
+    },
+    {
+      "key": "[\"send-feedback\",{\"measurement\":\"trusted-event-to-visible-raf-v2\",\"browser\":\"151.0.7922.34\",\"platform\":\"darwin\",\"architecture\":\"arm64\",\"viewport\":{\"width\":360,\"height\":780},\"reducedMotion\":true,\"surface\":\"web\",\"fixture\":\"controlled-http-streams\",\"workload\":\"one first user turn, one visible machine and declared model\"}]",
+      "id": "send-feedback",
+      "environment": {
+        "measurement": "trusted-event-to-visible-raf-v2",
+        "browser": "151.0.7922.34",
+        "platform": "darwin",
+        "architecture": "arm64",
+        "viewport": {
+          "width": 360,
+          "height": 780
+        },
+        "reducedMotion": true,
+        "surface": "web",
+        "fixture": "controlled-http-streams",
+        "workload": "one first user turn, one visible machine and declared model"
+      },
+      "values": [
+        118.1000000089407, 119.79999999701977, 107.09999999403954, 124.40000000596046, 119.5
+      ],
+      "medianMs": 119.5,
+      "p95Ms": 124.40000000596046
+    },
+    {
+      "key": "[\"first-response\",{\"measurement\":\"trusted-event-to-visible-raf-v2\",\"browser\":\"151.0.7922.34\",\"platform\":\"darwin\",\"architecture\":\"arm64\",\"viewport\":{\"width\":360,\"height\":780},\"reducedMotion\":true,\"surface\":\"web\",\"fixture\":\"controlled-http-streams\",\"workload\":\"controlled remote reply; external agent time must be reported separately\"}]",
+      "id": "first-response",
+      "environment": {
+        "measurement": "trusted-event-to-visible-raf-v2",
+        "browser": "151.0.7922.34",
+        "platform": "darwin",
+        "architecture": "arm64",
+        "viewport": {
+          "width": 360,
+          "height": 780
+        },
+        "reducedMotion": true,
+        "surface": "web",
+        "fixture": "controlled-http-streams",
+        "workload": "controlled remote reply; external agent time must be reported separately"
+      },
+      "values": [
+        263.70000000298023, 281.40000000596046, 262.70000000298023, 275.70000000298023,
+        265.79999999701977
+      ],
+      "medianMs": 265.79999999701977,
+      "p95Ms": 281.40000000596046
+    },
+    {
+      "key": "[\"history-open\",{\"measurement\":\"trusted-event-to-visible-raf-v2\",\"browser\":\"151.0.7922.34\",\"platform\":\"darwin\",\"architecture\":\"arm64\",\"viewport\":{\"width\":360,\"height\":780},\"reducedMotion\":true,\"surface\":\"web\",\"fixture\":\"controlled-http-streams\",\"workload\":\"warm existing conversation with authored fixture history\"}]",
+      "id": "history-open",
+      "environment": {
+        "measurement": "trusted-event-to-visible-raf-v2",
+        "browser": "151.0.7922.34",
+        "platform": "darwin",
+        "architecture": "arm64",
+        "viewport": {
+          "width": 360,
+          "height": 780
+        },
+        "reducedMotion": true,
+        "surface": "web",
+        "fixture": "controlled-http-streams",
+        "workload": "warm existing conversation with authored fixture history"
+      },
+      "values": [52.29999999701977, 63.6000000089407, 55.3999999910593, 56.29999999701977, 57.5],
+      "medianMs": 56.29999999701977,
+      "p95Ms": 63.6000000089407
+    }
+  ]
+}

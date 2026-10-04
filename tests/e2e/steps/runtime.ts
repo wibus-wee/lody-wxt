@@ -4,6 +4,7 @@ import { Given, Then, When } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
 import * as v from 'valibot';
 
+import { longCommand } from '../../fixtures/assistant-work';
 import { RuntimeBoundary } from '../support/runtime-boundary';
 import type { WorkspaceWorld } from './workspace';
 
@@ -11,6 +12,80 @@ const modelLabel = /^模型/;
 const effortLabel = /^Effort/;
 const modeLabel = /^Mode/;
 const servers = new WeakMap<WorkspaceWorld, RuntimeBoundary>();
+Given(
+  'a cloud conversation with {string} tool work',
+  async function (this: WorkspaceWorld, state: string) {
+    const server = new RuntimeBoundary({
+      workHistory: { finished: state !== 'live', stopped: state === 'stopped' },
+    });
+    servers.set(this, server);
+    await server.install(this.context);
+  },
+);
+Then(
+  'the live work is grouped around its original commentary',
+  async function (this: WorkspaceWorld) {
+    const reply = this.page.getByRole('article', { name: 'Agent 消息', exact: true });
+    await expect(reply.getByRole('button', { name: '12 条命令', exact: true })).toBeVisible();
+    await expect(reply.getByRole('button', { name: '修改 1 个文件', exact: true })).toBeVisible();
+    await expect(reply.locator('[data-tool-step]:visible')).toHaveCount(0);
+    const first = await reply
+      .getByText('先检查仓库约定，再修改工作流。', { exact: true })
+      .boundingBox();
+    const group = await reply.getByRole('button', { name: '12 条命令', exact: true }).boundingBox();
+    const second = await reply
+      .getByText('仓库检查完成，接下来调整权限。', { exact: true })
+      .boundingBox();
+    assert.ok(first && group && second && first.y < group.y && group.y < second.y);
+  },
+);
+When('I inspect the grouped command and thought', async function (this: WorkspaceWorld) {
+  const reply = this.page.getByRole('article', { name: 'Agent 消息', exact: true });
+  const group = reply.getByRole('button', { name: '12 条命令', exact: true });
+  const position = await group.boundingBox();
+  await group.click();
+  await expect(
+    reply.getByText('先核对现有约定，避免覆盖已有配置。', { exact: true }),
+  ).toBeVisible();
+  const command = reply.getByRole('button', { name: longCommand.trim(), exact: true });
+  const label = command.locator('span[title]').first();
+  await expect(label).toHaveCSS('font-size', '13px');
+  await expect(label).toHaveCSS('font-weight', '400');
+  const expandedPosition = await group.boundingBox();
+  assert.ok(position && expandedPosition && Math.abs(position.y - expandedPosition.y) <= 1);
+  await command.click();
+  await expect(reply.locator('[data-tool-detail-sheet]').first()).toContainText(longCommand.trim());
+  await expect(reply.locator('[data-tool-detail-sheet]').first()).toContainText(
+    '第二行输出完整保留。',
+  );
+});
+When('the same turn completes its workflow answer', function (this: WorkspaceWorld) {
+  servers.get(this)!.finishWorkHistory();
+});
+Then(
+  'the completed work folds and both final paragraphs stay visible',
+  async function (this: WorkspaceWorld) {
+    const reply = this.page.getByRole('article', { name: 'Agent 消息', exact: true });
+    await expect(reply.getByRole('button', { name: '已完成工作', exact: true })).toBeVisible();
+    await expect(reply.getByRole('heading', { name: '工作流已更新', exact: true })).toBeVisible();
+    await expect(
+      reply.getByText('下一步可以从 GitHub Actions 查看执行结果。', { exact: true }),
+    ).toBeVisible();
+    await expect(reply.getByRole('button', { name: '12 条命令', exact: true })).toHaveCount(0);
+    await reply.getByRole('button', { name: '已完成工作', exact: true }).click();
+    await expect(reply.getByText('先检查仓库约定，再修改工作流。', { exact: true })).toBeVisible();
+    await expect(reply.getByRole('button', { name: '12 条命令', exact: true })).toBeVisible();
+  },
+);
+Then(
+  'stopped work remains inspectable without a completed label',
+  async function (this: WorkspaceWorld) {
+    const reply = this.page.getByRole('article', { name: 'Agent 消息', exact: true });
+    await expect(reply.getByRole('button', { name: '已完成工作', exact: true })).toHaveCount(0);
+    await expect(reply.getByText('已停止 · 内容已保留', { exact: true })).toBeVisible();
+    await expect(reply.getByRole('button', { name: '12 条命令', exact: true })).toBeVisible();
+  },
+);
 Given(
   'a cloud assistant identified by {string} {string} with provider {string}',
   async function (this: WorkspaceWorld, cliType: string, agentType: string, provider: string) {
@@ -184,6 +259,7 @@ Then('the partial reply is visible with a stop control', async function (this: W
   await expect(this.page.getByRole('button', { name: '停止生成', exact: true })).toBeEnabled();
 });
 Then('the official tool output can be inspected', async function (this: WorkspaceWorld) {
+  await this.page.locator('[data-activity-group]').last().getByRole('button').first().click();
   await this.page.getByRole('button', { name: '读取页面内容', exact: true }).click();
   const sheet = this.page.locator('[data-tool-detail-sheet]').last();
   await expect(sheet).toContainText('read page.html');

@@ -1,14 +1,21 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import process from 'node:process';
 
+import AxeBuilder from '@axe-core/playwright';
 import { chromium, expect, test } from '@playwright/test';
 
+import { JourneyEvidence } from '../../tools/assurance/evidence';
 import { AccountBoundary, signIn } from '../e2e/support/account-boundary';
 import { RuntimeBoundary } from '../e2e/support/runtime-boundary';
 
+// Persistent contexts retain their own success traces for assurance receipts.
+test.use({ trace: 'off' });
+
 for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
   test(`packaged capture on ${origin} preserves text and sends one prompt`, async () => {
+    const testInfo = test.info();
     const profile = await mkdtemp(path.join(tmpdir(), 'lody-page-capture-'));
     const extension = path.resolve('.output/chrome-mv3');
     const context = await chromium.launchPersistentContext(profile, {
@@ -16,6 +23,10 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
       headless: true,
       args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
     });
+    const evidence = origin.startsWith('https:')
+      ? new JourneyEvidence('capture-and-send-context', 'packaged-selection', 'extension')
+      : null;
+    await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
     try {
       const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
       await new AccountBoundary().install(context);
@@ -95,14 +106,22 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
       }
       await panel.getByRole('textbox', { name: '消息', exact: true }).fill('Keep my draft');
       await panel.getByRole('button', { name: '附加上下文', exact: true }).click();
-      await panel.getByRole('menuitem', { name: '附加选中文字', exact: true }).click();
+      await panel.getByRole('menuitem', { name: '其他资料来源…', exact: true }).click();
+      await panel
+        .getByRole('dialog', { name: '其他资料来源', exact: true })
+        .getByRole('button', { name: '附加选中文字', exact: true })
+        .click();
       await expect(panel.getByRole('alert')).toContainText('请先在网页中选中文字');
       await expect(panel.getByRole('textbox', { name: '消息', exact: true })).toHaveValue(
         'Keep my draft',
       );
       await expect(panel.getByTestId('context-card')).toHaveCount(0);
       await panel.getByRole('button', { name: '附加上下文', exact: true }).click();
-      await panel.getByRole('menuitem', { name: '附加当前页面', exact: true }).click();
+      await panel.getByRole('menuitem', { name: '其他资料来源…', exact: true }).click();
+      await panel
+        .getByRole('dialog', { name: '其他资料来源', exact: true })
+        .getByRole('button', { name: '附加当前页面', exact: true })
+        .click();
       await expect(
         panel.getByRole('button', { name: '查看资料 Capture fixture', exact: true }),
       ).toBeVisible();
@@ -113,8 +132,16 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
         'Visible article\nRead this phrase and its link.\nSecond paragraph.\n中文「网页」内容\n下一行',
       );
       await expect(preview.getByRole('link')).toHaveAttribute('href', `${origin}/capture-fixture`);
-      await expect(preview).not.toContainText('secret');
-      await expect(preview).not.toContainText('Navigation only');
+      const sanitized = async () => {
+        await expect(preview).not.toContainText('secret');
+        await expect(preview).not.toContainText('Navigation only');
+        await expect(preview.getByRole('link')).toHaveAttribute(
+          'href',
+          `${origin}/capture-fixture`,
+        );
+      };
+      if (evidence) await evidence.check('secret-content-excluded', sanitized);
+      else await sanitized();
       await panel.keyboard.press('Escape');
       await source.evaluate(() => {
         const passage = document.querySelector('#passage')!;
@@ -126,7 +153,11 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
       });
       await source.bringToFront();
       await panel.getByRole('button', { name: '附加上下文', exact: true }).click();
-      await panel.getByRole('menuitem', { name: '附加选中文字', exact: true }).click();
+      await panel.getByRole('menuitem', { name: '其他资料来源…', exact: true }).click();
+      await panel
+        .getByRole('dialog', { name: '其他资料来源', exact: true })
+        .getByRole('button', { name: '附加选中文字', exact: true })
+        .click();
       await expect(
         panel.getByRole('button', { name: '查看资料 Capture fixture', exact: true }),
       ).toHaveCount(2);
@@ -137,13 +168,103 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
       await expect(preview.locator('p').last()).toHaveText('is phrase and its li');
       await panel.keyboard.press('Escape');
       await panel
+        .getByRole('button', { name: '移除 Capture fixture', exact: true })
+        .first()
+        .click();
+      const removed = async () => {
+        await expect(panel.getByTestId('context-card')).toHaveCount(1);
+        await panel.getByRole('button', { name: '查看资料 Capture fixture', exact: true }).click();
+        await expect(preview.locator('p').last()).toHaveText('is phrase and its li');
+        await panel.keyboard.press('Escape');
+      };
+      if (evidence) await evidence.check('preview-and-removal-observed', removed);
+      else await removed();
+      await panel.getByRole('button', { name: 'Settings', exact: true }).click();
+      await panel.reload();
+      await panel.getByRole('button', { name: '返回对话', exact: true }).click();
+      const restored = async () => {
+        await expect(panel.getByRole('textbox', { name: '消息', exact: true })).toHaveValue(
+          'Keep my draft',
+        );
+        await expect(panel.getByTestId('context-card')).toHaveCount(1);
+        await panel.getByRole('button', { name: '查看资料 Capture fixture', exact: true }).click();
+        await expect(preview.locator('p').last()).toHaveText('is phrase and its li');
+        await panel.keyboard.press('Escape');
+      };
+      if (evidence) await evidence.check('context-restored-after-reload', restored);
+      else await restored();
+      const extraTitles = Array.from({ length: 7 }, (_, index) =>
+        index < 2
+          ? 'Menu · Raycast UI'
+          : `资料 ${index + 1} — ${'LongUnbrokenPageTitle'.repeat(6)}`,
+      );
+      for (const [index, title] of extraTitles.entries()) {
+        await source.evaluate(
+          ({ title, index }) => {
+            document.title = title;
+            document.querySelector('main')!.textContent = `Additional source ${index + 1}`;
+          },
+          { title, index },
+        );
+        await source.bringToFront();
+        await panel.getByRole('button', { name: '附加上下文', exact: true }).click();
+        await panel.getByRole('menuitem', { name: '其他资料来源…', exact: true }).click();
+        await panel
+          .getByRole('dialog', { name: '其他资料来源', exact: true })
+          .getByRole('button', { name: '附加当前页面', exact: true })
+          .click();
+        await expect(panel.getByTestId('context-card')).toHaveCount(index + 2);
+      }
+      await panel
         .getByRole('textbox', { name: '消息', exact: true })
         .fill('Explain these references');
       await panel.getByRole('button', { name: '发送消息', exact: true }).click();
       await expect(panel.getByRole('article', { name: '你的消息', exact: true })).toContainText(
         'Explain these references',
       );
-      await expect(panel.getByLabel('附加的网页').getByRole('listitem')).toHaveCount(2);
+      const sentMessage = panel.getByRole('article', { name: '你的消息', exact: true });
+      await expect(
+        sentMessage.getByRole('group', { name: '已附加的网页资料', exact: true }),
+      ).toHaveCount(1);
+      const cards = sentMessage.getByTestId('context-card');
+      await expect(cards).toHaveCount(8);
+      for (const width of [320, 360, 420]) {
+        await panel.setViewportSize({ width, height: 780 });
+        const bounds = await sentMessage.boundingBox();
+        expect(bounds).not.toBeNull();
+        for (const card of await cards.all()) {
+          const box = await card.boundingBox();
+          expect(box).not.toBeNull();
+          expect(box!.x).toBeGreaterThanOrEqual(bounds!.x - 1);
+          expect(box!.x + box!.width).toBeLessThanOrEqual(bounds!.x + bounds!.width + 1);
+        }
+        const strip = sentMessage.getByRole('group', { name: '已附加的网页资料', exact: true });
+        expect(await strip.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+        expect(
+          await panel
+            .getByRole('region', { name: '消息记录', exact: true })
+            .evaluate((node) => node.scrollWidth <= node.clientWidth + 1),
+        ).toBe(true);
+        expect(await panel.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+          true,
+        );
+      }
+      await testInfo.attach('sent-page-attachments-420', {
+        body: await panel.screenshot(),
+        contentType: 'image/png',
+      });
+      expect((await new AxeBuilder({ page: panel }).analyze()).violations).toEqual([]);
+      const lastCard = cards.last().getByRole('button');
+      await lastCard.focus();
+      await panel.keyboard.press('Enter');
+      await expect(preview).toContainText('Additional source 7');
+      await panel.keyboard.press('Escape');
+      await expect(lastCard).toBeFocused();
+      await sentMessage
+        .getByRole('button', { name: '查看资料 Capture fixture', exact: true })
+        .click();
+      await expect(preview.locator('p').last()).toHaveText('is phrase and its li');
+      await panel.keyboard.press('Escape');
       const streams = [
         ...new Set(
           cloud.traffic
@@ -156,11 +277,35 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
       expect(turn.inputConfig.inputBlocks).toEqual([
         { type: 'text', text: turn.inputConfig.prompt },
       ]);
-      expect(turn.inputConfig.prompt).toContain('Read this phrase and its link.');
-      expect(turn.inputConfig.prompt).toContain('is phrase and its li');
-      expect(turn.inputConfig.prompt).not.toContain('secret');
-      expect(turn.inputConfig.prompt).not.toContain('token=private');
+      const sent = () => {
+        expect(turn.inputConfig.prompt).not.toContain('Read this phrase and its link.');
+        expect(turn.inputConfig.prompt).toContain('is phrase and its li');
+        for (let index = 1; index <= 7; index++) {
+          expect(turn.inputConfig.prompt).toContain(`Additional source ${index}`);
+        }
+        expect(turn.inputConfig.prompt).toContain('Untrusted webpage references');
+        expect(turn.inputConfig.prompt).not.toContain('secret');
+        expect(turn.inputConfig.prompt).not.toContain('token=private');
+        expect(
+          cloud.document(streams[0]!.slice('workspace-a:s:'.length)).getList('history').length,
+        ).toBe(1);
+      };
+      if (evidence) await evidence.check('only-retained-context-sent', sent);
+      else sent();
     } finally {
+      const trace =
+        evidence && process.env.ASSURANCE_RUN_DIRECTORY
+          ? `${process.env.ASSURANCE_RUN_DIRECTORY}/packaged-capture.trace.zip`
+          : testInfo.outputPath('capture.trace.zip');
+      await context.tracing.stop({ path: trace });
+      await testInfo.attach('capture-trace', { path: trace, contentType: 'application/zip' });
+      if (evidence && process.env.ASSURANCE_RUN_DIRECTORY) {
+        await evidence.write(
+          testInfo.status === 'passed' ? 'passed' : 'failed',
+          trace,
+          testInfo.testId,
+        );
+      }
       await context.close();
       await rm(profile, { recursive: true, force: true });
     }

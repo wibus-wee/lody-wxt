@@ -1,37 +1,87 @@
 {
-  "preferences": {
-    "disposition": "active",
-    "owner": "src/features/preferences",
-    "reason": "Mood, name, durable storage and recovery."
+  "notifications": {
+    "disposition": "journey",
+    "owners": ["notifications", "account", "connection", "shell"],
+    "reason": "Closed-panel observation, terminal validation, deduplication and account isolation cross worker and browser permission lifetimes."
   },
-  "ambient": {
-    "disposition": "active",
-    "owner": "src/features/ambient",
-    "reason": "Opt-in shader effects and system Reduce Motion."
+  "sharing": {
+    "disposition": "journey",
+    "owners": ["sharing", "connection", "documents"],
+    "reason": "Explicit public disclosure, delivery recovery and revocation cross different credential/data-plane boundaries."
   },
-  "introduction": {
-    "disposition": "active",
-    "owner": "src/features/introduction",
-    "reason": "Host-controlled Cuelens onboarding."
+  "privacy": {
+    "disposition": "journey",
+    "owners": ["privacy", "quickDraft", "attachmentDrafts", "account"],
+    "reason": "Preference consent, scope isolation and local file deletion cross durable account boundaries."
   },
-  "account": {
-    "disposition": "active",
-    "owner": "src/features/account",
-    "reason": "Device authorization, session validation and workspace selection through controlled HTTP."
+  "dictation": {
+    "disposition": "journey",
+    "owners": ["dictation", "quickDraft", "shell"],
+    "reason": "Microphone activation and transcript insertion require independent explicit actions and cancellation."
   },
-  "conversations": {
-    "disposition": "active",
-    "owner": "src/features/conversations",
-    "reason": "Authenticated submission and recovery of uncertain delivery through controlled HTTP."
+  "identity": {
+    "disposition": "journey",
+    "owners": ["account", "connection"],
+    "reason": "Authorization and identity fences control access to every conversation."
+  },
+  "quickChat": {
+    "disposition": "journey",
+    "owners": ["quickDraft", "quickDelivery", "connection", "documents"],
+    "reason": "Primary user conversation surface and its independent delivery lifecycle."
+  },
+  "workspace": {
+    "disposition": "journey",
+    "owners": ["advanced", "machine", "documents"],
+    "reason": "Advanced commands, metadata management and destructive operations."
+  },
+  "pageContext": {
+    "disposition": "journey",
+    "owners": ["capture", "quickDraft", "transport"],
+    "reason": "Explicit tab capture crosses a privacy and permission boundary."
+  },
+  "appearance": {
+    "disposition": "journey",
+    "owners": ["appearance", "shell"],
+    "reason": "Preferences must survive surface changes without disrupting work."
   },
   "extension": {
-    "disposition": "integration",
-    "owner": "tests/extension",
-    "reason": "Packaged MV3 cross-page behavior is verified by Playwright."
+    "disposition": "journey",
+    "owners": ["shell", "transport", "account"],
+    "reason": "Packaged lifecycle, worker transport and trusted-storage boundaries."
   },
-  "custom-ui": {
-    "disposition": "reserved",
-    "owner": "src/shared/ui",
-    "reason": "User-owned component library integration boundary."
+  "sdk": {
+    "disposition": "supporting-contract",
+    "owners": ["documents", "machine"],
+    "reason": "SDK port/protocol verification supports journeys but cannot establish user outcomes."
+  },
+  "rendering": {
+    "disposition": "supporting-contract",
+    "owners": ["shell"],
+    "reason": "Storybook and axe verify rendering/accessibility; visibility alone is not a journey."
+  },
+  "guidance": {
+    "disposition": "supporting-contract",
+    "owners": ["shell"],
+    "reason": "Introduction is a host-controlled transient stepper; popup delegates to sidepanel/options. Rendered guidance supports entry into journeys without a separate durable workflow."
+  },
+  "offlineBridge": {
+    "disposition": "unmounted-adapter",
+    "owners": ["documents"],
+    "reason": "The independent SDK offline document bridge has no mounted product journey; bridge protocol checks cannot certify chat recovery."
+  },
+  "attachments": {
+    "disposition": "journey",
+    "owners": ["attachmentDrafts", "quickDelivery", "documents"],
+    "reason": "Quick composer explicitly configures attachment service and submits files with one user turn."
+  },
+  "automations": {
+    "disposition": "journey",
+    "owners": ["automations", "connection", "quickDraft"],
+    "reason": "Saved workflows and cloud schedules must retain their own identity across reload and failure."
+  },
+  "httpSubmission": {
+    "disposition": "unmounted-adapter",
+    "owners": ["advanced"],
+    "reason": "ConversationsController HTTP receipt adapter is not mounted by App routes; its tests do not prove the Loro user path."
   }
 }

@@ -41,7 +41,7 @@ test('built MV3 popup and options synchronize durable preferences through the se
           return (await api.sidePanel.getPanelBehavior()).openPanelOnActionClick;
         }),
       )
-      .toBe(true);
+      .toBe(false); // The action listener preserves activeTab before opening the panel.
     const id = new URL(worker.url()).host;
     const popup = await context.newPage();
     const options = await context.newPage();
