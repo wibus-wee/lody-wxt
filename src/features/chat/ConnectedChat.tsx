@@ -14,7 +14,12 @@ import { AccountPage } from '../account/AccountPage';
 import { useAccount } from '../account/useAccount';
 import { AutomationsPanel } from '../automations/AutomationsPanel';
 import type { LodyClient, PageContext, RunConfig } from '../connection/client';
-import { configurationValuesForModel } from '../connection/run-configuration';
+import {
+  configurationCategory,
+  configurationValuesForModel,
+  defaultRunSelection,
+  inheritedMcpSelection,
+} from '../connection/run-configuration';
 import { grantGatewayAccess } from '../connection/state';
 import { useLodyClient } from '../connection/use-client';
 import { blockSchema } from '../conversations/admission';
@@ -49,7 +54,7 @@ import { COMPOSER_MAX_LENGTH, editMentionRanges, expandComposerMentions } from '
 import { createComposerMentionSource } from './mentions/source';
 import type { ComposerMentionRange } from './mentions/types';
 import type { ChatMessage } from './MessageView';
-import { contextInput, contextSchema } from './real-adapter';
+import { contextSchema, matchesContextInput } from './real-adapter';
 import { SkillsPicker } from './SkillsPicker';
 import { TargetPicker } from './TargetPicker';
 import { useAttachmentDrafts } from './use-attachment-drafts';
@@ -361,27 +366,14 @@ function ClientChat({
   const latest = session?.messages.at(-1);
   const waitingForReply =
     latest?.role === 'user' && new Set(['pending', 'seen']).has(latest.turn.status ?? '');
-  const modelId = config?.modelId ?? snapshot.runModels[0]?.value ?? '';
+  const { modelId, modeId } = defaultRunSelection(snapshot, config);
   const model = snapshot.runModels.find((row) => row.value === modelId);
   const configOptions = snapshot.modelConfigOptions?.[modelId] ?? snapshot.configOptions ?? [];
-  const declaredMode = v.safeParse(
-    v.string(),
-    configOptions.find(
-      (option) => option.type === 'select' && new Set(['mode', 'modeId']).has(option.id),
-    )?.currentValue,
-  );
-  const modeId =
-    config?.modeId ??
-    (snapshot.permissionModes.length
-      ? declaredMode.success
-        ? declaredMode.output
-        : snapshot.permissionModes[0]?.value
-      : '') ??
-    '';
+  const mcpServerIds = inheritedMcpSelection(session, config?.mcpServerIds);
   const runConfig: RunConfig = {
-    modelId,
-    modeId,
-    ...(config?.mcpServerIds !== undefined ? { mcpServerIds: config.mcpServerIds } : {}),
+    ...(modelId ? { modelId } : {}),
+    ...(modeId ? { modeId } : {}),
+    ...(mcpServerIds !== undefined ? { mcpServerIds } : {}),
     reasoningEffort: config?.reasoningEffort ?? '',
     planMode: false,
     fastMode: false,
@@ -406,8 +398,12 @@ function ClientChat({
   const changeOption = (id: string, value: string | boolean) =>
     setConfig({
       ...runConfig,
-      ...(new Set(['model', 'modelId']).has(id) ? { modelId: v.parse(v.string(), value) } : {}),
-      ...(snapshot.permissionModes.length && new Set(['mode', 'modeId']).has(id)
+      ...(snapshot.runModels.length &&
+      configurationCategory(configOptions.find((option) => option.id === id) ?? { id }) === 'model'
+        ? { modelId: v.parse(v.string(), value) }
+        : {}),
+      ...(snapshot.permissionModes.length &&
+      configurationCategory(configOptions.find((option) => option.id === id) ?? { id }) === 'mode'
         ? { modeId: v.parse(v.string(), value) }
         : {}),
       configOptionValues: { ...runConfig.configOptionValues, [id]: value },
@@ -444,7 +440,8 @@ function ClientChat({
         setTargetOpen(true);
         return;
       }
-      if (!modelId) throw new Error('助手尚未提供模型，请刷新助手配置。');
+      if (snapshot.runConfigurationReady === false)
+        throw new Error('助手配置尚未就绪，请刷新助手配置。');
       const submitted = draft;
       const context = submitted.currentPage ? await capturePage('page') : undefined;
       const contexts = context
@@ -481,7 +478,7 @@ function ClientChat({
           : undefined;
       if (delivered) {
         if (
-          delivered.turn.inputConfig?.prompt !== contextInput(input.text, contexts).prompt ||
+          !matchesContextInput(delivered.turn.inputConfig, input.text, contexts) ||
           !sameAttachments(messageAttachments(delivered), prepared.attachments ?? [])
         )
           throw new Error('这份附件草稿的原消息已送达。请先移除已发送附件，再填写新的消息。');
@@ -599,11 +596,12 @@ function ClientChat({
         />
       ),
       attachments: <ContextStrip contexts={message.contexts} layout="message" />,
-      configuration: message.inputConfig ? (
-        <span>
-          {message.inputConfig.modelId} · {message.inputConfig.modeId}
-        </span>
-      ) : null,
+      configuration:
+        message.inputConfig?.modelId || message.inputConfig?.modeId ? (
+          <span>
+            {[message.inputConfig.modelId, message.inputConfig.modeId].filter(Boolean).join(' · ')}
+          </span>
+        ) : null,
     }));
   const disabled =
     busy ||
@@ -805,7 +803,7 @@ function ClientChat({
           </ActivityStatus>
         ) : snapshot.busy ? (
           <ActivityStatus busy>发送中</ActivityStatus>
-        ) : snapshot.target && !modelId ? (
+        ) : snapshot.target && snapshot.runConfigurationReady === false ? (
           <ActivityStatus
             busy
             action={
@@ -819,7 +817,7 @@ function ClientChat({
               </Button>
             }
           >
-            获取模型配置
+            获取助手配置
           </ActivityStatus>
         ) : waitingForReply ? (
           <ActivityStatus busy>等待助手回复</ActivityStatus>
@@ -1047,18 +1045,18 @@ function ClientChat({
           )}
         </>
       }
+      contextControls={
+        <ComposerContextBar
+          currentPage={draft.currentPage ?? false}
+          onCurrentPageChange={(currentPage) =>
+            setDraft((current) => ({ ...current, currentPage }))
+          }
+          onSelectTabs={() => setTabs(true)}
+          disabled={disabled}
+          full={draft.contexts.length >= 8}
+        />
+      }
       composer={{
-        contextControls: (
-          <ComposerContextBar
-            currentPage={draft.currentPage ?? false}
-            onCurrentPageChange={(currentPage) =>
-              setDraft((current) => ({ ...current, currentPage }))
-            }
-            onSelectTabs={() => setTabs(true)}
-            disabled={disabled}
-            full={draft.contexts.length >= 8}
-          />
-        ),
         value: draft.text,
         disabled: busy || snapshot.busy || loaded !== draftKey,
         onChange: updateDraftText,

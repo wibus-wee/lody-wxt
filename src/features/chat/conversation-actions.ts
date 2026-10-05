@@ -1,6 +1,12 @@
 import * as v from 'valibot';
 
-import type { ChatAttachment, Conversation, LodyClient, Message } from '../connection/client';
+import type {
+  ChatAttachment,
+  Conversation,
+  LodyClient,
+  Message,
+  RunConfig,
+} from '../connection/client';
 import { blockSchema } from '../conversations/admission';
 
 const filenameUnsafe = /[^\p{L}\p{N} _-]/gu;
@@ -10,6 +16,30 @@ const forkSchema = v.object({
   operationId: v.string(),
   targetSessionId: v.string(),
 });
+
+/** Legacy turns may project an empty config shell; MCP selection alone is not a model choice. */
+export function resolveResendConfiguration(
+  saved: RunConfig | undefined,
+  current: RunConfig | undefined,
+) {
+  const hasSavedSelection = Boolean(
+    saved &&
+    (saved.modelId ||
+      saved.modeId ||
+      saved.reasoningEffort ||
+      saved.planMode ||
+      saved.fastMode ||
+      Object.keys(saved.configOptionValues ?? {}).length),
+  );
+  if (hasSavedSelection || !current) return { config: saved, usesCurrent: false };
+  return {
+    config: {
+      ...current,
+      ...(saved?.mcpServerIds !== undefined ? { mcpServerIds: [...saved.mcpServerIds] } : {}),
+    },
+    usesCurrent: true,
+  };
+}
 
 export function messageAttachments(message: Message): ChatAttachment[] {
   const parsed = v.safeParse(v.array(blockSchema), message.turn.inputConfig?.inputBlocks ?? []);

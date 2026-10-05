@@ -37,6 +37,14 @@ function readPrompt(prompt: string) {
   }
   return { text: prompt, contexts: [] };
 }
+function readLegacyContext(text: string): PageContext | undefined {
+  if (!text.startsWith(contextPrefix)) return undefined;
+  try {
+    return v.parse(contextSchema, JSON.parse(text.slice(contextPrefix.length)));
+  } catch {
+    return undefined;
+  }
+}
 const textSchema = v.object({ type: v.literal('text'), text: v.string() });
 const activitySchema = v.looseObject({
   type: v.string(),
@@ -78,18 +86,24 @@ export function mapHistory(turns: SessionTurn[]): Message[] {
       });
     }
     const contexts = v.safeParse(v.array(contextSchema), turn.pageContexts);
+    const visibleTexts = texts.length
+      ? texts
+      : (turn.inputConfig?.inputBlocks ?? []).flatMap((block) =>
+          block.type === 'text' ? [block.text] : [],
+        );
     const prompt =
       turn.role === 'user'
-        ? readPrompt(turn.inputConfig?.prompt ?? texts.join(''))
+        ? readPrompt(
+            visibleTexts.length
+              ? visibleTexts.filter((text) => !readLegacyContext(text)).join('')
+              : (turn.inputConfig?.prompt ?? ''),
+          )
         : { text: '', contexts: [] };
     const recovered: PageContext[] = [...prompt.contexts];
     for (const block of turn.inputConfig?.inputBlocks ?? []) {
-      if (block.type !== 'text' || !block.text.startsWith(contextPrefix)) continue;
-      try {
-        recovered.push(v.parse(contextSchema, JSON.parse(block.text.slice(contextPrefix.length))));
-      } catch {
-        // The original block remains available on the turn when it is not a page context.
-      }
+      if (block.type !== 'text') continue;
+      const context = readLegacyContext(block.text);
+      if (context) recovered.push(context);
     }
     const effort = v.safeParse(v.string(), turn.inputConfig?.configOptionValues?.reasoning_effort);
     return {
@@ -99,10 +113,10 @@ export function mapHistory(turns: SessionTurn[]): Message[] {
       contexts: contexts.success ? contexts.output : recovered,
       activities,
       turn,
-      ...(turn.inputConfig?.modelId
+      ...(turn.inputConfig
         ? {
             inputConfig: {
-              modelId: turn.inputConfig.modelId,
+              ...(turn.inputConfig.modelId ? { modelId: turn.inputConfig.modelId } : {}),
               ...(turn.inputConfig.mcpServerIds === undefined
                 ? {}
                 : { mcpServerIds: turn.inputConfig.mcpServerIds }),
@@ -133,4 +147,15 @@ export function contextInput(text: string, contexts: PageContext[]) {
   const validated = v.parse(v.array(contextSchema), contexts);
   const prompt = validated.length ? `${text}${referencesPrefix}${JSON.stringify(validated)}` : text;
   return { prompt, inputBlocks: [{ type: 'text' as const, text: prompt }] };
+}
+
+export function matchesContextInput(
+  input: SessionTurn['inputConfig'],
+  text: string,
+  contexts: PageContext[],
+): boolean {
+  const expected = contextInput(text, contexts).prompt;
+  if (!input?.inputBlocks) return input?.prompt === expected;
+  const texts = input.inputBlocks.filter((block) => block.type === 'text');
+  return texts.length === 1 && texts[0]?.text === expected;
 }

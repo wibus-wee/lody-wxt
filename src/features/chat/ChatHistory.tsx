@@ -1,6 +1,8 @@
 import * as stylex from '@stylexjs/stylex';
+import type { KeyboardEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
+import { colors } from '../../../vendor/lody/packages/ui/src/tokens/colors.stylex';
 import { Icon } from '../../shared/icons/Icon';
 import { Button, Input, Menu, Popover } from '../../shared/ui';
 import { composer } from '../../shared/ui/composer.stylex';
@@ -8,16 +10,50 @@ import { Dialog } from '../../shared/ui/dialog';
 import type { Conversation } from '../connection/client';
 
 const styles = stylex.create({
-  panel: {
-    width: 'min(320px, calc(100vw - 24px))',
-    maxHeight: 'min(480px, calc(100dvh - 100px))',
+  panel: { width: 'min(288px, calc(100vw - 24px))' },
+  body: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 10,
+    maxHeight: 'min(360px, calc(100dvh - 120px))',
+    minHeight: 0,
+    gap: 8,
   },
-  list: { display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto', minHeight: 0 },
-  row: { justifyContent: 'start', flex: 1, minWidth: 0, minHeight: 44 },
-  item: { display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    flexShrink: 0,
+  },
+  list: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+    overflowY: 'auto',
+    minHeight: 0,
+    overscrollBehavior: 'contain',
+  },
+  row: {
+    justifyContent: 'start',
+    flex: 1,
+    minWidth: 0,
+    fontSize: 13,
+    fontWeight: 400,
+    paddingInline: 8,
+  },
+  item: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 2,
+    minWidth: 0,
+    flexShrink: 0,
+    borderRadius: 6,
+    backgroundColor: { default: 'transparent', ':focus-within': colors.hoverFill },
+  },
+  selected: { backgroundColor: colors.hoverFill },
+  selectedRow: { color: colors.label },
+  utility: { fontSize: 12, fontWeight: 400, color: composer.hint },
+  search: { flexShrink: 0 },
   title: {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -26,7 +62,13 @@ const styles = stylex.create({
     flex: 1,
     textAlign: 'start',
   },
-  hint: { color: composer.hint, margin: 0, fontSize: 12, lineHeight: 1.5 },
+  hint: {
+    color: composer.hint,
+    margin: 0,
+    fontSize: 12,
+    lineHeight: 1.5,
+    overflowWrap: 'anywhere',
+  },
   empty: { color: composer.hint, margin: 8, fontSize: 13 },
   form: { display: 'flex', flexDirection: 'column', gap: 12 },
   footer: { display: 'flex', justifyContent: 'end', gap: 8 },
@@ -58,6 +100,9 @@ export function ChatHistory({
   actions?: ChatHistoryActions | undefined;
 }) {
   const popupRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLElement>(null);
+  const [focusedId, setFocusedId] = useState('');
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [archived, setArchived] = useState(false);
@@ -105,6 +150,38 @@ export function ChatHistory({
           : row.title.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())),
     )
     .toSorted((a, b) => b.updatedAt - a.updatedAt);
+  const tabStop = rows.some((row) => row.id === focusedId) ? focusedId : rows[0]?.id;
+  function navigate(event: KeyboardEvent<HTMLElement>, fromSearch = false) {
+    if (
+      event.nativeEvent.isComposing ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey
+    )
+      return;
+    const buttons = Array.from(
+      listRef.current?.querySelectorAll<HTMLButtonElement>(
+        'button[data-history-id]:not(:disabled)',
+      ) ?? [],
+    );
+    const index = buttons.indexOf(event.target as HTMLButtonElement);
+    if (!fromSearch && index < 0) return;
+    let next: HTMLButtonElement | HTMLInputElement | undefined | null;
+    if (event.key === 'ArrowDown') next = buttons[Math.min(index + 1, buttons.length - 1)];
+    else if (event.key === 'ArrowUp')
+      next = fromSearch
+        ? buttons.at(-1)
+        : index === 0
+          ? searchInputRef.current
+          : buttons[index - 1];
+    else if (!fromSearch && event.key === 'Home') next = buttons[0];
+    else if (!fromSearch && event.key === 'End') next = buttons.at(-1);
+    if (!next) return;
+    event.preventDefault();
+    next.focus({ preventScroll: true });
+    next.scrollIntoView({ block: 'nearest' });
+  }
   const perform = async (action: (() => Promise<void>) | undefined, noticeText = '') => {
     if (!action || busy) return;
     setBusy(true);
@@ -128,148 +205,181 @@ export function ChatHistory({
         >
           <Icon name="history" size={18} />
         </Popover.Trigger>
-        <Popover.Content ref={popupRef} align="end" {...stylex.props(styles.panel)}>
-          <Popover.Header>
-            <Popover.Title>{archived ? '已归档对话' : '最近对话'}</Popover.Title>
-          </Popover.Header>
-          <Input
-            aria-label="搜索对话"
-            placeholder="搜索对话标题…"
-            value={search}
-            onChange={(event) => {
-              searchRef.current?.abort();
-              setSearching(false);
-              setMatches(null);
-              setSearch(event.target.value);
-            }}
-          />
-          <p {...stylex.props(styles.hint)}>
-            {matches
-              ? '全文结果：已检查当前工作区可见会话的正文、网页资料和工具记录'
-              : `标题搜索：当前工作区已载入的 ${conversations.length} 段对话`}
-          </p>
-          {actions?.search && (
-            <Button
-              size="small"
-              variant="ghost"
-              disabled={!search.trim()}
-              onClick={() =>
-                searching ? (searchRef.current?.abort(), setSearching(false)) : void fulltext()
-              }
-            >
-              {searching ? `取消搜索 ${searchProgress}` : '搜索全部可见对话正文'}
-            </Button>
-          )}
-          {(actions?.archive || actions?.restore) && (
-            <Button variant="ghost" size="small" onClick={() => setArchived(!archived)}>
-              {archived ? '返回最近对话' : '查看已归档'}
-            </Button>
-          )}
-          {error && !operation && (
-            <output role="alert" {...stylex.props(styles.hint)}>
-              {error}
-            </output>
-          )}
-          {notice && <output {...stylex.props(styles.hint)}>{notice}</output>}
-          <div {...stylex.props(styles.list)}>
-            {rows.map((row) => (
-              <div key={row.id} {...stylex.props(styles.item)}>
+        <Popover.Content
+          ref={popupRef}
+          initialFocus={searchInputRef}
+          align="end"
+          {...stylex.props(styles.panel)}
+        >
+          <div {...stylex.props(styles.body)} data-history-panel="">
+            <div {...stylex.props(styles.header)}>
+              <Popover.Title>{archived ? '已归档对话' : '最近对话'}</Popover.Title>
+              {(actions?.archive || actions?.restore) && (
                 <Button
-                  variant={row.id === selected ? 'secondary' : 'ghost'}
-                  disabled={disabled || busy}
-                  {...stylex.props(styles.row)}
-                  onClick={() => {
-                    setOpen(false);
-                    onOpen(row.id);
-                  }}
+                  variant="ghost"
+                  size="mini"
+                  {...stylex.props(styles.utility)}
+                  aria-label={archived ? '返回最近对话' : '查看已归档'}
+                  onClick={() => setArchived(!archived)}
                 >
-                  <Icon name="chat" size={16} />
-                  <span {...stylex.props(styles.title)}>{row.title}</span>
-                  {row.id === selected && <Icon name="check" size={14} />}
+                  {archived ? '返回' : '已归档'}
                 </Button>
-                {actions && (
-                  <Menu.Root>
-                    <Menu.Trigger
-                      render={
-                        <Button
-                          variant="ghost"
-                          size="small"
-                          icon
-                          aria-label={`管理对话 ${row.title}`}
-                          disabled={disabled || busy}
-                        />
-                      }
-                    >
-                      <Icon name="chevron" size={14} />
-                    </Menu.Trigger>
-                    <Menu.Content container={popupRef} align="end">
-                      {actions.rename && (
-                        <Menu.Item
-                          onClick={() => {
-                            setError('');
-                            setTitle(row.title);
-                            setOperation({ kind: 'rename', row });
-                          }}
-                        >
-                          重命名
-                        </Menu.Item>
-                      )}
-                      {actions.share && (
-                        <Menu.Item
-                          onClick={() => {
-                            setOpen(false);
-                            void perform(() => actions.share!(row.id));
-                          }}
-                        >
-                          分享会话…
-                        </Menu.Item>
-                      )}
-                      {actions.export && (
-                        <Menu.Item onClick={() => void perform(() => actions.export!(row.id))}>
-                          导出 Markdown
-                        </Menu.Item>
-                      )}
-                      {!row.isArchived && actions.archive && (
-                        <Menu.Item
-                          onClick={() =>
-                            void perform(
-                              () => actions.archive!(row.id),
-                              '归档请求已提交；列表以同步结果为准。',
-                            )
-                          }
-                        >
-                          归档
-                        </Menu.Item>
-                      )}
-                      {row.isArchived && actions.restore && (
-                        <Menu.Item onClick={() => void perform(() => actions.restore!(row.id))}>
-                          恢复对话
-                        </Menu.Item>
-                      )}
-                      {actions.delete && (
-                        <Menu.Item
-                          onClick={() => {
-                            setError('');
-                            setOperation({ kind: 'delete', row });
-                          }}
-                        >
-                          删除对话…
-                        </Menu.Item>
-                      )}
-                    </Menu.Content>
-                  </Menu.Root>
-                )}
-              </div>
-            ))}
-            {!rows.length && (
-              <output {...stylex.props(styles.empty)}>
-                {search
-                  ? '没有找到相关对话'
-                  : archived
-                    ? '还没有已归档对话。'
-                    : '发出第一条消息后，对话会出现在这里。'}
+              )}
+            </div>
+            <Input
+              ref={searchInputRef}
+              aria-label="搜索对话"
+              size="small"
+              {...stylex.props(styles.search)}
+              placeholder="搜索对话标题…"
+              value={search}
+              onKeyDown={(event) => navigate(event, true)}
+              onChange={(event) => {
+                searchRef.current?.abort();
+                setSearching(false);
+                setMatches(null);
+                setError('');
+                setSearch(event.target.value);
+              }}
+            />
+            {actions?.search && !!search.trim() && (
+              <Button
+                size="mini"
+                variant="ghost"
+                {...stylex.props(styles.utility)}
+                aria-label={searching ? `取消搜索 ${searchProgress}` : '搜索全部可见对话正文'}
+                onClick={() =>
+                  searching ? (searchRef.current?.abort(), setSearching(false)) : void fulltext()
+                }
+              >
+                <Icon name="search" size={12} />
+                {searching ? `取消搜索 ${searchProgress}` : '搜索对话正文'}
+              </Button>
+            )}
+            {matches && <p {...stylex.props(styles.hint)}>正文搜索 · {rows.length} 段结果</p>}
+            {error && !operation && (
+              <output role="alert" {...stylex.props(styles.hint)}>
+                {error}
               </output>
             )}
+            {notice && <output {...stylex.props(styles.hint)}>{notice}</output>}
+            <section ref={listRef} {...stylex.props(styles.list)} aria-label="对话列表">
+              {rows.map((row) => (
+                <div
+                  key={row.id}
+                  {...stylex.props(styles.item, row.id === selected && styles.selected)}
+                >
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    aria-current={row.id === selected ? 'true' : undefined}
+                    data-history-id={row.id}
+                    tabIndex={row.id === tabStop ? 0 : -1}
+                    onFocus={() => setFocusedId(row.id)}
+                    onKeyDown={(event) => navigate(event)}
+                    disabled={disabled || busy}
+                    {...stylex.props(styles.row)}
+                    onClick={() => {
+                      setOpen(false);
+                      onOpen(row.id);
+                    }}
+                  >
+                    <span
+                      {...stylex.props(styles.title, row.id === selected && styles.selectedRow)}
+                    >
+                      {row.title}
+                    </span>
+                    {row.id === selected && <Icon name="check" size={14} />}
+                  </Button>
+                  {actions && (
+                    <Menu.Root>
+                      <Menu.Trigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="small"
+                            icon
+                            aria-label={`管理对话 ${row.title}`}
+                            tabIndex={row.id === tabStop ? 0 : -1}
+                            disabled={disabled || busy}
+                          />
+                        }
+                      >
+                        <Icon name="tools" size={14} />
+                      </Menu.Trigger>
+                      <Menu.Content container={popupRef} align="end">
+                        {actions.rename && (
+                          <Menu.Item
+                            onClick={() => {
+                              setError('');
+                              setTitle(row.title);
+                              setOperation({ kind: 'rename', row });
+                            }}
+                          >
+                            重命名
+                          </Menu.Item>
+                        )}
+                        {actions.share && (
+                          <Menu.Item
+                            onClick={() => {
+                              setOpen(false);
+                              void perform(() => actions.share!(row.id));
+                            }}
+                          >
+                            分享会话…
+                          </Menu.Item>
+                        )}
+                        {actions.export && (
+                          <Menu.Item onClick={() => void perform(() => actions.export!(row.id))}>
+                            导出 Markdown
+                          </Menu.Item>
+                        )}
+                        {!row.isArchived && actions.archive && (
+                          <Menu.Item
+                            onClick={() =>
+                              void perform(
+                                () => actions.archive!(row.id),
+                                '归档请求已提交；列表以同步结果为准。',
+                              )
+                            }
+                          >
+                            归档
+                          </Menu.Item>
+                        )}
+                        {row.isArchived && actions.restore && (
+                          <Menu.Item onClick={() => void perform(() => actions.restore!(row.id))}>
+                            恢复对话
+                          </Menu.Item>
+                        )}
+                        {actions.delete && (
+                          <Menu.Item
+                            onClick={() => {
+                              setError('');
+                              setOperation({ kind: 'delete', row });
+                            }}
+                          >
+                            删除对话…
+                          </Menu.Item>
+                        )}
+                      </Menu.Content>
+                    </Menu.Root>
+                  )}
+                </div>
+              ))}
+              {!rows.length && !error && (
+                <output {...stylex.props(styles.empty)}>
+                  {searching
+                    ? '正在搜索对话…'
+                    : search
+                      ? matches
+                        ? '没有找到相关对话'
+                        : '没有匹配的标题'
+                      : archived
+                        ? '还没有已归档对话。'
+                        : '发出第一条消息后，对话会出现在这里。'}
+                </output>
+              )}
+            </section>
           </div>
         </Popover.Content>
       </Popover.Root>

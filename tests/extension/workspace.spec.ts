@@ -43,13 +43,28 @@ test('built MV3 popup and options synchronize durable preferences through the se
       )
       .toBe(false); // The action listener preserves activeTab before opening the panel.
     const id = new URL(worker.url()).host;
+    await worker.evaluate(async () => {
+      const api = (
+        globalThis as typeof globalThis & {
+          chrome: {
+            storage: { local: { set: (values: Record<string, unknown>) => Promise<void> } };
+          };
+        }
+      ).chrome;
+      await api.storage.local.set({
+        preferences: { mood: 'glass', displayName: 'Legacy workspace', ambient: false },
+      });
+    });
     const popup = await context.newPage();
     const options = await context.newPage();
     await popup.goto(`chrome-extension://${id}/popup.html`);
     await options.goto(`chrome-extension://${id}/options.html#/settings`);
-    await options.getByRole('button', { name: 'glass', exact: true }).click();
-    await expect(popup.locator('main')).toHaveAttribute('data-mood', 'glass');
-    await expect(options.locator('main')).toHaveAttribute('data-mood', 'glass');
+    await expect(popup.locator('main')).toHaveAttribute('data-mood', 'outline');
+    await expect(options.locator('main')).toHaveAttribute('data-mood', 'outline');
+    await expect(options.getByRole('textbox', { name: '侧栏名称' })).toHaveValue(
+      'Legacy workspace',
+    );
+    await expect(options.getByText('图标风格', { exact: true })).toHaveCount(0);
     await options.getByRole('textbox', { name: '侧栏名称' }).fill('Extension studio');
     await options.getByRole('button', { name: '保存名称' }).click();
     await expect(options.getByRole('button', { name: '保存名称' })).toBeDisabled();
@@ -57,7 +72,7 @@ test('built MV3 popup and options synchronize durable preferences through the se
     await expect(popup.getByRole('textbox', { name: '消息' })).toHaveCount(0);
     await expect(popup.getByRole('button', { name: '打开侧栏' })).toBeEnabled();
     await popup.reload();
-    await expect(popup.locator('main')).toHaveAttribute('data-mood', 'glass');
+    await expect(popup.locator('main')).toHaveAttribute('data-mood', 'outline');
     const backgroundState = await popup.evaluate(async () => {
       const chromeApi = (
         globalThis as typeof globalThis & {
@@ -68,7 +83,7 @@ test('built MV3 popup and options synchronize durable preferences through the se
       ).chrome;
       return chromeApi.runtime.sendMessage({ type: 'preferences:get' });
     });
-    expect(backgroundState).toMatchObject({ mood: 'glass', displayName: 'Extension studio' });
+    expect(backgroundState).toMatchObject({ mood: 'outline', displayName: 'Extension studio' });
     const violations = (
       await new AxeBuilder({ page: popup }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()
     ).violations;

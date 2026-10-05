@@ -11,13 +11,13 @@ import {
 
 afterEach(() => localStorage.removeItem('lody:preferences'));
 
-it('durable preferences hydrate a fresh Jotai store in a real browser', async () => {
+it('legacy icon preferences hydrate as outline without losing other preferences', async () => {
   const value = { mood: 'glass', displayName: 'Focus', ambient: true } as const;
-  await savePreferences(value);
+  localStorage.setItem('lody:preferences', JSON.stringify(value));
   const store = createStore();
   store.set(preferencesAtom, await loadPreferences());
-  expect(store.get(moodAtom)).toBe('glass');
-  expect(store.get(preferencesAtom)).toEqual({ ...defaults, ...value });
+  expect(store.get(moodAtom)).toBe('outline');
+  expect(store.get(preferencesAtom)).toEqual({ ...defaults, ...value, mood: 'outline' });
 });
 
 it('corrupted browser storage recovers defaults', async () => {
@@ -33,10 +33,10 @@ it('corrupted browser storage recovers defaults', async () => {
 it('a storage notification hydrates subscribers and cleanup removes the listener', async () => {
   const values: unknown[] = [];
   const stop = watchPreferences((value) => values.push(value));
-  await savePreferences({ ...defaults, mood: 'pixel' });
+  await savePreferences({ ...defaults, ambient: true });
   window.dispatchEvent(new StorageEvent('storage', { key: 'lody:preferences' }));
   await expect.poll(() => values.length).toBe(1);
-  expect(values[0]).toEqual({ ...defaults, mood: 'pixel' });
+  expect(values[0]).toEqual({ ...defaults, ambient: true });
   stop();
   window.dispatchEvent(new StorageEvent('storage', { key: 'lody:preferences' }));
   await new Promise<void>((resolve) => queueMicrotask(resolve));

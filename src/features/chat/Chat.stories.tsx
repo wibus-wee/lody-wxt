@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import * as stylex from '@stylexjs/stylex';
 import { useState } from 'react';
 
 import { Icon } from '../../shared/icons/Icon';
@@ -10,10 +11,11 @@ import { Chat } from './Chat';
 import { ChatHeader } from './ChatHeader';
 import { ComposerContextBar } from './ComposerContextBar';
 
-function ContextControlsPreview() {
+function ContextControlsPreview({ disabled = false }: { disabled?: boolean }) {
   const [currentPage, setCurrentPage] = useState(false);
   return (
     <ComposerContextBar
+      disabled={disabled}
       currentPage={currentPage}
       onCurrentPageChange={setCurrentPage}
       onSelectTabs={() => {}}
@@ -76,13 +78,13 @@ const meta = {
       </ChatHeader>
     ),
     onSubmit: () => {},
+    contextControls: <ContextControlsPreview />,
     composer: {
       value: '',
       disabled: false,
       onChange: () => {},
       onKeyDown: () => {},
       attachments: null,
-      contextControls: <ContextControlsPreview />,
       attachmentAction: (
         <Button variant="ghost" size="small" icon aria-label="附加上下文">
           <Icon name="plus" size={16} />
@@ -182,6 +184,7 @@ export const Connecting: Story = {
   args: {
     messages: [],
     status: <ActivityStatus busy>连接工作区</ActivityStatus>,
+    contextControls: <ContextControlsPreview disabled />,
     composer: { ...meta.args.composer, disabled: true },
   },
 };
@@ -217,3 +220,46 @@ export const Streaming: Story = {
     ],
   },
 };
+
+const scrollPreview = stylex.create({
+  shell: { height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 },
+  controls: { display: 'flex', flexWrap: 'wrap', gap: 4, padding: 8 },
+});
+
+function ScrollFollowingExample() {
+  const [paragraphs, setParagraphs] = useState(18);
+  const [draft, setDraft] = useState('');
+  return (
+    <div {...stylex.props(scrollPreview.shell)}>
+      <div {...stylex.props(scrollPreview.controls)}>
+        <Button size="mini" onClick={() => setParagraphs((count) => count + 1)}>
+          追加回复
+        </Button>
+        <Button size="mini" onClick={() => setParagraphs(1)}>
+          缩短回复
+        </Button>
+        <Button size="mini" onClick={() => setDraft('保留我的阅读位置。\n'.repeat(8))}>
+          增高输入框
+        </Button>
+      </div>
+      <Chat
+        {...meta.args}
+        messages={[
+          meta.args.messages[0]!,
+          {
+            id: 'scroll-answer',
+            role: 'agent',
+            status: 'streaming',
+            text: Array.from(
+              { length: paragraphs },
+              (_, index) => `第 ${index + 1} 段。向上阅读时保留位置，回到最新后继续跟随回复。`,
+            ).join('\n\n'),
+          },
+        ]}
+        composer={{ ...meta.args.composer, value: draft, onChange: setDraft }}
+      />
+    </div>
+  );
+}
+
+export const ScrollFollowing: Story = { render: () => <ScrollFollowingExample /> };

@@ -65,6 +65,16 @@ export function TurnActions({
                       inputConfig: {
                         ...turn.inputConfig,
                         prompt,
+                        ...(turn.inputConfig.inputBlocks
+                          ? {
+                              inputBlocks: [
+                                { type: 'text' as const, text: prompt },
+                                ...turn.inputConfig.inputBlocks.filter(
+                                  (block) => block.type !== 'text',
+                                ),
+                              ],
+                            }
+                          : {}),
                         cliType: turn.inputConfig.cliType,
                         agentType: turn.inputConfig.agentType,
                       },

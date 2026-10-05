@@ -47,8 +47,20 @@ const initial: Conversation[] = [
     messages: [],
   },
 ];
-function HistoryExample({ failure = false }: { failure?: boolean }) {
-  const [rows, setRows] = useState(initial);
+function HistoryExample({ failure = false, many = false }: { failure?: boolean; many?: boolean }) {
+  const [rows, setRows] = useState(() =>
+    many
+      ? [
+          ...initial,
+          ...Array.from({ length: 626 }, (_, index) => ({
+            ...initial[0]!,
+            id: `session-${index}`,
+            title: `研究记录 ${index + 1}：浏览器扩展与会话交互`,
+            updatedAt: -index,
+          })),
+        ]
+      : initial,
+  );
   const [selected, setSelected] = useState('one');
   const update = async (id: string, changes: Partial<Conversation>) => {
     if (failure) throw new Error('未能同步：连接已断开。请重新连接后重试。');
@@ -62,6 +74,13 @@ function HistoryExample({ failure = false }: { failure?: boolean }) {
         disabled={false}
         onOpen={setSelected}
         actions={{
+          search: async (query) => {
+            if (failure) throw new Error('搜索未完成：连接已断开，请重试。');
+            return {
+              ids: rows.filter((row) => row.title.includes(query)).map((row) => row.id),
+              failed: [],
+            };
+          },
           rename: (id, title) => update(id, { title }),
           archive: (id) => update(id, { isArchived: true }),
           restore: (id) => update(id, { isArchived: false }),
@@ -83,3 +102,5 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const History: Story = {};
 export const SyncFailure: Story = { args: { failure: true } };
+
+export const ManyConversations: Story = { args: { many: true } };

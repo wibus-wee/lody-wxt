@@ -77,6 +77,7 @@ export interface RunConfigMenuProps {
     | readonly {
         id: string;
         name: string;
+        category?: string | undefined;
         type: 'select' | 'boolean';
         currentValue: string | boolean;
         options: readonly { value: string | boolean; name: string }[];
@@ -262,7 +263,11 @@ function ModelOptions({
 export function RunConfigMenu(props: RunConfigMenuProps) {
   const [open, setOpen] = useState(false);
   const modelOption = props.configOptions?.find(
-    (option) => option.id === 'model' || option.id.toLowerCase().includes('model'),
+    (option) =>
+      option.type === 'select' &&
+      (option.category === undefined
+        ? new Set(['model', 'modelId']).has(option.id)
+        : option.category === 'model'),
   );
   const modelValue = modelOption
     ? (props.configOptionValues?.[modelOption.id] ?? modelOption.currentValue)

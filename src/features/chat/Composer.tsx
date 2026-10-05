@@ -16,8 +16,8 @@ const styles = stylex.create({
     position: 'relative',
     display: 'flex',
     flexDirection: 'column',
-    gap: 4,
-    padding: '6px 8px',
+    gap: 10,
+    padding: '12px 10px 8px',
     minWidth: 0,
     borderWidth: 1,
     borderStyle: 'solid',
@@ -30,7 +30,7 @@ const styles = stylex.create({
   prompt: {
     display: 'block',
     width: '100%',
-    minHeight: 48,
+    minHeight: 56,
     maxHeight: 'min(200px, 28dvh)',
     fieldSizing: 'content',
     paddingInline: 4,
@@ -73,7 +73,6 @@ export function Composer({
   disabled,
   onChange,
   onKeyDown,
-  contextControls,
   attachments,
   attachmentAction,
   configuration,
@@ -87,7 +86,6 @@ export function Composer({
   disabled: boolean;
   onChange: (value: string) => void;
   onKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
-  contextControls?: ReactNode;
   attachments: ReactNode;
   attachmentAction: ReactNode;
   configuration: ReactNode;
@@ -135,7 +133,6 @@ export function Composer({
           promptRef.current?.focus({ preventScroll: true });
       }}
     >
-      {contextControls}
       {attachments}
       {mentions.open && (
         <ComposerMentionMenu
@@ -165,7 +162,8 @@ export function Composer({
           rows={2}
           maxLength={COMPOSER_MAX_LENGTH}
           data-keyboard-nav="composer"
-          placeholder={mentionSource ? '输入消息，/ 使用命令，@ 添加提及，$ 使用技能' : '问点什么…'}
+          placeholder="问点什么…"
+          aria-description={mentionSource ? '输入 / 使用命令，@ 添加提及，$ 使用技能。' : undefined}
           aria-autocomplete={mentionSource ? 'list' : undefined}
           aria-controls={mentions.open ? mentions.listId : undefined}
           aria-activedescendant={

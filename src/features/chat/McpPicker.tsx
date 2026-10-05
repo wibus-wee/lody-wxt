@@ -35,10 +35,7 @@ export function McpPicker({
       .then((rows) => {
         if (!live) return;
         setServers(rows);
-        setIds(
-          selected ??
-            rows.filter((row) => row.enabledByDefault && row.hasConnection).map((row) => row.id),
-        );
+        setIds(selected ?? rows.filter((row) => row.enabledByDefault).map((row) => row.id));
       })
       .catch((reason: Error) => {
         if (live) setError(reason.message);

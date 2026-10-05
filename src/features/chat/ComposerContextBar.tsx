@@ -2,9 +2,11 @@ import * as stylex from '@stylexjs/stylex';
 
 import { Icon } from '../../shared/icons/Icon';
 import { Button, Tooltip } from '../../shared/ui';
+import { composer } from '../../shared/ui/composer.stylex';
 
 const styles = stylex.create({
-  row: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', minWidth: 0 },
+  row: { display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 },
+  control: { fontSize: 12, fontWeight: 400, color: composer.hint, gap: 6 },
 });
 
 export function ComposerContextBar({
@@ -28,7 +30,8 @@ export function ComposerContextBar({
             <Button
               type="button"
               variant={currentPage ? 'secondary' : 'ghost'}
-              size="small"
+              size="mini"
+              {...stylex.props(styles.control)}
               disabled={disabled || (full && !currentPage)}
               aria-label="发送时读取当前页面"
               aria-pressed={currentPage}
@@ -47,11 +50,13 @@ export function ComposerContextBar({
       <Button
         type="button"
         variant="ghost"
-        size="small"
+        size="mini"
+        {...stylex.props(styles.control)}
+        aria-label="选择标签页"
         disabled={disabled || full}
         onClick={onSelectTabs}
       >
-        选择标签页
+        标签页
         <Icon name="chevron" size={12} />
       </Button>
     </section>

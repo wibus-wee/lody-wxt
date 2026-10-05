@@ -1,6 +1,6 @@
 import * as v from 'valibot';
 
-export const moods = ['outline', 'duotone', 'fill', 'pixel', 'glass'] as const;
+export const moods = ['outline'] as const;
 type Mood = (typeof moods)[number];
 export interface Preferences {
   mood: Mood;

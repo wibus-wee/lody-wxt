@@ -3,7 +3,11 @@ import { useState } from 'react';
 import { Alert, Button, Textarea } from '../../shared/ui';
 import { Dialog } from '../../shared/ui/dialog';
 import type { LodyClient, Message, RunConfig } from '../connection/client';
-import { forkConversation, messageAttachments } from './conversation-actions';
+import {
+  forkConversation,
+  messageAttachments,
+  resolveResendConfiguration,
+} from './conversation-actions';
 import { MessageActions } from './MessageActions';
 
 export function ConversationTurnActions({
@@ -30,6 +34,7 @@ export function ConversationTurnActions({
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const resend = async (source: Message, prompt: string) => {
+    const { config } = resolveResendConfiguration(source.inputConfig, currentConfig);
     await client.edit(
       {
         sessionId,
@@ -37,9 +42,7 @@ export function ConversationTurnActions({
         text: prompt,
         contexts: source.contexts,
         attachments: messageAttachments(source),
-        ...((source.inputConfig ?? currentConfig)
-          ? { inputConfig: source.inputConfig ?? currentConfig }
-          : {}),
+        ...(config ? { inputConfig: config } : {}),
       },
       source.id,
     );
@@ -79,7 +82,8 @@ export function ConversationTurnActions({
           <Dialog.Title>编辑并重发</Dialog.Title>
           <Dialog.Description>
             替换这条消息并重新生成，后续对话可能改变。原来的网页资料和附件会一起保留。
-            {!message.inputConfig && '这条历史消息未保存模型配置，将使用当前选择的模型。'}
+            {resolveResendConfiguration(message.inputConfig, currentConfig).usesCurrent &&
+              '这条历史消息未保存运行配置，将使用当前选择。'}
           </Dialog.Description>
           <Textarea
             aria-label="修改消息"

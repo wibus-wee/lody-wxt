@@ -34,19 +34,21 @@ export function AccountPage() {
       {account.error && (
         <Alert.Root tone="danger">
           <Alert.Description>
-            {account.errorContext?.operation === 'account'
-              ? '无法验证账户'
-              : account.errorContext?.operation === 'workspaces'
-                ? '无法加载工作区'
-                : account.errorContext?.operation === 'device_code'
-                  ? '无法请求设备授权码'
-                  : account.errorContext?.operation === 'device_token'
-                    ? '无法完成设备授权'
-                    : account.errorContext?.operation === 'session'
-                      ? '无法验证登录会话'
-                      : account.errorContext?.operation === 'storage'
-                        ? '无法保存账户状态'
-                        : '登录失败'}
+            {account.error === 'expired_token'
+              ? '登录已过期，请重新登录后继续。草稿会为你保留'
+              : account.errorContext?.operation === 'account'
+                ? '无法验证账户'
+                : account.errorContext?.operation === 'workspaces'
+                  ? '无法加载工作区'
+                  : account.errorContext?.operation === 'device_code'
+                    ? '无法请求设备授权码'
+                    : account.errorContext?.operation === 'device_token'
+                      ? '无法完成设备授权'
+                      : account.errorContext?.operation === 'session'
+                        ? '无法验证登录会话'
+                        : account.errorContext?.operation === 'storage'
+                          ? '无法保存账户状态'
+                          : '登录失败'}
             。错误代码：{account.error}。
           </Alert.Description>
         </Alert.Root>

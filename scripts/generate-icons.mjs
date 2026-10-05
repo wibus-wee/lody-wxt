@@ -45,6 +45,7 @@ const glyphs = {
   delivered: ['indicators/circle-check.svg', 'SquareCheck 2.svg'],
   user: ['indicators/circle-user.svg', 'UserSettings 2.svg'],
   wrap: ['documents/file-text.svg', 'FileText.svg'],
+  writing: ['tools/pencil.svg', 'Pencil.svg'],
 };
 const output = {};
 const rootDimensions = /\s(?:width|height)="[^"]*"/g;

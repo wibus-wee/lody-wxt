@@ -1,6 +1,10 @@
 import { expect, it } from 'vitest';
 
-import { contextInput, mapHistory } from '../../src/features/chat/real-adapter';
+import {
+  contextInput,
+  mapHistory,
+  matchesContextInput,
+} from '../../src/features/chat/real-adapter';
 
 it('preserves permission requests, unknown activities and partial output without dropping system turns', () => {
   const permission = {
@@ -81,6 +85,28 @@ it('leaves unattached questions unchanged and does not hide malformed reference 
   expect(
     mapHistory([{ id: 'plain', role: 'user', timestamp: '2026-10-04', inputConfig }])[0],
   ).toMatchObject({ text, contexts: [] });
+});
+
+it('matches a recovered attachment submission against user blocks without the Agent prefix', () => {
+  const contexts = [
+    {
+      id: 'page',
+      kind: 'page' as const,
+      title: 'Page',
+      url: 'https://example.com',
+      text: 'Original captured content',
+      trust: 'untrusted' as const,
+    },
+  ];
+  const userInput = contextInput('Question', contexts);
+  const input = { ...userInput, prompt: `Agent instructions\n\n${userInput.prompt}` };
+  expect(matchesContextInput(input, 'Question', contexts)).toBe(true);
+  expect(matchesContextInput(input, 'Edited question', contexts)).toBe(false);
+  expect(
+    matchesContextInput(input, 'Question', [{ ...contexts[0]!, text: 'Changed capture' }]),
+  ).toBe(false);
+  expect(matchesContextInput({ prompt: userInput.prompt }, 'Question', contexts)).toBe(true);
+  expect(matchesContextInput({ ...input, inputBlocks: [] }, 'Question', contexts)).toBe(false);
 });
 
 it('continues reading existing history with separate reference blocks without rewriting it', () => {
