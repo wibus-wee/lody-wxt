@@ -2,6 +2,8 @@ import { readFile } from 'node:fs/promises';
 
 import { defineDevframe, defineRpcFunction } from 'devframe';
 
+import { moods } from '../../src/features/preferences/model';
+
 export default defineDevframe({
   id: 'lody-foundation',
   name: 'Lody Foundation',
@@ -31,7 +33,7 @@ export default defineDevframe({
         handler: () => ({
           runtime: 'WXT',
           surfaces: ['popup', 'sidepanel', 'options', 'web'],
-          moods: ['outline', 'duotone', 'fill', 'pixel', 'glass'],
+          moods,
         }),
       }),
     );
