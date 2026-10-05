@@ -26,7 +26,7 @@
   },
   "quickChat": {
     "disposition": "journey",
-    "owners": ["quickDraft", "quickDelivery", "connection", "documents"],
+    "owners": ["quickDraft", "quickDelivery", "connection", "documents", "chatScroll"],
     "reason": "Primary user conversation surface and its independent delivery lifecycle."
   },
   "workspace": {

@@ -41,6 +41,39 @@ export class RuntimeBoundary {
     targetSessionId: string;
   }[] = [];
   loseNextEditConfirmation = false;
+  loseNextSteerConfirmation = false;
+  private unconfirmedSteers = new Set<string>();
+  readonly steerTransmissions: string[] = [];
+  readonly steerRequests: {
+    requestId: string;
+    sessionId: string;
+    expectedTurnId: string;
+    userTurnId: string;
+  }[] = [];
+  readonly deleteRequests: string[] = [];
+  completeDeleteCommands = false;
+
+  confirmSteer(sessionId: string, turnId: string) {
+    this.changeSession(sessionId, (doc) => {
+      const turn = doc
+        .getList('history')
+        .toArray()
+        .find((row) => row instanceof LoroMap && row.get('id') === turnId);
+      assert.ok(turn instanceof LoroMap);
+      turn.set('status', 'handled');
+    });
+  }
+
+  private deleteSessionMetadata(sessionId: string) {
+    const stream = 'workspace-a:meta';
+    const flock = this.flocks.get(stream) ?? Flock.fromFile(this.snapshots.get(stream)!);
+    const version = flock.version();
+    flock.set(['e', `session-${sessionId}`], false);
+    flock.commit();
+    this.flocks.set(stream, flock);
+    this.snapshots.set(stream, flock.exportFile());
+    this.record(stream, new TextEncoder().encode(JSON.stringify(flock.exportJson(version))));
+  }
   private mutationInputs = new Map<string, Record<string, unknown>>();
   queuedMessages(sessionId = 'history-a') {
     return v.parse(
@@ -106,6 +139,16 @@ export class RuntimeBoundary {
       this.documents.set(stream, doc);
     }
     return doc;
+  }
+
+  sessionMetadata(sessionId: string) {
+    const stream = 'workspace-a:meta';
+    const flock = this.flocks.get(stream) ?? Flock.fromFile(this.snapshots.get(stream)!);
+    return Object.fromEntries(
+      Array.from(flock.scanValues())
+        .filter((row) => row.key[0] === 'm' && row.key[1] === `session-${sessionId}`)
+        .map((row) => [String(row.key[2]), row.value]),
+    );
   }
 
   setSessionMetadata(
@@ -321,6 +364,27 @@ export class RuntimeBoundary {
         this.snapshots.set(stream, flock.exportFile());
         if (stream === 'workspace-a:mf:machine-a') {
           for (const row of flock.scanValues()) {
+            if (
+              row.key[0] === 'cmd' &&
+              row.key[1] === 'deleteSession' &&
+              row.value !== undefined &&
+              this.completeDeleteCommands
+            ) {
+              const key = v.parse(
+                v.tuple([v.literal('cmd'), v.literal('deleteSession'), v.string()]),
+                row.key,
+              );
+              const command = v.parse(
+                v.strictObject({ v: v.literal(1), requestedAt: v.number() }),
+                row.value,
+              );
+              const identity = `delete:${key[2]}:${command.requestedAt}`;
+              if (!this.seenMachineCommands.has(identity)) {
+                this.seenMachineCommands.add(identity);
+                this.deleteRequests.push(key[2]);
+                this.deleteSessionMetadata(key[2]);
+              }
+            }
             if (row.key[0] !== 'cmd' || row.key[1] !== 'archiveSession' || row.value === undefined)
               continue;
             const key = v.parse(
@@ -358,10 +422,12 @@ export class RuntimeBoundary {
       configOnlyMode?: boolean;
       recentHistory?: boolean;
       workHistory?: { finished: boolean; stopped?: boolean };
+      defaultMcp?: boolean;
       agent?: {
         cliType: 'builtin' | 'registry' | 'custom';
         agentType: string;
         brandId?: string;
+        prompt?: string;
         env?: Record<string, string>;
       };
     } = {},
@@ -399,7 +465,7 @@ export class RuntimeBoundary {
       transport: 'stdio',
       description: 'Controlled workspace research',
       connection: { transport: 'stdio', command: 'research-mcp' },
-      enabledByDefault: false,
+      enabledByDefault: options.defaultMcp ?? false,
       createdAt: 1,
       updatedAt: 1,
     });
@@ -449,6 +515,14 @@ export class RuntimeBoundary {
             ],
         configOptions: [
           {
+            id: 'model',
+            category: 'model',
+            name: 'Model',
+            type: 'select',
+            currentValue: 'model-a',
+            options: [{ value: 'model-a', name: 'Controlled model' }],
+          },
+          {
             id: options.modeOption,
             name: 'Mode',
             type: 'select',
@@ -473,6 +547,17 @@ export class RuntimeBoundary {
         ],
         modes: [],
         configOptions: [
+          {
+            id: 'model',
+            category: 'model',
+            name: 'Model',
+            type: 'select',
+            currentValue: 'model-a',
+            options: [
+              { value: 'model-a', name: 'Model A' },
+              { value: 'model-b', name: 'Model B' },
+            ],
+          },
           {
             id: 'effort',
             name: 'Effort',
@@ -563,7 +648,7 @@ export class RuntimeBoundary {
     params: Record<string, unknown>,
     requestId: string,
   ): Record<string, unknown> | null {
-    if (new Set(['session/edit-and-resend', 'session/fork']).has(method)) {
+    if (new Set(['session/edit-and-resend', 'session/fork', 'session/steer']).has(method)) {
       const key = `${method}:${requestId}`;
       const previous = this.mutationInputs.get(key);
       if (previous)
@@ -723,6 +808,14 @@ export class RuntimeBoundary {
         }),
         params,
       );
+      this.steerTransmissions.push(requestId);
+      if (!this.steerRequests.some((request) => request.requestId === requestId))
+        this.steerRequests.push({
+          requestId,
+          sessionId: input.sessionId,
+          expectedTurnId: input.expectedTurnId,
+          userTurnId: input.userTurnId,
+        });
       const active = this.reply(input.sessionId, input.expectedTurnId);
       const applied = active.get('finished') === false;
       return {
@@ -867,6 +960,17 @@ export class RuntimeBoundary {
           );
           const handled = this.machineCommand(envelope.method, envelope.params, envelope.id);
           if (handled) {
+            if (envelope.method === 'session/steer' && this.loseNextSteerConfirmation) {
+              this.loseNextSteerConfirmation = false;
+              this.unconfirmedSteers.add(envelope.id);
+            }
+            if (envelope.method === 'session/steer' && this.unconfirmedSteers.has(envelope.id)) {
+              await route.fulfill({
+                status: 403,
+                body: 'Steer accepted; response confirmation unavailable',
+              });
+              return;
+            }
             if (envelope.method === 'session/edit-and-resend' && this.loseNextEditConfirmation) {
               this.loseNextEditConfirmation = false;
               await route.fulfill({

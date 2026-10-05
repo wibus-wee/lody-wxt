@@ -74,7 +74,7 @@ Feature: Product lifecycle assurance
 
   @namespace:appearance @journey:personalize-without-losing-work @case:cross-surface @state:appearance:persisted @state:appearance:reduce-motion @state:quickDraft:retained @transition:draft>settings @transition:settings>cross-surface-sync @transition:cross-surface-sync>reload @transition:reload>continue @performance
   Scenario: personalize-without-losing-work / cross-surface
-    When I follow "keep a question while changing theme, icon mood and ambient policy"
+    When I follow "keep a question while changing theme and ambient policy"
     Then the product obligations for this segment hold
     When I follow "reload, return by keyboard and continue the draft with reduced motion"
     Then the product obligations for this segment hold

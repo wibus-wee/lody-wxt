@@ -24,14 +24,14 @@ Reused HTTP/Streams fixtures are evidence mechanisms: they import real browser C
 Fixtures do not declare obligations.
 Namespace disposition is authored in the model; `tests/e2e/namespaces.json` is its checked registry, regenerated with `node tools/assurance/cli.mjs namespaces`.
 
-The P0 backlog includes simultaneous admission across surfaces, workspace switching during active work, expiry, destructive fork/delete, queued steering recovery, denied capture permission and extension/profile restart with retained work. `COVERAGE.md` reports the exact unverified obligations and chains.
+P0 lifecycle cases include simultaneous admission across surfaces, workspace switching during active work, expiry, destructive fork/delete, queued steering recovery, denied capture permission and extension/profile restart with retained work. `COVERAGE.md` reports their current evidence and any unverified obligations; this contract does not duplicate run status.
 Attachment configuration lacks `attachmentOrigin`; the HTTP submission controller is not mounted by application routes.
 Their SDK tests remain supporting contracts rather than working product journeys.
 
 ## Executable evidence
 
 An assurance scenario contains a sequence of user decisions and consequences across several product links.
-Authored scenarios live in [assurance.feature](../../tests/e2e/features/assurance.feature), with implementation in [journey steps](../../tests/e2e/journey-steps).
+Authored scenarios live in [feature files](../../tests/e2e/features), with implementation in [journey steps](../../tests/e2e/journey-steps).
 A visible page or an isolated click is insufficient.
 Each scenario declares one existing model case, its namespace, joint state tags and consecutive lifecycle transitions.
 Tags declare intent; assertions produce evidence.
@@ -118,6 +118,9 @@ Keep this workload explicit in the baseline, and investigate a sustained-stream 
 ## Fidelity limits
 
 Packaged capture uses actual tabs, extraction and extension controls.
-The HTTP fixture grants its specific origin through Chromium extension settings; it does not automate native permission approval.
-Controlled protocol fixtures prove neither a deployed agent nor production authorization.
-Existing packaged persistence and network contract tests do not certify the full profile-restart journey until its draft, interruption and logout obligations are observed together. axe checks rendered accessibility within a journey and Storybook explores component states; neither changes lifecycle coverage.
+The permission-denied case observes Chrome rejecting a screenshot without `activeTab`, preserves the draft, invokes the real toolbar action through CDP and retries the capture.
+Optional-host native permission dialogs remain outside this evidence; other capture fixtures grant only their specific origin through Chromium extension settings.
+The profile-restart case carries a streaming conversation and an unsent follow-up through extension reload and a persistent-profile browser restart, reopens the same history, then checks logout across another restart.
+Its separate browser contexts retain individual traces.
+Conversation selection is per surface; the durable draft belongs to its account, workspace and conversation.
+Controlled protocol fixtures prove neither a deployed agent nor production authorization. axe checks rendered accessibility within a journey and Storybook explores component states; neither changes lifecycle coverage.

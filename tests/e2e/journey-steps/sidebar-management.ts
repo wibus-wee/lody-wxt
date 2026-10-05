@@ -12,6 +12,41 @@ When(
     await ready(this);
     await this.page.getByRole('textbox', { name: '消息', exact: true }).fill(this.draft);
     await this.page.getByRole('button', { name: '会话列表', exact: true }).click();
+    const historyPanel = this.page.locator('[data-history-panel]');
+    await expect(this.page.getByRole('textbox', { name: '搜索对话', exact: true })).toBeFocused();
+    for (const width of [320, 360, 420]) {
+      await this.page.setViewportSize({ width, height: 780 });
+      const bounds = (await historyPanel.boundingBox())!;
+      expect(bounds.height).toBeLessThanOrEqual(360);
+      expect(bounds.width).toBeLessThanOrEqual(288);
+      expect(bounds.x).toBeGreaterThanOrEqual(0);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+      const row = this.page.getByRole('button', { name: 'Historical conversation', exact: true });
+      expect((await row.boundingBox())!.height).toBeLessThanOrEqual(32);
+      await expect(row).toHaveCSS('font-weight', '400');
+    }
+    await this.page.setViewportSize({ width: 360, height: 780 });
+    const searchInput = this.page.getByRole('textbox', { name: '搜索对话', exact: true });
+    const historyRow = this.page.getByRole('button', {
+      name: 'Historical conversation',
+      exact: true,
+    });
+    await searchInput.press('ArrowDown');
+    await expect(historyRow).toBeFocused();
+    await this.page.keyboard.press('End');
+    await expect(historyRow).toBeFocused();
+    await this.page.keyboard.press('Home');
+    await expect(historyRow).toBeFocused();
+    await this.page.keyboard.press('ArrowUp');
+    await expect(searchInput).toBeFocused();
+    await this.page.keyboard.press('Escape');
+    await expect(this.page.getByRole('button', { name: '会话列表', exact: true })).toBeFocused();
+    await this.page.keyboard.press('Enter');
+    await expect(searchInput).toBeFocused();
+    await expect(
+      this.page.getByRole('button', { name: '搜索全部可见对话正文', exact: true }),
+    ).toHaveCount(0);
+
     await this.page
       .getByRole('textbox', { name: '搜索对话', exact: true })
       .fill('controlled HTTP snapshot');
@@ -70,7 +105,12 @@ When(
       this.page.getByRole('button', { name: '侧栏整理后的会话', exact: true }),
     ).toHaveCount(0);
     await this.page.getByRole('button', { name: '返回最近对话', exact: true }).click();
-    await this.page.getByRole('button', { name: '侧栏整理后的会话', exact: true }).click();
+    await this.page.getByRole('textbox', { name: '搜索对话', exact: true }).focus();
+    await this.page.keyboard.press('ArrowDown');
+    await expect(
+      this.page.getByRole('button', { name: '侧栏整理后的会话', exact: true }),
+    ).toBeFocused();
+    await this.page.keyboard.press('Enter');
     await this.evidence.check('sidebar-restores-same-history-after-reload', async () => {
       await expect(this.page.getByRole('article', { name: '你的消息', exact: true })).toContainText(
         'Previously asked question',

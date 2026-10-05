@@ -182,6 +182,9 @@ When(
         );
         expect(submitted.inputConfig.prompt).toContain(this.draft);
         expect(this.cloud.historyTurnIds(id)).toEqual([submitted.requestId]);
+        await expect(
+          this.page.getByRole('button', { name: '附加上下文', exact: true }),
+        ).toBeEnabled();
         expect(
           (
             await new AxeBuilder({ page: this.page })

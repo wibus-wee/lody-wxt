@@ -56,13 +56,12 @@ test('packaged notifications observe verified terminal events with the panel clo
   const manifestFile = path.join(extension, 'manifest.json');
   const productionManifest = await readFile(manifestFile, 'utf8');
   const manifest = JSON.parse(productionManifest);
-  expect(manifest.optional_permissions).toEqual(
-    expect.arrayContaining(['notifications', 'alarms']),
-  );
+  expect(manifest.permissions).toContain('alarms');
+  expect(manifest.optional_permissions).toContain('notifications');
   expect(manifest.incognito).toBe('not_allowed');
-  manifest.permissions.push('notifications', 'alarms');
+  manifest.permissions.push('notifications');
   manifest.optional_permissions = manifest.optional_permissions.filter(
-    (permission: string) => !new Set(['notifications', 'alarms']).has(permission),
+    (permission: string) => permission !== 'notifications',
   );
   await writeFile(manifestFile, JSON.stringify(manifest));
   const launch = () =>
@@ -76,7 +75,7 @@ test('packaged notifications observe verified terminal events with the panel clo
   await install.close();
   await writeFile(manifestFile, productionManifest);
   await test.info().attach('permission-baseline', {
-    body: 'A temporary install grants real notification/alarm permissions, then restores the production manifest before this run. Browser OS permission-dialog acceptance is outside this test. No notification API or worker lifecycle function is mocked.',
+    body: 'A temporary install grants real notification permission, then restores the production manifest before this run. Alarms are a required production permission. Browser OS permission-dialog acceptance is outside this test. No notification API or worker lifecycle function is mocked.',
     contentType: 'text/plain',
   });
   const context = await launch();

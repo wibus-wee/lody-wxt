@@ -59,13 +59,17 @@ export const model = {
       lifetime: 'A generation ends on cancel, logout, expiry, restore or storage identity changes.',
     },
     connection: {
-      source: ['src/features/connection/use-client.ts', 'src/features/connection/real-client.ts'],
+      source: [
+        'src/features/connection/use-client.ts',
+        'src/features/connection/real-client.ts',
+        'src/features/connection/background-lifecycle.ts',
+      ],
       state:
         'Streams grant, visible machines, capabilities, target, session handles and subscriptions.',
       persistence:
         'Target preference, Loro IndexedDB and remote cursors scoped by origin/account/workspace.',
       lifetime:
-        'Account/session/token/workspace changes close the old client; hidden settings retain it.',
+        'The extension worker validates stored identity and owns the shared workspace runtime before any panel opens; panel leases reuse it; worker restart revalidates; account/session/token/workspace changes close the old runtime.',
     },
     quickDraft: {
       source: ['src/features/chat/ConnectedChat.tsx'],
@@ -73,6 +77,14 @@ export const model = {
       persistence: 'localStorage draft scoped by client.accountKey and conversation or new.',
       lifetime:
         'Route hiding retains the mounted chat; selecting history switches draft; confirmed send clears it.',
+    },
+    chatScroll: {
+      source: ['src/features/chat/Chat.tsx', 'src/features/chat/use-transcript-scroll.ts'],
+      state:
+        'Reader follow intent, visible transcript geometry and conversation-scoped reading position.',
+      persistence: 'Optional sessionStorage position scoped to account and conversation.',
+      lifetime:
+        'User upward navigation releases follow; output and layout changes preserve that intent; reload restores a reading position after transcript hydration.',
     },
     attachmentDrafts: {
       source: [
@@ -225,7 +237,7 @@ export const model = {
     },
     quickChat: {
       disposition: 'journey',
-      owners: ['quickDraft', 'quickDelivery', 'connection', 'documents'],
+      owners: ['quickDraft', 'quickDelivery', 'connection', 'documents', 'chatScroll'],
       reason: 'Primary user conversation surface and its independent delivery lifecycle.',
     },
     workspace: {
@@ -647,12 +659,26 @@ export const model = {
         'account',
         'connection',
         'quickDraft',
+        'chatScroll',
         'quickDelivery',
         'documents',
         'machine',
         'shell',
       ],
       cases: [
+        {
+          id: 'reader-scroll',
+          lifecycle: ['inspect', 'stream', 'read-history', 'resize', 'jump', 'reload'],
+          states: ['chatScroll:following', 'chatScroll:reading', 'documents:streaming-work'],
+          obligations: [
+            'short-inspection-does-not-offer-empty-jump',
+            'small-upward-scroll-releases-follow-without-layout-shift',
+            'stream-preserves-reading-position',
+            'following-survives-composer-and-viewport-resize',
+            'explicit-jump-resumes-follow',
+            'reload-restores-reading-position-after-hydration',
+          ],
+        },
         {
           id: 'configured',
           interactions: ['send-feedback', 'first-response', 'history-open'],
@@ -1029,7 +1055,7 @@ export const model = {
       namespace: 'appearance',
       priority: 'P1',
       intent:
-        'Keep a draft while changing theme/mood/ambient policy, propagate preferences to another surface, reload and continue with Reduce Motion.',
+        'Keep a draft while changing theme and ambient policy, keep outline icons across surfaces, propagate preferences, reload and continue with Reduce Motion.',
       chain: ['quickDraft', 'shell', 'appearance', 'account'],
       cases: [
         {
@@ -1054,6 +1080,32 @@ export const model = {
         'Authorize through worker transport, persist work, restart the extension/profile and resume trusted state; cancellation cannot become success.',
       chain: ['shell', 'transport', 'account', 'connection', 'quickDraft', 'quickDelivery'],
       cases: [
+        {
+          id: 'background-preconnect',
+          lifecycle: [
+            'stored-identity',
+            'background-connect',
+            'panel-open',
+            'panel-close',
+            'remote-update',
+            'worker-restart',
+            'active-panel-restart',
+            'logout',
+          ],
+          states: [
+            'account:validated-in-worker',
+            'connection:shared-workspace',
+            'shell:panel-independent',
+          ],
+          obligations: [
+            'stored-identity-connects-without-panel',
+            'opening-panels-reuses-workspace-bootstrap',
+            'closed-panel-observes-authoritative-update',
+            'worker-restart-restores-without-panel',
+            'active-panel-reconnect-resubscribes',
+            'logout-revokes-all-leases-and-old-data',
+          ],
+        },
         {
           id: 'profile-restart',
           lifecycle: ['worker-request', 'persist', 'extension-reload', 'profile-restart', 'logout'],

@@ -163,6 +163,23 @@ async function menu(panel: Page, label: string) {
 }
 
 async function inspectSourceNavigation(panel: Page) {
+  const composer = panel.getByTestId('composer');
+  const scope = panel.getByRole('region', { name: '网页范围', exact: true });
+  const input = panel.getByRole('textbox', { name: '消息', exact: true });
+  await expect(input).toHaveAttribute('placeholder', '问点什么…');
+  for (const width of [320, 360, 420]) {
+    await panel.setViewportSize({ width, height: 780 });
+    await expect(scope).toBeInViewport();
+    const box = (await composer.boundingBox())!;
+    const contextBox = (await scope.boundingBox())!;
+    const inputBox = (await input.boundingBox())!;
+    expect(contextBox.y + contextBox.height).toBeLessThanOrEqual(box.y - 4);
+    expect(inputBox.y - box.y).toBeGreaterThanOrEqual(10);
+    expect(await composer.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+    expect(await panel.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+  }
   await panel.setViewportSize({ width: 360, height: 780 });
   const currentPage = panel.getByRole('button', {
     name: '发送时读取当前页面',
@@ -194,6 +211,7 @@ async function inspectSourceNavigation(panel: Page) {
   const sources = panel.getByRole('dialog', { name: '其他资料来源', exact: true });
   await expect(sources).toBeVisible();
   await expect(sources).toHaveCSS('opacity', '1');
+  await expect(panel.locator('[role="menu"]')).toHaveCount(0);
   for (const name of [
     '附加当前页面',
     '附加选中文字',
@@ -634,4 +652,103 @@ test('packaged browser library manages explicit selections and revocable permiss
     },
     true,
   );
+});
+
+test('denied screenshot permission preserves the draft and a later explicit capture sends once', async () => {
+  await withPanel('permission-denied', async (panel, context, evidence, cloud) => {
+    const origin = 'https://backend.lody.ai';
+    await context.route(`${origin}/article`, (route) =>
+      route.fulfill({
+        contentType: 'text/html',
+        body: '<!doctype html><title>Permission recovery source</title><main>Explicitly authorized article.</main>',
+      }),
+    );
+    const source = await context.newPage();
+    await source.goto(`${origin}/article`);
+    await source.bringToFront();
+    await menu(panel, '截图并裁剪…');
+    await evidence.check('denial-visible', async () => {
+      await expect(panel.getByRole('alert')).toContainText('临时截图权限');
+      await expect(panel.getByRole('dialog', { name: '附加截图' })).toHaveCount(0);
+    });
+    await evidence.check('draft-unchanged', async () => {
+      await expect(panel.getByRole('textbox', { name: '消息', exact: true })).toHaveValue(
+        'Keep this draft',
+      );
+      await expect(panel.getByTestId('context-card')).toHaveCount(0);
+      expect(
+        cloud.traffic.filter(
+          (row) => row.kind === 'append' && row.stream.startsWith('workspace-a:s:'),
+        ),
+      ).toEqual([]);
+      await panel.reload();
+      await expect(panel.getByRole('textbox', { name: '消息', exact: true })).toHaveValue(
+        'Keep this draft',
+      );
+    });
+    await source.bringToFront();
+    const browserSession = await context.browser()!.newBrowserCDPSession();
+    const { targetInfos } = await browserSession.send('Target.getTargets', {
+      filter: [{ type: 'tab' }],
+    });
+    const target = targetInfos.find((item) => item.url === source.url());
+    expect(target).toBeDefined();
+    await browserSession.send('Extensions.triggerAction', {
+      id: new URL(panel.url()).host,
+      targetId: target!.targetId,
+    });
+    await test.info().attach('permission-boundary', {
+      body: 'Production manifest grants the fixture host but Chrome denies captureVisibleTab without activeTab. CDP invokes the real toolbar action to grant the temporary tab permission. The same screenshot action then succeeds. Native optional-host permission-dialog acceptance/refusal is outside this evidence.',
+      contentType: 'text/plain',
+    });
+    await menu(panel, '截图并裁剪…');
+    await expect(panel.getByRole('dialog', { name: '附加截图' })).toBeVisible();
+    await panel.getByLabel('宽度（像素）', { exact: true }).fill('40');
+    await panel.getByLabel('高度（像素）', { exact: true }).fill('30');
+    await panel.getByRole('button', { name: '附加裁剪区域', exact: true }).click();
+    await panel.getByRole('button', { name: '预览 区域截图.png', exact: true }).click();
+    expect(
+      await panel
+        .getByRole('dialog')
+        .getByRole('img')
+        .evaluate((image) => [
+          (image as HTMLImageElement).naturalWidth,
+          (image as HTMLImageElement).naturalHeight,
+        ]),
+    ).toEqual([40, 30]);
+    await panel.keyboard.press('Escape');
+    await panel.getByRole('button', { name: '移除 区域截图.png', exact: true }).click();
+    await source.bringToFront();
+    await menu(panel, '附加当前页面');
+    await evidence.check('later-explicit-capture-works', async () => {
+      await panel
+        .getByRole('button', { name: '查看资料 Permission recovery source', exact: true })
+        .click();
+      await expect(panel.getByRole('dialog')).toContainText('Explicitly authorized article.');
+      await panel.keyboard.press('Escape');
+      await panel.getByRole('button', { name: '发送消息', exact: true }).click();
+      await expect(panel.getByRole('article', { name: '你的消息', exact: true })).toContainText(
+        'Keep this draft',
+      );
+      const streams = [
+        ...new Set(
+          cloud.traffic
+            .filter((row) => row.kind === 'append' && row.stream.startsWith('workspace-a:s:'))
+            .map((row) => row.stream),
+        ),
+      ];
+      expect(streams).toHaveLength(1);
+      const sessionId = streams[0]!.slice('workspace-a:s:'.length);
+      expect(cloud.document(sessionId).getList('history').length).toBe(1);
+      expect(cloud.submittedTurn(sessionId).inputConfig.prompt).toContain(
+        'Explicitly authorized article.',
+      );
+      expect(cloud.submittedTurn(sessionId).inputConfig.prompt).toContain('Keep this draft');
+      cloud.beginReply(sessionId);
+      cloud.finishReply(sessionId);
+      await expect(
+        panel.getByText('网页分析完成：这是一个协作项目。', { exact: true }),
+      ).toBeVisible();
+    });
+  });
 });

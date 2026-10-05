@@ -515,7 +515,7 @@ register(
       });
   },
 );
-register('keep a question while changing theme, icon mood and ambient policy', async (world) => {
+register('keep a question while changing theme and ambient policy', async (world) => {
   await ready(world);
   await composer(world.page).fill(world.draft);
   world.otherPage = await world.context.newPage();
@@ -530,12 +530,11 @@ register('keep a question while changing theme, icon mood and ambient policy', a
   });
   await trigger.click();
   world.evidence.interactions.push(await applied());
-  await world.page.getByRole('button', { name: 'duotone', exact: true }).click();
   await world.page.getByRole('switch', { name: '氛围效果', exact: true }).click();
   world.assertions = () =>
     world.evidence.check('preferences-propagate', async () => {
       await expect(world.otherPage!.locator('main')).toHaveAttribute('data-theme', 'dark');
-      await expect(world.otherPage!.locator('main')).toHaveAttribute('data-mood', 'duotone');
+      await expect(world.otherPage!.locator('main')).toHaveAttribute('data-mood', 'outline');
       await expect(
         world.otherPage!.getByRole('switch', { name: '氛围效果', exact: true }),
       ).toBeChecked();
@@ -558,6 +557,9 @@ register('reload, return by keyboard and continue the draft with reduced motion'
     });
     await world.evidence.check('keyboard-and-accessibility-usable', async () => {
       await expect(composer(world.page)).toBeFocused();
+      const attachments = world.page.getByRole('button', { name: '附加上下文', exact: true });
+      await expect(attachments).toBeEnabled();
+      await expect(attachments).toHaveCSS('transition-duration', '0s');
       const result = await new AxeBuilder({ page: world.page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
         .analyze();

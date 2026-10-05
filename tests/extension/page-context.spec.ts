@@ -30,7 +30,11 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
     try {
       const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
       await new AccountBoundary().install(context);
-      const cloud = new RuntimeBoundary();
+      const agentPrompt = 'Follow the configured Agent instructions.';
+      const cloud = new RuntimeBoundary({
+        agent: { cliType: 'builtin', agentType: 'claude', prompt: agentPrompt },
+        defaultMcp: true,
+      });
       await cloud.install(context);
       await context.route(`${origin}/capture-fixture*`, (route) =>
         route.fulfill({
@@ -228,6 +232,7 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
       ).toHaveCount(1);
       const cards = sentMessage.getByTestId('context-card');
       await expect(cards).toHaveCount(8);
+      await expect(sentMessage).not.toContainText(agentPrompt);
       for (const width of [320, 360, 420]) {
         await panel.setViewportSize({ width, height: 780 });
         const bounds = await sentMessage.boundingBox();
@@ -273,11 +278,33 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
         ),
       ];
       expect(streams).toHaveLength(1);
-      const turn = cloud.submittedTurn(streams[0]!.slice('workspace-a:s:'.length));
+      const sessionId = streams[0]!.slice('workspace-a:s:'.length);
+      const turn = cloud.submittedTurn(sessionId);
       expect(turn.inputConfig.inputBlocks).toEqual([
-        { type: 'text', text: turn.inputConfig.prompt },
+        { type: 'text', text: String(turn.inputConfig.prompt).slice(agentPrompt.length + 2) },
       ]);
       const sent = () => {
+        expect(cloud.sessionMetadata(sessionId)).toMatchObject({
+          id: sessionId,
+          machineId: 'machine-a',
+          agentConfigId: 'agent-a',
+          cliType: 'builtin',
+          agentType: 'claude',
+          status: { type: 'idle' },
+          historyBackend: 'loro',
+          title: 'Explain these references',
+          titleSource: 'draft',
+          lastMessageAt: Date.parse(turn.timestamp),
+          latestUserMsgId: turn.requestId,
+        });
+        expect(String(turn.inputConfig.prompt).startsWith(`${agentPrompt}\n\n`)).toBe(true);
+        expect(turn.inputConfig.mcpServerIds).toEqual(['research-stdio']);
+        expect(cloud.document(sessionId).getList('history').toJSON()[0]).toMatchObject({
+          read: false,
+          role: 'user',
+          status: 'pending',
+          finished: true,
+        });
         expect(turn.inputConfig.prompt).not.toContain('Read this phrase and its link.');
         expect(turn.inputConfig.prompt).toContain('is phrase and its li');
         for (let index = 1; index <= 7; index++) {
@@ -292,6 +319,20 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
       };
       if (evidence) await evidence.check('only-retained-context-sent', sent);
       else sent();
+      cloud.beginReply(sessionId);
+      cloud.finishReply(sessionId);
+      await expect(
+        panel.getByText('网页分析完成：这是一个协作项目。', { exact: true }),
+      ).toBeVisible();
+      await panel.reload();
+      await panel.getByRole('textbox', { name: '消息', exact: true }).fill('Continue the analysis');
+      await panel.getByRole('button', { name: '发送消息', exact: true }).click();
+      await expect(panel.getByRole('article', { name: '你的消息', exact: true })).toHaveCount(2);
+      expect(cloud.submittedTurn(sessionId).inputConfig).toMatchObject({
+        prompt: 'Continue the analysis',
+        mcpServerIds: ['research-stdio'],
+        inputBlocks: [{ type: 'text', text: 'Continue the analysis' }],
+      });
     } finally {
       const trace =
         evidence && process.env.ASSURANCE_RUN_DIRECTORY

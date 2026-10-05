@@ -42,14 +42,6 @@ Given('my stored preferences are corrupted', async function (this: WorkspaceWorl
   await this.page.goto('http://127.0.0.1:4173');
   await this.page.evaluate(() => localStorage.setItem('lody:preferences', '{broken'));
 });
-When('I choose the {string} mood', async function (this: WorkspaceWorld, mood: string) {
-  await this.page.goto('http://127.0.0.1:4173/#/settings');
-  await this.page.getByRole('button', { name: mood, exact: true }).click();
-  await expect(this.page.getByRole('button', { name: mood, exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-});
 When('I reload the workspace', async function (this: WorkspaceWorld) {
   await this.page.reload();
 });

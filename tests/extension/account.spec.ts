@@ -6,6 +6,7 @@ import { chromium, expect, test } from '@playwright/test';
 import * as v from 'valibot';
 
 import { AccountBoundary, signIn } from '../e2e/support/account-boundary';
+import { RuntimeBoundary } from '../e2e/support/runtime-boundary';
 
 const officialHosts = [
   'https://backend.lody.ai/*',
@@ -32,6 +33,16 @@ test('packaged account login shares workspace identity and signout across sidepa
     const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
     const id = new URL(worker.url()).host;
     await new AccountBoundary().install(context);
+    await new RuntimeBoundary().install(context);
+    await context.route('https://backend.lody.ai/api/loro-streams/token', async (route) => {
+      const request = v.parse(
+        v.object({ workspaceId: v.string() }),
+        route.request().postDataJSON(),
+      );
+      if (request.workspaceId !== 'workspace-b') return route.fallback();
+      // Identity switching remains available when the newly selected workspace cannot synchronize.
+      return route.fulfill({ status: 503, json: { error: 'controlled_workspace_unavailable' } });
+    });
     const panel = await context.newPage();
     await panel.goto(`chrome-extension://${id}/sidepanel.html`);
     await signIn(panel);
