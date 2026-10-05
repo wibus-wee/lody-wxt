@@ -3,6 +3,7 @@ import { browser } from 'wxt/browser';
 import { defineBackground } from 'wxt/utils/define-background';
 
 import { registerAccountStorageLifecycle } from '../features/account/storage';
+import { registerWorkspaceConnectionLifecycle } from '../features/connection/background-lifecycle';
 import { createNetworkHandler } from '../features/network/background';
 import { registerNotificationLifecycle } from '../features/notifications/lifecycle';
 import { registerPageContextEntrypoints } from '../features/page-context/intents';
@@ -11,6 +12,7 @@ import { parsePreferences } from '../features/preferences/model';
 
 export default defineBackground(() => {
   registerAccountStorageLifecycle();
+  registerWorkspaceConnectionLifecycle();
   registerSidePanelLifecycle();
   registerPageContextEntrypoints();
   registerNotificationLifecycle();

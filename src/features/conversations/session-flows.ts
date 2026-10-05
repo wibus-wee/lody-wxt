@@ -23,7 +23,14 @@ export async function startSession(
   input: SendTurn,
 ): Promise<SessionAdmission> {
   const admission: SessionAdmission = {
-    metadata: structuredClone(meta),
+    metadata: {
+      ...structuredClone(meta),
+      cliType: meta.cliType ?? input.inputConfig.cliType,
+      agentType: meta.agentType ?? input.inputConfig.agentType,
+      status: meta.status ?? { type: 'idle' },
+      historyBackend: meta.historyBackend ?? 'loro',
+      lastMessageAt: meta.lastMessageAt ?? Date.parse(input.timestamp),
+    },
     input: structuredClone(input),
     state: 'metadata-unconfirmed',
   };

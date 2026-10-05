@@ -11,14 +11,22 @@ export default defineConfig({
     name: 'Lody',
     incognito: 'not_allowed',
     description: 'Lody agent conversations and workspace in your browser.',
-    permissions: ['storage', 'activeTab', 'tabs', 'scripting', 'sidePanel', 'contextMenus'],
+    permissions: [
+      'storage',
+      'activeTab',
+      'tabs',
+      'scripting',
+      'sidePanel',
+      'contextMenus',
+      'alarms',
+    ],
     host_permissions: [
       'https://backend.lody.ai/*',
       'https://convex.lody.ai/*',
       'https://api.lody.ai/*',
       'https://*.streams-api-x.loro.dev/*',
     ],
-    optional_permissions: ['history', 'bookmarks', 'notifications', 'alarms'],
+    optional_permissions: ['history', 'bookmarks', 'notifications'],
     optional_host_permissions: ['https://*/*', 'http://*/*'],
     commands: {
       'open-lody': {

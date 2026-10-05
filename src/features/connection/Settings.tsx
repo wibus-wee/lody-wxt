@@ -11,7 +11,6 @@ import { AccountPage } from '../account/AccountPage';
 import { useAccount } from '../account/useAccount';
 import { NotificationSettings } from '../notifications/NotificationSettings';
 import type { Preferences } from '../preferences/model';
-import { moods } from '../preferences/model';
 import { BrowserPrivacySettings } from '../privacy/BrowserPrivacySettings';
 import { workspaceScope } from './state';
 
@@ -27,7 +26,6 @@ const styles = stylex.create({
   section: { display: 'grid', gap: 16 },
   title: { fontSize: 13, fontWeight: 600, color: composer.hint, margin: 0 },
   form: { display: 'grid', gap: 8 },
-  moods: { display: 'flex', flexWrap: 'wrap', gap: 6 },
   row: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   links: { display: 'flex', flexWrap: 'wrap', gap: 4 },
 });
@@ -36,7 +34,6 @@ const themes = [
   { value: 'light', label: '浅色' },
   { value: 'dark', label: '深色' },
 ];
-const moodNames = { outline: '线条', duotone: '双色', fill: '实心', pixel: '像素', glass: '玻璃' };
 
 export function Settings({
   preferences,
@@ -102,24 +99,6 @@ export function Settings({
               ))}
             </Select.Content>
           </Select.Root>
-        </Field.Root>
-        <Field.Root>
-          <Field.Label>图标风格</Field.Label>
-          <div {...stylex.props(styles.moods)}>
-            {moods.map((mood) => (
-              <Button
-                key={mood}
-                variant={preferences.mood === mood ? 'primary' : 'secondary'}
-                size="small"
-                aria-label={mood}
-                aria-pressed={preferences.mood === mood}
-                disabled={pending}
-                onClick={() => onSave({ ...preferences, mood })}
-              >
-                {moodNames[mood]}
-              </Button>
-            ))}
-          </div>
         </Field.Root>
         <Field.Root disabled={pending}>
           <div {...stylex.props(styles.row)}>

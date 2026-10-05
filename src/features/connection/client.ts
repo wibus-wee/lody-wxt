@@ -37,7 +37,7 @@ export interface PageContext {
 }
 export interface RunConfig {
   mcpServerIds?: string[];
-  modelId: string;
+  modelId?: string | undefined;
   reasoningEffort: string;
   planMode: boolean;
   fastMode: boolean;
@@ -128,6 +128,7 @@ export interface ClientSnapshot {
   machines: MachineSummary[];
   agents: Array<{ id: string; name: string } & AgentIdentity>;
   runModels: readonly RunModel[];
+  runConfigurationReady?: boolean;
   permissionModes: readonly PermissionOption[];
   busy: boolean;
   gatewayOrigin?: string;
@@ -142,9 +143,14 @@ export interface ClientSnapshot {
   configOptions?: readonly {
     id: string;
     name: string;
+    category?: string | undefined;
     type: 'select' | 'boolean';
     currentValue: string | boolean;
-    options: readonly { value: string | boolean; name: string }[];
+    options: readonly {
+      value: string | boolean;
+      name: string;
+      description?: string | null | undefined;
+    }[];
   }[];
 }
 export interface ChatSchedules extends Pick<ScheduleRepository, 'list' | 'read' | 'runtimeRows'> {

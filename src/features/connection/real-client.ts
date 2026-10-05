@@ -1,12 +1,14 @@
 import type {
   AttachmentRequestOptions,
   LodyClient as SdkClient,
+  ScheduleRepository,
   SendTurn,
   SessionHandle,
   SessionMetadata,
 } from '@lody-mobile/sdk';
 import {
   BetterAuthConvexJwtProvider,
+  buildSessionMetadata,
   ConvexCloudDirectory,
   ConvexShareManagement,
   createAttachmentClient,
@@ -33,6 +35,7 @@ import {
   steerTurn,
 } from '../conversations/session-flows';
 import { creationSchema, firstTurnSchema, sameMetadata } from './admission';
+import { connectBackgroundWorkspace } from './background-client';
 import type {
   ChatAttachment,
   ChatSchedules,
@@ -43,16 +46,21 @@ import type {
   LodyClient,
   SendInput,
 } from './client';
-import { configurationOptionsForModel, validateRunConfiguration } from './run-configuration';
+import {
+  configurationOptionsForModel,
+  resolveRunCapabilities,
+  validateRunConfiguration,
+} from './run-configuration';
 import { requireApiAccess } from './state';
 import { cloudFetch } from './worker-fetch';
 
 type SdkConnection = Awaited<ReturnType<typeof createLoroSessionRuntime>>;
-export type RealConnection = Pick<SdkConnection, 'runtime' | 'close'> &
-  Partial<Pick<SdkConnection, 'schedules' | 'mcpCatalog'>> & {
-    machines: Pick<SdkConnection['machines'], 'open'> &
-      Partial<Pick<SdkConnection['machines'], 'listMachineInfos' | 'subscribeMachineInfos'>>;
-  };
+export type RealConnection = Pick<SdkConnection, 'runtime' | 'close'> & {
+  schedules?: ScheduleRepository;
+  mcpCatalog?: Pick<SdkConnection['mcpCatalog'], 'list'>;
+  machines: Pick<SdkConnection['machines'], 'open'> &
+    Partial<Pick<SdkConnection['machines'], 'listMachineInfos' | 'subscribeMachineInfos'>>;
+};
 type Connection = RealConnection;
 type MachineHandle = Awaited<ReturnType<Connection['machines']['open']>>;
 export interface RealClientOptions {
@@ -108,9 +116,9 @@ export class RealLodyClient implements LodyClient {
   };
   private listeners = new Set<() => void>();
   private connection: Connection | null = null;
-  private directory: Pick<ConvexCloudDirectory, 'listMachines'> | null = null;
   private machine: MachineHandle | null = null;
   private handle: SessionHandle | null = null;
+  private selectedSessionId: string | undefined;
   private unlist: (() => void) | undefined;
   private unmachine: (() => void) | undefined;
   private unhistory: (() => void) | undefined;
@@ -206,6 +214,122 @@ export class RealLodyClient implements LodyClient {
   private report = (error: unknown) => {
     this.publish({ error: error instanceof Error ? error.message : String(error) });
   };
+  private async connectRuntime() {
+    const options = this.options;
+    if (!options.ports && new Set(['chrome-extension:', 'moz-extension:']).has(location.protocol)) {
+      const remote = await connectBackgroundWorkspace(
+        {
+          accountId: options.accountId,
+          workspaceId: options.workspaceId,
+          accountKey: options.accountKey,
+          authOrigin: options.authOrigin,
+          convexUrl: options.convexUrl,
+          token: options.token,
+        },
+        this.lifecycle.signal,
+        this.backgroundDisconnected,
+      );
+      this.publish({ gatewayOrigin: remote.gatewayOrigin });
+      return remote;
+    }
+    const access = options.ports?.requireAccess ?? requireApiAccess;
+    const fetch = cloudFetch();
+    const jwt = new BetterAuthConvexJwtProvider({
+      authOrigin: options.authOrigin,
+      fetch,
+      getSessionBearer: async () => {
+        this.active();
+        return options.token;
+      },
+    });
+    const directory =
+      options.ports?.directory ??
+      new ConvexCloudDirectory({ convexUrl: options.convexUrl, jwt, fetch });
+    let grant = await options.client.streams.getGrant(options.token, options.workspaceId, {
+      signal: this.lifecycle.signal,
+    });
+    this.active();
+    const baseUrl = grant.gatewayBaseUrl;
+    if (!baseUrl) throw new Error('Streams grant did not provide a gateway URL.');
+    this.publish({ gatewayOrigin: new URL(baseUrl).origin });
+    await access(new URL(baseUrl).origin);
+    this.active();
+    let expiresAt = Date.now() + grant.expiresIn * 1000;
+    let refresh: Promise<void> | null = null;
+    const auth = async () => {
+      this.active();
+      if (Date.now() >= expiresAt - 10_000) {
+        refresh ??= options.client.streams
+          .getGrant(options.token, options.workspaceId, { signal: this.lifecycle.signal })
+          .then((next) => {
+            this.active();
+            if (next.gatewayBaseUrl !== baseUrl)
+              throw new Error('Streams gateway changed. Reconnect the workspace.');
+            grant = next;
+            expiresAt = Date.now() + next.expiresIn * 1000;
+          })
+          .finally(() => {
+            refresh = null;
+          });
+        await refresh;
+      }
+      this.active();
+      return grant.token;
+    };
+    const connection = await (options.ports?.createConnection ?? createLoroSessionRuntime)({
+      workspaceId: options.workspaceId,
+      streamsBaseUrl: baseUrl,
+      auth,
+      commands: new StreamsMachineCommands({
+        workspaceId: options.workspaceId,
+        streams: new JsonRpcStreams({ baseUrl, auth }),
+      }),
+      storageAdapter: new IndexedDBStorageAdaptor({
+        dbName: `lody:repo:${this.accountKey}`,
+        durability: 'strict',
+      }),
+      documentRemoteCursorStore: createDocumentCursorStore(this.accountKey),
+      signal: this.lifecycle.signal,
+    });
+    try {
+      const machines = await directory.listMachines(options.workspaceId, {
+        signal: this.lifecycle.signal,
+      });
+      return { connection, machineIds: machines.map((row) => row.machineId) };
+    } catch (error) {
+      await connection.close();
+      throw error;
+    }
+  }
+  private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  private backgroundDisconnected = (error: Error) => {
+    if (this.lifecycle.signal.aborted) return;
+    const selected = this.selectedSessionId;
+    ++this.opening;
+    ++this.selecting;
+    ++this.listing;
+    this.unlist?.();
+    this.unhistory?.();
+    this.unmachine?.();
+    this.unlist = undefined;
+    this.unhistory = undefined;
+    this.unmachine = undefined;
+    this.handle = null;
+    this.machine = null;
+    this.connection = null;
+    this.publish({ status: 'error', error: error.message, runConfigurationReady: false });
+    clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = setTimeout(() => {
+      if (this.lifecycle.signal.aborted) return;
+      void this.connect()
+        .then(async () => {
+          if (selected && this.state.conversations.some((row) => row.id === selected))
+            await this.open(selected);
+        })
+        .catch(this.report);
+    }, 500);
+  };
+
   connect = () =>
     (this.starting ??= this.connectWorkspace().finally(() => {
       this.starting = null;
@@ -219,64 +343,7 @@ export class RealLodyClient implements LodyClient {
       const access = options.ports?.requireAccess ?? requireApiAccess;
       await Promise.all([access(options.authOrigin), access(options.convexUrl)]);
       this.active();
-      const fetch = cloudFetch();
-      const jwt = new BetterAuthConvexJwtProvider({
-        authOrigin: options.authOrigin,
-        fetch,
-        getSessionBearer: async () => {
-          this.active();
-          return options.token;
-        },
-      });
-      this.directory =
-        options.ports?.directory ??
-        new ConvexCloudDirectory({ convexUrl: options.convexUrl, jwt, fetch });
-      let grant = await options.client.streams.getGrant(options.token, options.workspaceId, {
-        signal: this.lifecycle.signal,
-      });
-      this.active();
-      const baseUrl = grant.gatewayBaseUrl;
-      if (!baseUrl) throw new Error('Streams grant did not provide a gateway URL.');
-      this.publish({ gatewayOrigin: new URL(baseUrl).origin });
-      await access(new URL(baseUrl).origin);
-      this.active();
-      let expiresAt = Date.now() + grant.expiresIn * 1000;
-      let refresh: Promise<void> | null = null;
-      const auth = async () => {
-        this.active();
-        if (Date.now() >= expiresAt - 10_000) {
-          refresh ??= options.client.streams
-            .getGrant(options.token, options.workspaceId, { signal: this.lifecycle.signal })
-            .then((next) => {
-              this.active();
-              if (next.gatewayBaseUrl !== baseUrl)
-                throw new Error('Streams gateway changed. Reconnect the workspace.');
-              grant = next;
-              expiresAt = Date.now() + next.expiresIn * 1000;
-            })
-            .finally(() => {
-              refresh = null;
-            });
-          await refresh;
-        }
-        this.active();
-        return grant.token;
-      };
-      const connection = await (options.ports?.createConnection ?? createLoroSessionRuntime)({
-        workspaceId: options.workspaceId,
-        streamsBaseUrl: baseUrl,
-        auth,
-        commands: new StreamsMachineCommands({
-          workspaceId: options.workspaceId,
-          streams: new JsonRpcStreams({ baseUrl, auth }),
-        }),
-        storageAdapter: new IndexedDBStorageAdaptor({
-          dbName: `lody:repo:${this.accountKey}`,
-          durability: 'strict',
-        }),
-        documentRemoteCursorStore: createDocumentCursorStore(this.accountKey),
-        signal: this.lifecycle.signal,
-      });
+      const { connection, machineIds } = await this.connectRuntime();
       if (this.lifecycle.signal.aborted) {
         await connection.close();
         return;
@@ -286,11 +353,7 @@ export class RealLodyClient implements LodyClient {
       this.unlist = connection.runtime.subscribeSessions(() => {
         void this.list().catch(this.report);
       });
-      const machines = await this.directory.listMachines(options.workspaceId, {
-        signal: this.lifecycle.signal,
-      });
       this.active();
-      const machineIds = machines.map((row) => row.machineId);
       let reading = 0;
       const readMachines = async () => {
         const version = ++reading;
@@ -426,6 +489,7 @@ export class RealLodyClient implements LodyClient {
       selectedMachineId: target.machineId,
       agents: [],
       runModels: [],
+      runConfigurationReady: false,
       permissionModes: [],
       configOptions: [],
       availableCommands: [],
@@ -448,6 +512,7 @@ export class RealLodyClient implements LodyClient {
       const agent = snapshot.agents.find((row) => row.id === agentId);
       const resolved = agent ? { ...target, agentConfigId: agent.id } : null;
       const caps = agent ? snapshot.capabilities[agent.id] : undefined;
+      const catalog = caps ? resolveRunCapabilities(caps) : undefined;
       if (resolved) {
         try {
           localStorage.setItem(
@@ -471,26 +536,27 @@ export class RealLodyClient implements LodyClient {
         canSteer: caps?.acknowledgedSteer === true,
         canFork: caps?.sessionFork === true,
         availableCommands: caps?.availableCommands ?? [],
-        configOptions: caps?.configOptions ?? [],
+        runConfigurationReady: Boolean(caps),
+        configOptions: catalog?.configOptions ?? [],
         modelConfigOptions: Object.fromEntries(
-          caps?.models.map((model) => [
+          catalog?.models.map((model) => [
             model.modelId,
-            configurationOptionsForModel(caps, model.modelId),
+            configurationOptionsForModel(caps!, model.modelId),
           ]) ?? [],
         ),
         runModels:
-          caps?.models.map((model) => ({
+          catalog?.models.map((model) => ({
             value: model.modelId,
             label: model.name,
-            reasoningEfforts: caps.modelReasoningEfforts?.[model.modelId] ?? [],
+            reasoningEfforts: caps?.modelReasoningEfforts?.[model.modelId] ?? [],
             planMode: false,
             fastMode: false,
           })) ?? [],
         permissionModes:
-          caps?.modes.map((mode) => ({
+          catalog?.modes.map((mode) => ({
             value: mode.id,
             label: mode.name,
-            ...(mode.description ? { description: mode.description } : {}),
+
             icon: 'permission' as const,
           })) ?? [],
       });
@@ -524,6 +590,7 @@ export class RealLodyClient implements LodyClient {
     }
   };
   open = async (sessionId: string) => {
+    this.selectedSessionId = sessionId;
     const connection = this.required();
     const opening = ++this.opening;
     this.unhistory?.();
@@ -783,16 +850,26 @@ export class RealLodyClient implements LodyClient {
         await handle.close();
       }
     });
-  private metadata(target: ExecutionTarget, existing?: SessionMetadata): SessionMetadata {
+  private metadata(
+    target: ExecutionTarget,
+    existing?: SessionMetadata,
+    input?: SendTurn,
+  ): SessionMetadata {
     if (target.project.kind === 'github' && !target.project.branch)
       throw new Error('Select an explicit GitHub branch.');
-    return {
+    const agent =
+      input?.inputConfig ??
+      this.machine?.read().agents.find((row) => row.id === target.agentConfigId);
+    if (!agent) throw new Error('Selected agent configuration is unavailable.');
+    return buildSessionMetadata({
       id: existing?.id ?? crypto.randomUUID(),
       machineId: target.machineId,
       agentConfigId: target.agentConfigId,
       userId: this.options.accountId,
       createdAt: existing?.createdAt ?? new Date().toISOString(),
-      isArchived: false,
+      cliType: agent.cliType,
+      agentType: agent.agentType,
+      ...(input ? { lastMessageAt: Date.parse(input.timestamp) } : {}),
       ...(target.project.kind === 'github'
         ? {
             project: {
@@ -810,7 +887,7 @@ export class RealLodyClient implements LodyClient {
               },
             }
           : {}),
-    };
+    });
   }
   create = async (target: ExecutionTarget) => {
     await this.selectTarget(target);
@@ -873,7 +950,7 @@ export class RealLodyClient implements LodyClient {
       this.sending = false;
     }
   };
-  private prepare(input: Omit<SendInput, 'sessionId'>): SendTurn {
+  private prepare(input: Omit<SendInput, 'sessionId'>, firstTurn = false): SendTurn {
     this.required();
     if (input.fail || input.retry)
       throw new Error('Demo failure and retry flags are not supported by the real runtime.');
@@ -896,12 +973,17 @@ export class RealLodyClient implements LodyClient {
       userId: this.options.accountId,
       inputConfig: {
         ...content,
+        prompt: firstTurn
+          ? [agent.prompt, content.prompt].filter((part) => part?.trim()).join('\n\n')
+          : content.prompt,
         inputBlocks: [...content.inputBlocks, ...(input.attachments ?? [])],
         cliType: agent.cliType,
         agentType: agent.agentType,
-        modelId: config.modelId,
+        ...(config.modelId ? { modelId: config.modelId } : {}),
         ...(config.modeId ? { modeId: config.modeId } : {}),
-        configOptionValues: config.configOptionValues,
+        ...(Object.keys(config.configOptionValues).length
+          ? { configOptionValues: config.configOptionValues }
+          : {}),
         ...(config.mcpServerIds === undefined ? {} : { mcpServerIds: config.mcpServerIds }),
       },
     });
@@ -914,15 +996,32 @@ export class RealLodyClient implements LodyClient {
     try {
       await this.selectTarget(frozenTarget);
       this.active();
-      const turn = this.prepare(frozen);
-      return await navigator.locks.request(this.creationKey(), async () => {
+      const catalog = this.required().mcpCatalog;
+      if (frozen.inputConfig && frozen.inputConfig.mcpServerIds === undefined && catalog) {
+        frozen.inputConfig.mcpServerIds = (await catalog.list())
+          .filter((server) => server.enabledByDefault)
+          .map((server) => server.id);
+        this.active();
+      }
+      const turn = this.prepare(frozen, true);
+      return await this.withDeliveryLock(async () => {
         this.active();
         this.checkPending(turn);
         const stored = v.parse(
           v.nullable(creationSchema),
           JSON.parse(localStorage.getItem(this.creationKey()) ?? 'null'),
         );
-        const meta = this.metadata(frozenTarget, stored?.metadata);
+        const meta = this.metadata(frozenTarget, stored?.metadata, turn);
+        // Upstream schema.ts deriveDraftSessionTitle; keep the shared desktop dependency out.
+        const title = frozen.text
+          .split('\n')
+          .map((line) => line.trim())
+          .find(Boolean)
+          ?.slice(0, 50);
+        if (title) {
+          meta.title = title;
+          meta.titleSource = 'draft';
+        }
         if (frozen.reservedSessionId) {
           if (stored && stored.metadata.id !== frozen.reservedSessionId)
             throw new Error('Recover the existing admission before replacing its identity.');
@@ -957,6 +1056,14 @@ export class RealLodyClient implements LodyClient {
       this.sending = false;
     }
   };
+  private withDeliveryLock<T>(deliver: () => Promise<T>) {
+    // A contending send must not queue behind a completed delivery and become a new turn.
+    return navigator.locks.request(this.creationKey(), { ifAvailable: true }, (lock) => {
+      this.active();
+      if (!lock) throw new Error('另一个窗口正在发送，请等待完成后再继续。草稿已保留。');
+      return deliver();
+    });
+  }
   private checkPending(turn: SendTurn) {
     const saved = v.parse(
       v.nullable(pendingSchema),
@@ -1017,7 +1124,15 @@ export class RealLodyClient implements LodyClient {
     if (!conversation) throw new Error('Select an available conversation.');
     await this.selectTarget(conversation.target);
     this.active();
-    const turn = this.prepare(frozen);
+    const history = await this.required().runtime.openSession(frozen.sessionId);
+    let firstTurn: boolean;
+    try {
+      firstTurn = !history.read().history.some((turn) => turn.role === 'user');
+    } finally {
+      await history.close();
+    }
+    this.active();
+    const turn = this.prepare(frozen, firstTurn);
     this.checkPending(turn);
     await this.open(frozen.sessionId);
     this.active();
@@ -1026,7 +1141,7 @@ export class RealLodyClient implements LodyClient {
       input: turn,
       contexts: frozen.contexts,
     });
-    await navigator.locks.request(this.creationKey(), () => this.deliver(pending));
+    await this.withDeliveryLock(() => this.deliver(pending));
   };
   private deliver = async (pending: Pending) => {
     const connection = this.required();
@@ -1318,7 +1433,7 @@ export class RealLodyClient implements LodyClient {
       const metadata = await this.metadataFor(frozen.sessionId);
       await this.selectTarget(this.conversation(metadata).target);
       const turn = this.prepare(frozen);
-      await navigator.locks.request(this.creationKey(), async () => {
+      await this.withDeliveryLock(async () => {
         this.checkPending(turn);
         const pending = v.parse(pendingSchema, {
           sessionId: frozen.sessionId,
@@ -1623,6 +1738,7 @@ export class RealLodyClient implements LodyClient {
     this.active();
   };
   close = async () => {
+    clearTimeout(this.reconnectTimer);
     this.lifecycle.abort();
     ++this.opening;
     ++this.selecting;

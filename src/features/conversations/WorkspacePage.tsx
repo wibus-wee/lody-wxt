@@ -21,8 +21,15 @@ import { ConversationRuntimeController } from './runtime-controller';
 import { TurnJournal } from './turn-journal';
 import { TurnActions } from './TurnActions';
 const styles = stylex.create({
-  page: { display: 'flex', flexDirection: 'column', gap: 16, padding: 24 },
-  columns: { display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) minmax(0, 3fr)', gap: 24 },
+  page: { display: 'flex', flexDirection: 'column', gap: 16, padding: 16, minWidth: 0 },
+  columns: {
+    display: 'grid',
+    gridTemplateColumns: {
+      default: 'minmax(180px, 1fr) minmax(0, 3fr)',
+      '@media (max-width: 640px)': 'minmax(0, 1fr)',
+    },
+    gap: 16,
+  },
   list: { display: 'flex', flexDirection: 'column', gap: 8, padding: 0, listStyleType: 'none' },
   turn: {
     padding: 16,
@@ -30,6 +37,8 @@ const styles = stylex.create({
   },
   actions: { display: 'flex', gap: 8, flexWrap: 'wrap' },
   prompt: { width: '100%', minHeight: 100 },
+  history: { minWidth: 0, overflowWrap: 'anywhere' },
+  detail: { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' },
 });
 const textItemSchema = v.object({ type: v.literal('text'), text: v.string() });
 const toolItemSchema = v.object({
@@ -120,7 +129,7 @@ function HistoryTurn({
                   : 'Activity details'}
               </Collapsible.Trigger>
               <Collapsible.Panel>
-                <pre>{JSON.stringify(item, null, 2)}</pre>
+                <pre {...stylex.props(styles.detail)}>{JSON.stringify(item, null, 2)}</pre>
               </Collapsible.Panel>
             </Collapsible.Root>
           );
@@ -143,7 +152,15 @@ export function WorkspacePage() {
 
 function WorkspaceSurface({ scope }: { scope: string }) {
   const account = useAccount();
-  const [controller] = useState(() => new ConversationRuntimeController(new TurnJournal(scope)));
+  const [prompt, setPrompt] = useState(() => localStorage.getItem(`lody:reply:${scope}`) ?? '');
+  const [controller] = useState(
+    () =>
+      new ConversationRuntimeController(new TurnJournal(scope), (input) => {
+        const key = `lody:reply:${scope}`;
+        if (localStorage.getItem(key) === input.inputConfig.prompt) localStorage.removeItem(key);
+        setPrompt((current) => (current === input.inputConfig.prompt ? '' : current));
+      }),
+  );
   const [connection, setConnection] = useState<Awaited<
     ReturnType<typeof connectConversationWorkspace>
   > | null>(null);
@@ -152,7 +169,6 @@ function WorkspaceSurface({ scope }: { scope: string }) {
   const [archived, setArchived] = useState(false);
   const [page, setPage] = useState(0);
   const [newConversation, setNewConversation] = useState(false);
-  const [prompt, setPrompt] = useState(() => localStorage.getItem(`lody:reply:${scope}`) ?? '');
   const [title, setTitle] = useState('');
   const reducedMotion = useReducedMotion();
   const accountId = account.account?.user.id;
@@ -161,12 +177,16 @@ function WorkspaceSurface({ scope }: { scope: string }) {
   const token = account.token?.access_token;
   const signedIn = account.status === 'signed_in';
   const client = account.client;
+  const [connectionRevision, setConnectionRevision] = useState(0);
   useEffect(() => {
     if (!signedIn || !accountId || !sessionId || !workspaceId || !token || !client) return;
     const storageAdapter = new IndexedDBStorageAdaptor({
       dbName: `lody:repo:${scope}`,
       durability: 'strict',
     });
+    const lifecycle = new AbortController();
+    const selected = controller.getSnapshot().snapshot?.sessionId;
+    let reconnect: ReturnType<typeof setTimeout> | undefined;
     const opening = connectConversationWorkspace({
       accountId,
       workspaceId,
@@ -175,18 +195,42 @@ function WorkspaceSurface({ scope }: { scope: string }) {
       convexUrl: productConfig.convexOrigin,
       client,
       storageAdapter,
+      signal: lifecycle.signal,
+      onDisconnect: () => {
+        clearTimeout(reconnect);
+        reconnect = setTimeout(() => {
+          if (!lifecycle.signal.aborted) setConnectionRevision((value) => value + 1);
+        }, 500);
+      },
     });
     let active = true;
-    void controller.connect(async () => {
-      const next = await opening;
-      if (active) setConnection(next);
-      return next;
-    });
+    void controller
+      .connect(async () => {
+        const next = await opening;
+        if (active) setConnection(next);
+        return next;
+      })
+      .then(async () => {
+        if (active && selected && controller.getSnapshot().status === 'connected')
+          await controller.open(selected);
+      });
     return () => {
       active = false;
+      clearTimeout(reconnect);
+      lifecycle.abort();
       void controller.disconnect();
     };
-  }, [controller, signedIn, accountId, sessionId, workspaceId, token, client, scope]);
+  }, [
+    controller,
+    signedIn,
+    accountId,
+    sessionId,
+    workspaceId,
+    token,
+    client,
+    scope,
+    connectionRevision,
+  ]);
   const rows = state.sessions.filter(
     (session) =>
       session.isArchived === archived &&
@@ -204,6 +248,9 @@ function WorkspaceSurface({ scope }: { scope: string }) {
     const inputConfig: TurnInput = {
       ...(latestInput.modelId ? { modelId: latestInput.modelId } : {}),
       ...(latestInput.modeId ? { modeId: latestInput.modeId } : {}),
+      ...(latestInput.mcpServerIds !== undefined
+        ? { mcpServerIds: [...latestInput.mcpServerIds] }
+        : {}),
       ...(latestInput.configOptionValues
         ? { configOptionValues: latestInput.configOptionValues }
         : {}),
@@ -211,23 +258,16 @@ function WorkspaceSurface({ scope }: { scope: string }) {
       agentType: latestInput.agentType,
       prompt,
     };
-    void controller
-      .send(
-        {
-          requestId: crypto.randomUUID(),
-          timestamp: new Date().toISOString(),
-          userId: accountId,
-          inputConfig,
-        },
-        kind,
-        activeTurn?.id,
-      )
-      .then(() => {
-        if (!controller.getSnapshot().error) {
-          localStorage.removeItem(`lody:reply:${scope}`);
-          setPrompt('');
-        }
-      });
+    void controller.send(
+      {
+        requestId: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        userId: accountId,
+        inputConfig,
+      },
+      kind,
+      activeTurn?.id,
+    );
   };
   return (
     <section {...stylex.props(styles.page)} aria-label="Workspace conversations">
@@ -309,7 +349,7 @@ function WorkspaceSurface({ scope }: { scope: string }) {
             </Button>
           </div>
         </nav>
-        <article aria-label="Conversation history">
+        <article aria-label="Conversation history" {...stylex.props(styles.history)}>
           {selected && (
             <>
               <h2>{selected.title ?? selected.id}</h2>
@@ -369,7 +409,7 @@ function WorkspaceSurface({ scope }: { scope: string }) {
                     key={turn.id}
                     turn={turn}
                     controller={controller}
-                    busy={state.busy}
+                    busy={state.busy || state.deliveryPending}
                     userId={accountId ?? ''}
                   />
                 ))}
@@ -393,20 +433,26 @@ function WorkspaceSurface({ scope }: { scope: string }) {
                 >
                   <Button
                     variant="primary"
-                    disabled={state.busy || !latestInput || !prompt.trim()}
+                    disabled={state.busy || state.deliveryPending || !latestInput || !prompt.trim()}
                     onClick={() => send('dispatch')}
                   >
                     Send
                   </Button>
                 </m.div>
                 <Button
-                  disabled={state.busy || !latestInput || !prompt.trim()}
+                  disabled={state.busy || state.deliveryPending || !latestInput || !prompt.trim()}
                   onClick={() => send('queue')}
                 >
                   Queue
                 </Button>
                 <Button
-                  disabled={state.busy || !latestInput || !prompt.trim() || !activeTurn}
+                  disabled={
+                    state.busy ||
+                    state.deliveryPending ||
+                    !latestInput ||
+                    !prompt.trim() ||
+                    !activeTurn
+                  }
                   onClick={() => send('guide')}
                 >
                   Steer active turn

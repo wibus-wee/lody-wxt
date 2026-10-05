@@ -1,8 +1,14 @@
-import type { MachineCommandPort, SessionMetadata, SessionSnapshot } from '@lody-mobile/sdk';
+import type {
+  MachineCommandPort,
+  SessionMetadata,
+  SessionSnapshot,
+  WorkspaceMcpServer,
+} from '@lody-mobile/sdk';
 import { createLodyClient, SessionRuntime } from '@lody-mobile/sdk';
 import { expect, it } from 'vitest';
 
 import { productConfig } from '../../src/app/product-config';
+import { mapHistory } from '../../src/features/chat/real-adapter';
 import type { RealConnection } from '../../src/features/connection/real-client';
 import { RealLodyClient } from '../../src/features/connection/real-client';
 import { requireApiAccess, workspaceScope } from '../../src/features/connection/state';
@@ -71,9 +77,12 @@ function fixture(
     },
     commands,
   );
+  const servers: WorkspaceMcpServer[] = [];
   const machine = {
     machineId: 'machine',
-    agents: [{ id: 'agent', name: 'Agent', cliType: 'builtin' as const, agentType: 'codex' }],
+    agents: [
+      { id: 'agent', name: 'Agent', cliType: 'builtin' as const, agentType: 'codex', prompt: '' },
+    ],
     projects: [],
     capabilities: {
       agent: {
@@ -83,6 +92,14 @@ function fixture(
         models: [{ modelId: 'real-model', name: 'Real model' }],
         modes: [],
         configOptions: [
+          {
+            id: 'model',
+            category: 'model',
+            name: 'Model',
+            type: 'select' as const,
+            currentValue: 'real-model',
+            options: [{ value: 'real-model', name: 'Real model' }],
+          },
           {
             id: 'plan_mode',
             name: 'Plan',
@@ -113,6 +130,7 @@ function fixture(
   };
   const connection = {
     runtime,
+    mcpCatalog: { list: async () => servers },
     machines: {
       open: async () => ({
         read: () => machine,
@@ -155,6 +173,7 @@ function fixture(
     rows,
     snapshot,
     machine,
+    servers,
     runtime,
     notifyMetadata: () => {
       for (const listener of metadataListeners) listener();
@@ -751,4 +770,94 @@ it('waits for authoritative fork metadata after RPC completion and releases its 
   await state.client.close();
   await cancelled;
   expect(state.metadataListeners.size).toBe(0);
+});
+
+it('starts with official metadata and freezes the agent prompt and default MCP selection across recovery', async () => {
+  const state = fixture(crypto.randomUUID(), true, false);
+  state.machine.agents[0]!.prompt = 'Follow the configured research instructions.';
+  state.servers.push({
+    id: 'research',
+    name: 'Research',
+    transport: 'http',
+    enabledByDefault: true,
+    hasConnection: true,
+  });
+  await state.client.connect();
+  await expect(
+    state.client.start(target, {
+      ...firstInput,
+      inputConfig: { ...firstInput.inputConfig, configOptionValues: {} },
+    }),
+  ).rejects.toThrow('session_admission_incomplete');
+  const original = structuredClone(state.snapshot.history[0]!);
+  const meta = structuredClone(state.rows[0]!);
+  expect(meta).toMatchObject({
+    cliType: 'builtin',
+    agentType: 'codex',
+    agentConfigId: 'agent',
+    status: { type: 'idle' },
+    historyBackend: 'loro',
+    lastMessageAt: Date.parse(original.timestamp),
+  });
+  expect(original.inputConfig).toMatchObject({
+    prompt: 'Follow the configured research instructions.\n\nHello',
+    inputBlocks: [{ type: 'text', text: 'Hello' }],
+    mcpServerIds: ['research'],
+  });
+  expect(original.inputConfig).not.toHaveProperty('configOptionValues');
+  state.snapshot.history.length = 0;
+  state.machine.agents[0]!.prompt = 'Changed after uncertain delivery';
+  state.servers.length = 0;
+  expect(await state.client.recoverDelivery()).toBe(true);
+  expect(state.snapshot.history).toEqual([original]);
+  expect(state.rows[0]).toEqual(meta);
+  const visible = mapHistory([{ ...original, items: [{ type: 'text', text: 'Hello' }] }])[0]!;
+  expect(visible.text).toBe('Hello');
+  expect(mapHistory([original])[0]!.text).toBe('Hello');
+  await state.client.close();
+});
+
+it('honors an explicit empty MCP selection and omits absent model fields', async () => {
+  const state = fixture(crypto.randomUUID(), false, false);
+  state.machine.capabilities.agent.models = [];
+  state.machine.capabilities.agent.configOptions = [];
+  state.servers.push({
+    id: 'research',
+    name: 'Research',
+    transport: 'http',
+    enabledByDefault: true,
+    hasConnection: true,
+  });
+  await state.client.connect();
+  await state.client.start(target, {
+    ...firstInput,
+    inputConfig: { reasoningEffort: '', planMode: false, fastMode: false, mcpServerIds: [] },
+  });
+  expect(state.snapshot.history[0]!.inputConfig).not.toHaveProperty('modelId');
+  expect(state.snapshot.history[0]!.inputConfig?.mcpServerIds).toEqual([]);
+  await state.client.close();
+});
+
+it('reads persisted history before deciding whether an unopened conversation needs the agent prefix', async () => {
+  const state = fixture(crypto.randomUUID(), false, false);
+  state.machine.agents[0]!.prompt = 'Only for the first turn';
+  state.rows.push({
+    id: 'existing',
+    machineId: 'machine',
+    userId: 'user',
+    agentConfigId: 'agent',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    isArchived: false,
+  });
+  state.snapshot.history.push({
+    id: 'old',
+    role: 'user',
+    timestamp: '2026-01-01T00:00:00.000Z',
+    inputConfig: { prompt: 'Earlier message' },
+  });
+  await state.client.connect();
+  expect(state.client.getSnapshot().conversations[0]!.messages).toEqual([]);
+  await state.client.send({ ...firstInput, sessionId: 'existing', operationId: 'follow-up' });
+  expect(state.snapshot.history.at(-1)?.inputConfig?.prompt).toBe('Hello');
+  await state.client.close();
 });

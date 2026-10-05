@@ -8,6 +8,10 @@ import type { LoroRuntimeOptions } from '@lody-mobile/sdk/loro';
 import { createLoroSessionRuntime } from '@lody-mobile/sdk/loro';
 import { JsonRpcStreams } from '@lody-mobile/sdk/rpc';
 
+import { productConfig } from '../../app/product-config';
+import { connectBackgroundWorkspace } from '../connection/background-client';
+import { workspaceScope } from '../connection/state';
+import { cloudFetch } from '../connection/worker-fetch';
 import { createDocumentCursorStore } from './runtime-storage';
 
 export interface WorkspaceConnectionOptions {
@@ -18,14 +22,41 @@ export interface WorkspaceConnectionOptions {
   convexUrl: string;
   client: LodyClient;
   storageAdapter: LoroRuntimeOptions['storageAdapter'];
+  signal?: AbortSignal;
+  onDisconnect?: (error: Error) => void;
 }
 
 export async function connectConversationWorkspace(options: WorkspaceConnectionOptions) {
+  const fetch = cloudFetch();
   const jwt = new BetterAuthConvexJwtProvider({
     authOrigin: options.authOrigin,
     getSessionBearer: async () => options.token,
+    fetch,
   });
-  const directory = new ConvexCloudDirectory({ convexUrl: options.convexUrl, jwt });
+  const directory = new ConvexCloudDirectory({ convexUrl: options.convexUrl, jwt, fetch });
+  if (new Set(['chrome-extension:', 'moz-extension:']).has(location.protocol)) {
+    const remote = await connectBackgroundWorkspace(
+      {
+        accountId: options.accountId,
+        workspaceId: options.workspaceId,
+        accountKey: JSON.stringify([
+          workspaceScope(
+            options.authOrigin,
+            productConfig.clientId,
+            options.accountId,
+            options.workspaceId,
+          ),
+          new URL(options.convexUrl).origin,
+        ]),
+        authOrigin: options.authOrigin,
+        convexUrl: options.convexUrl,
+        token: options.token,
+      },
+      options.signal ?? new AbortController().signal,
+      (error) => options.onDisconnect?.(error),
+    );
+    return { ...remote.connection, directory };
+  }
   const grant = await options.client.streams.getGrant(options.token, options.workspaceId);
   if (!grant.gatewayBaseUrl) throw new Error('Streams grant did not provide a gateway URL.');
   let currentGrant = grant;

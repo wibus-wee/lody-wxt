@@ -24,6 +24,7 @@ export interface RuntimeState {
   sessions: SessionMetadata[];
   snapshot: SessionSnapshot | null;
   busy: boolean;
+  deliveryPending: boolean;
   error: string | null;
 }
 
@@ -33,6 +34,7 @@ export class ConversationRuntimeController {
     sessions: [],
     snapshot: null,
     busy: false,
+    deliveryPending: false,
     error: null,
   };
   private listeners = new Set<() => void>();
@@ -51,14 +53,17 @@ export class ConversationRuntimeController {
     expectedTurnId: string;
   } | null = null;
 
-  constructor(private readonly journal?: TurnJournal) {}
+  constructor(
+    private readonly journal?: TurnJournal,
+    private readonly onDeliveryConfirmed?: (input: SendTurn) => void,
+  ) {}
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   };
   private publish(state: RuntimeState) {
-    this.state = state;
+    this.state = { ...state, deliveryPending: this.pendingTurn !== null };
     for (const listener of this.listeners) listener();
   }
 
@@ -106,8 +111,18 @@ export class ConversationRuntimeController {
     const listing = ++this.listing;
     try {
       const sessions = await connection.runtime.listSessions();
-      if (generation === this.generation && listing === this.listing)
-        this.publish({ ...this.state, sessions });
+      if (generation === this.generation && listing === this.listing) {
+        const selectedId = this.state.snapshot?.sessionId;
+        if (selectedId && !sessions.some((session) => session.id === selectedId)) {
+          ++this.opening;
+          this.unsubscribeHistory?.();
+          this.unsubscribeHistory = null;
+          const handle = this.handle;
+          this.handle = null;
+          this.publish({ ...this.state, sessions, snapshot: null });
+          await handle?.close();
+        } else this.publish({ ...this.state, sessions });
+      }
     } catch {
       if (generation === this.generation)
         this.publish({ ...this.state, error: 'Conversations could not be loaded.' });
@@ -159,7 +174,9 @@ export class ConversationRuntimeController {
             : new Set(['handled', 'processing', 'seen']).has(found.status ?? '');
         if (confirmed) {
           await this.journal?.clear(pending.input.requestId);
+          if (generation !== this.generation || opening !== this.opening) return;
           this.pendingTurn = null;
+          this.onDeliveryConfirmed?.(pending.input);
         }
       }
       this.publish({
@@ -220,6 +237,7 @@ export class ConversationRuntimeController {
         await this.journal?.clear(input.requestId);
         if (generation !== this.generation) return;
         this.pendingTurn = null;
+        this.onDeliveryConfirmed?.(input);
       }
     } catch {
       if (generation === this.generation)
@@ -408,6 +426,7 @@ export class ConversationRuntimeController {
       sessions: [],
       snapshot: null,
       busy: false,
+      deliveryPending: false,
       error: null,
     });
     await handle?.close();
