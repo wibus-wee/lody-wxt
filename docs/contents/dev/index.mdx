@@ -1,0 +1,31 @@
+---
+title: 开发资料
+description: 为开发者保留架构、功能目标、实现边界与验证方法。
+---
+
+这里保留原有工程资料。日常使用请从 [产品文档首页](../index.mdx) 开始；目标规格描述待交付要求，实际能力以实现记录与代码为准。
+
+| 阅读目的                         | 文档                                               |
+| -------------------------------- | -------------------------------------------------- |
+| 配置本地开发环境                 | [开发起步](./getting-started.mdx)                  |
+| 理解模块、状态所有权与恢复       | [架构](./architecture.mdx)                         |
+| 查询功能目标与验收要求           | [浏览器助手规格](./browser-assistant-spec.mdx)     |
+| 核对当前实现、协议缺口与生产边界 | [实现记录](./browser-assistant-implementation.mdx) |
+| 扩展交互与设计                   | [设计约定](./design.mdx)                           |
+| 选择验证路径与解读证据           | [验证方法](./testing.mdx)                          |
+
+## 维护文档站
+
+产品正文放在 `docs/contents`，按首次练习、任务指南、查阅参考和原理说明分别组织。只在影响使用、排障或决策时展开实现细节；代码所有权和验证合同由这里维护。
+
+文档站使用 Fumadocs 的 React Router Provider、标准 DocsLayout、DocsPage 和 MDX 组件。各目录的 `meta.json` 管理分组名称、阅读顺序与展开状态；`dev` 是独立的开发资料分区。产品文档和开发资料分别使用自己的静态搜索索引。
+
+运行 `pnpm dev:docs`，打开 `http://127.0.0.1:4000/docs`。运行 `pnpm build:docs` 后，站点位于 `docs/dist`。部署静态站点时，为 `/docs/*` 设置回退到 `/index.html` 的规则，并保留搜索 JSON、字体及资源文件的原始访问路径。旧的 `#/docs/...` 书签会跳转到对应的常规路径；小节使用普通的 `#小节名称` 链接。
+
+图的可编辑源位于 `docs/diagrams/*.excalidraw.json`，页面直接用 Excalidraw 渲染，不用导出图片代替源场景。坐标与形状定义在 [图源生成器](../../../tools/docs/generate-diagrams.mjs)，执行 `node tools/docs/generate-diagrams.mjs` 生成浅色与深色场景。要持久调整布局，修改生成器后重生成；下载的源图也可以在 Excalidraw 中打开编辑。
+
+图只表达对象、包含关系、数据流和必要状态；操作步骤和适用条件写在正文。图注提供文字替代，窄屏可横向查看完整图。
+
+站点主题和图的主题保持一致；首次访问跟随系统，读者可自行切换。Excalifont 与中文小赖字体由 [字体资源插件](../../../tools/docs/excalidraw-fonts.ts) 在开发和构建时本地提供，图不会依赖外部字体服务。
+
+启动文档预览后，运行 `node tools/docs/check-render.mjs` 检查所有页面、内部链接、图源下载、浅深色图、小节链接、中文搜索、代码复制、主题保留、手机目录和键盘滚动，并执行 axe 审计。通过 `DOCS_URL` 可指定已构建站点的预览地址；报告与截图保存在 `reports/docs`，它们不计入应用产品旅程覆盖率。

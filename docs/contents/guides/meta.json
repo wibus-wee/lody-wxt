@@ -1,0 +1,12 @@
+{
+  "title": "完成任务",
+  "pages": [
+    "page-questions",
+    "files-and-media",
+    "conversations",
+    "shortcuts-and-schedules",
+    "sharing",
+    "troubleshooting"
+  ],
+  "defaultOpen": true
+}

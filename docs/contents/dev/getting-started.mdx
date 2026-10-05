@@ -1,5 +1,5 @@
 ---
-title: Getting started
+title: 开发起步
 description: Run and extend the WXT foundation.
 ---
 
@@ -13,6 +13,6 @@ pnpm dev
 
 WXT builds the extension and starts a browser with hot reload. Use `pnpm dev:web` for the same React application in a normal browser. Production output is `.output/chrome-mv3`; load that directory from Chrome's extension developer mode.
 
-The React application is shared by popup, options and preview. Hash routing keeps routes inside packaged extension pages. No styled component library is installed. Base UI supplies the unstyled switch; replace local UI through the `src/shared/ui` boundary.
+The React application is shared by popup, options and preview. Hash routing keeps routes inside packaged extension pages. Lody UI supplies application controls through `src/shared/ui`; use StyleX for layout composition. Base UI provides the underlying interaction primitives.
 
 Run `pnpm check`, `pnpm test` and `pnpm build:storybook` before shipping. See the repository README for the full command map.

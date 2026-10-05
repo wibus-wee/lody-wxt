@@ -11,13 +11,13 @@ description: ChatGPT 浏览器扩展与 Claude in Chrome 的功能对照，以�
 
 “必须”是对应功能交付时的验收要求；阶段表示依赖顺序，不表示功能可以被省略。当前实现与限制由 [Implementation](./browser-assistant-implementation.mdx) 维护；本规格本身不代表功能已交付。竞品事实只由下节维护，其余章节是 Lody 的设计决策，不能反向当作竞品行为。
 
-| 阅读目的         | 内容                                               | 事实所有者                                                            |
-| ---------------- | -------------------------------------------------- | --------------------------------------------------------------------- |
-| 查竞品范围和版本 | 功能来源与对照                                     | 本规格的来源矩阵                                                      |
-| 查现有实现       | 当前基线                                           | 代码与 [Architecture](./architecture.mdx)                             |
-| 实现产品功能     | UX、CTX、FILE、CHAT、ACT、AUTO、INT、GOV、OPS 要求 | 本规格                                                                |
-| 实现接口和恢复   | 状态、数据及执行契约                               | 本规格的目标合同；现有协议见 [SDK](../../packages/lody-sdk/README.md) |
-| 验证交付         | 验收旅程、阶段和完成定义                           | 本规格；执行模型见 [Assurance](../../tools/assurance/README.md)       |
+| 阅读目的         | 内容                                               | 事实所有者                                                               |
+| ---------------- | -------------------------------------------------- | ------------------------------------------------------------------------ |
+| 查竞品范围和版本 | 功能来源与对照                                     | 本规格的来源矩阵                                                         |
+| 查现有实现       | 当前基线                                           | 代码与 [Architecture](./architecture.mdx)                                |
+| 实现产品功能     | UX、CTX、FILE、CHAT、ACT、AUTO、INT、GOV、OPS 要求 | 本规格                                                                   |
+| 实现接口和恢复   | 状态、数据及执行契约                               | 本规格的目标合同；现有协议见 [SDK](../../../packages/lody-sdk/README.md) |
+| 验证交付         | 验收旅程、阶段和完成定义                           | 本规格；执行模型见 [Assurance](../../../tools/assurance/README.md)       |
 
 ## 功能来源与对照
 
@@ -96,17 +96,17 @@ Lody 扩展是浏览过程中的快捷对话与执行入口。用户应能直接
 
 下表保留编写规格时的初始基线；后续实现已推进，当前能力请查 [Implementation](./browser-assistant-implementation.mdx)。两者均不是生产验收报告。
 
-| 所有者                                                             | 已存在的基础                                                     | 仍需补齐                                              |
-| ------------------------------------------------------------------ | ---------------------------------------------------------------- | ----------------------------------------------------- |
-| [快捷聊天](../../src/features/chat/ConnectedChat.tsx)              | 首次发送建会话、草稿、目标选择、单次 prompt 带上下文、停止和批准 | 快捷入口、富附件、编辑、管理和运行中补充              |
-| [页面上下文](../../src/features/page-context/capture.ts)           | 显式采集正文/选区、权限请求、预览与移除                          | 12,000 字符截断标记、快照版本、多标签、视觉与专门解析 |
-| [历史列表](../../src/features/chat/ChatHistory.tsx)                | 最近对话、标题过滤                                               | 全文索引、分页、重命名、归档和删除闭环                |
-| [会话呈现](../../src/shared/ui/conversation/README.md)             | 上游排序、工具/思考分组、完成折叠                                | 文件、图片、计划、目标、子 Agent 专用视图             |
-| [高级会话](../../src/features/conversations/runtime-controller.ts) | 编辑、分叉、取消及删除请求等基础                                 | 快捷侧栏接入、观察实际执行结果                        |
-| [附件 SDK](../../packages/lody-sdk/README.md#attachments)          | 文件/图像上传、预览、下载、部分失败清理                          | 新草稿存储会话验证、侧栏传输、孤立附件治理            |
-| [运行客户端](../../src/features/connection/real-client.ts)         | Lody 机器、Agent、历史同步和权限回复                             | 浏览器桥接；当前 `pageActions: false`                 |
-| [网络边界](../../src/features/network/protocol.ts)                 | 有限 JSON 请求转发和取消                                         | 不是浏览器控制桥，也不能直接承接大附件                |
-| [验证模型](../../tools/assurance/model.mjs)                        | 已建产品状态所有者及旅程合同                                     | 新功能先扩模型，再写场景；当前完成情况以生成报告为准  |
+| 所有者                                                                | 已存在的基础                                                     | 仍需补齐                                              |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------- |
+| [快捷聊天](../../../src/features/chat/ConnectedChat.tsx)              | 首次发送建会话、草稿、目标选择、单次 prompt 带上下文、停止和批准 | 快捷入口、富附件、编辑、管理和运行中补充              |
+| [页面上下文](../../../src/features/page-context/capture.ts)           | 显式采集正文/选区、权限请求、预览与移除                          | 12,000 字符截断标记、快照版本、多标签、视觉与专门解析 |
+| [历史列表](../../../src/features/chat/ChatHistory.tsx)                | 最近对话、标题过滤                                               | 全文索引、分页、重命名、归档和删除闭环                |
+| [会话呈现](../../../src/shared/ui/conversation/README.md)             | 上游排序、工具/思考分组、完成折叠                                | 文件、图片、计划、目标、子 Agent 专用视图             |
+| [高级会话](../../../src/features/conversations/runtime-controller.ts) | 编辑、分叉、取消及删除请求等基础                                 | 快捷侧栏接入、观察实际执行结果                        |
+| [附件 SDK](../../../packages/lody-sdk/README.md#attachments)          | 文件/图像上传、预览、下载、部分失败清理                          | 新草稿存储会话验证、侧栏传输、孤立附件治理            |
+| [运行客户端](../../../src/features/connection/real-client.ts)         | Lody 机器、Agent、历史同步和权限回复                             | 浏览器桥接；当前 `pageActions: false`                 |
+| [网络边界](../../../src/features/network/protocol.ts)                 | 有限 JSON 请求转发和取消                                         | 不是浏览器控制桥，也不能直接承接大附件                |
+| [验证模型](../../../tools/assurance/model.mjs)                        | 已建产品状态所有者及旅程合同                                     | 新功能先扩模型，再写场景；当前完成情况以生成报告为准  |
 
 ## UX：入口与日常操作
 
@@ -200,7 +200,7 @@ Lody 扩展是浏览过程中的快捷对话与执行入口。用户应能直接
 ### FILE-01 输入与上传
 
 - 快捷输入支持文件选择、拖拽和图片粘贴，多附件有类型、大小、进度、取消、重试及移除。只有附件且无文字时允许发送，由明确的默认请求或用户补充说明消除歧义。
-- 校验以 [SDK 限制](../../packages/lody-sdk/README.md#attachments) 和当前 Agent 能力为准。传输支持某 MIME 不表示模型能理解；HTML/SVG 等预览不得执行主动内容。
+- 校验以 [SDK 限制](../../../packages/lody-sdk/README.md#attachments) 和当前 Agent 能力为准。传输支持某 MIME 不表示模型能理解；HTML/SVG 等预览不得执行主动内容。
 - 草稿二进制存入有账号/工作区隔离的 IndexedDB，不写入 localStorage 或 JSON 转发。空间不足时保留文本，并说明哪些文件未能保存。
 - 失败只重试失败附件；成功附件不重复上传。未知上传结果与已确认失败分开，取消不承诺服务端已清理。
 
@@ -413,7 +413,7 @@ WXT entrypoints 只挂载界面和注册生命周期。产品桥接不引入 Nod
 
 ### 目标数据模型
 
-以下列出状态模型必须保留的语义。Prompt Shortcut 已有上游 wire 合同，以 [SDK shortcuts](../../packages/lody-sdk/src/shortcuts) 和 [Lody 原版模型](../../vendor/lody/packages/shared/src/prompt-shortcuts/model.ts) 为准；其余目标模型的正式字段名、版本和大小上限须经协议实验及端到端合同确认。
+以下列出状态模型必须保留的语义。Prompt Shortcut 已有上游 wire 合同，以 [SDK shortcuts](../../../packages/lody-sdk/src/shortcuts) 和 [Lody 原版模型](../../../vendor/lody/packages/shared/src/prompt-shortcuts/model.ts) 为准；其余目标模型的正式字段名、版本和大小上限须经协议实验及端到端合同确认。
 
 | 实体               | 必要字段                                                                                                                             | 约束                                                                                          |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
@@ -462,7 +462,7 @@ WXT entrypoints 只挂载界面和注册生命周期。产品桥接不引入 Nod
 
 ### 必须覆盖的验收旅程
 
-这些 J 编号是待实现的规格旅程，不是已注册 namespace 或已通过测试。开始每阶段时，先将 owner、state、transition 和交互边界加入 [assurance model](../../tools/assurance/model.mjs)，再生成 registry 和编写 Cucumber；一条旅程的所有义务必须由同一次成功 attempt 证明。
+这些 J 编号是待实现的规格旅程，不是已注册 namespace 或已通过测试。开始每阶段时，先将 owner、state、transition 和交互边界加入 [assurance model](../../../tools/assurance/model.mjs)，再生成 registry 和编写 Cucumber；一条旅程的所有义务必须由同一次成功 attempt 证明。
 
 | ID  | 对应要求                 | 同一次旅程必须证明                                                                                                                         |
 | --- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |

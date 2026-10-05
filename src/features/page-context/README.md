@@ -2,7 +2,7 @@
 
 This feature owns explicit browser capture and local source previews.
 It passes immutable, untrusted page snapshots or real `File` objects to the quick draft; the connection adapter owns SDK submission.
-The [browser assistant specification](../../../docs/content/browser-assistant-spec.mdx) defines the broader capability target.
+The [browser assistant specification](../../../docs/contents/dev/browser-assistant-spec.mdx) defines the broader capability target.
 
 | Area             | Entry point                                                                  | Contract                                                                                                                                          |
 | ---------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |

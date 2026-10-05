@@ -5,20 +5,20 @@ description: 浏览器助手的实现范围、协议边界、验证入口和后�
 
 ## 交付边界
 
-本记录对应 [Browser assistant SPEC](./browser-assistant-spec.mdx) 的实现工作区，更新于 2026-10-04。它描述实际代码，不把受控协议测试当作生产服务验收，也不把 SDK 方法等同于完整产品能力。测试结果由 [COVERAGE](../../COVERAGE.md) 和原始报告维护。
+本记录对应 [Browser assistant SPEC](./browser-assistant-spec.mdx) 的实现工作区，更新于 2026-10-05。它描述实际代码，不把受控协议测试当作生产服务验收，也不把 SDK 方法等同于完整产品能力。测试结果由 [COVERAGE](../../../COVERAGE.md) 和原始报告维护。
 
 扩展以快捷对话为主入口：新建只建立本地草稿；首次发送才创建远端会话；网页、个人偏好、提示词和附件进入同一个用户 turn。机器与 Agent 沿用明确选择，运行菜单使用其真实能力。聊天渲染、品牌图标、对话框、菜单及调度布局以 Lody 上游为依据，通过 `src/shared/ui` 适配，未引入另一套控件样式。
 
-| 阅读目的                    | 实现所有者                                                                                                                 |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| 快捷聊天、来源、发送恢复    | [ConnectedChat](../../src/features/chat/ConnectedChat.tsx)、[RealLodyClient](../../src/features/connection/real-client.ts) |
-| 官方消息排序和富内容        | [Conversation rendering](../../src/shared/ui/conversation/README.md)                                                       |
-| 浏览器资料、截图、PDF、书签 | [Page context](../../src/features/page-context/README.md)                                                                  |
-| 快捷指令和真实机器调度      | [Automations](../../src/features/automations/README.md)                                                                    |
-| 公开分享、冻结预览和撤销    | [Sharing](../../src/features/sharing/README.md)                                                                            |
-| 个人偏好和浏览器权限        | [Privacy](../../src/features/privacy/BrowserPrivacySettings.tsx)                                                           |
-| 独立协议、鉴权、附件和调度  | [SDK](../../packages/lody-sdk/README.md)                                                                                   |
-| 状态义务及执行证据          | [Assurance](../../tools/assurance/README.md)                                                                               |
+| 阅读目的                    | 实现所有者                                                                                                                       |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| 快捷聊天、来源、发送恢复    | [ConnectedChat](../../../src/features/chat/ConnectedChat.tsx)、[RealLodyClient](../../../src/features/connection/real-client.ts) |
+| 官方消息排序和富内容        | [Conversation rendering](../../../src/shared/ui/conversation/README.md)                                                          |
+| 浏览器资料、截图、PDF、书签 | [Page context](../../../src/features/page-context/README.md)                                                                     |
+| 快捷指令和真实机器调度      | [Automations](../../../src/features/automations/README.md)                                                                       |
+| 公开分享、冻结预览和撤销    | [Sharing](../../../src/features/sharing/README.md)                                                                               |
+| 个人偏好和浏览器权限        | [Privacy](../../../src/features/privacy/BrowserPrivacySettings.tsx)                                                              |
+| 独立协议、鉴权、附件和调度  | [SDK](../../../packages/lody-sdk/README.md)                                                                                      |
+| 状态义务及执行证据          | [Assurance](../../../tools/assurance/README.md)                                                                                  |
 
 ## 功能对照
 
@@ -41,7 +41,7 @@ description: 浏览器助手的实现范围、协议边界、验证入口和后�
 | FILE-01 | 选择、拖拽、图片粘贴、多附件、上传进度/取消/恢复、仅附件发送                                        | 按 SDK 类型和大小校验；模型理解能力不能由上传成功推断                                                           |
 | FILE-02 | IndexedDB 草稿、预留 session/request ID、逐文件上传回执、单 turn、刷新恢复                          | 尚无服务端孤立附件回收协议；取消或清除本地资料不表示云端附件已删除                                              |
 | FILE-03 | 官方文件/图片卡、SDK 下载、安全图像/文本预览、Markdown 导出、分享管理                               | 仅本机路径不冒充下载链接；上游公开分享会剔除普通文件附件，图片按协议转存                                        |
-| CHAT-01 | 同一云会话、标题/全部可见正文搜索、重命名、归档/恢复/删除、导出                                     | 全文搜索逐段同步，能取消并显示部分失败；没有虚构服务端全文索引；Desktop 深链不在本次范围                        |
+| CHAT-01 | 同一云会话、紧凑历史与键盘导航、标题/正文搜索、重命名、归档/恢复/删除、导出                         | 全文搜索逐段同步，能取消并显示部分失败；没有虚构服务端全文索引；Desktop 深链不在本次范围                        |
 | CHAT-02 | 编辑并重发、重新生成、分叉、运行中补充与排队                                                        | 编辑/分叉按实际 runtime 支持；队列显示权威同步记录，不把入队当作生成完成                                        |
 | CHAT-03 | 移植官方排序、工作分组和折叠；正文、代码、表格、计划、目标、子 Agent、附件、命令与未知内容详情      | 远端本机文件仍需正式附件引用；未识别内容保留可检查记录                                                          |
 | CHAT-04 | 计划/目标呈现及真实 permission request 回复；未解决批准独立显示                                     | 独立版本化浏览器计划批准协议待补，不创建假的批准动作                                                            |
@@ -70,7 +70,11 @@ description: 浏览器助手的实现范围、协议边界、验证入口和后�
 
 ### SDK 和状态所有权
 
+扩展后台在已授权账号可用时预连接工作区，侧栏和完整会话页通过独立端口复用 SDK 同步连接；关闭侧栏只释放该视图的会话句柄。Chrome 回收后台后，通过启动事件、分钟级同步唤醒或前台重连恢复；未知发送不会自动重放。身份隔离、端口协议与打包重启验证由 [Workspace connections](../../../src/features/connection/README.md) 维护。
+
 SDK 负责协议、领域模型、显式 origin/credential、序列化、同步及错误，不依赖 React、WXT 或设备存储。附件草稿、分享/调度提交日志、个人偏好和浏览器权限归 feature adapter。WXT 入口只挂载页面或注册生命周期监听。
+
+同一工作区的快捷发送互斥：另一个窗口持有发送锁时立即保留草稿并提示等待，不把第二次发送排队到第一条完成之后。未确认请求继续使用原日志和请求身份恢复。高级会话在送达未确认时禁用新发送、排队和引导；确认后只清除与已送达文本相同的草稿，保留期间新写的内容；删除后的视图只在权威会话目录移除目标后释放，编辑文字同步更新执行 prompt 与显示文本块，并保留非文字附件。
 
 首次附件提交预留最终 session ID，先保存二进制与请求身份，再上传并写入一个用户 turn。已经确认上传的引用保留到确认发送；局部失败重试不重传成功项。清空附件保留递增 revision 的空记录，拒绝晚到的旧窗口写入。正文、来源和二进制分别有自身生命周期，不能因为关闭对话框就丢弃未知发送。
 
@@ -79,30 +83,38 @@ SDK 负责协议、领域模型、显式 origin/credential、序列化、同步�
 ### 原版快捷指令与输入语义
 
 `/`、`@`、`$` 以 Lody 的 source registry 和底层 `ui/mention` 两层契约为依据，保留光标前后文及结构化提及范围；已选择的技能在发送时展开进唯一 prompt。
-分类进入／返回、上下及首尾导航、触摸滚动和引用原子编辑由 [Composer mentions](../../src/features/chat/mentions/README.md) 维护，不能仅凭候选列表外观或直接填入 namespace 的测试声称交互对齐。
+分类进入／返回、上下及首尾导航、触摸滚动和引用原子编辑由 [Composer mentions](../../../src/features/chat/mentions/README.md) 维护，不能仅凭候选列表外观或直接填入 namespace 的测试声称交互对齐。
 Prompt Shortcuts 直接复用云端权限目录、隔离的 Flock 索引和不可变 Loro 正文，工作区通用 token 不授予读取权限。
 feature 持有分区 IndexedDB、同步生命周期和迁移日志，SDK 持有原版模型、修订 CAS 和 resource-scoped grant。
 旧扩展模板经预览确认才迁移，原记录保留；参数原文和浏览器页面开关不被伪造为上游协议字段。
-具体所有权与失败恢复见 [Automations](../../src/features/automations/README.md)，跨端协议用 [Shortcut boundary](../../tests/e2e/support/shortcut-boundary.ts) 提供真实 HTTP/Streams 字节，测试结果仍以生成报告为准。
+具体所有权与失败恢复见 [Automations](../../../src/features/automations/README.md)，跨端协议用 [Shortcut boundary](../../../tests/e2e/support/shortcut-boundary.ts) 提供真实 HTTP/Streams 字节，测试结果仍以生成报告为准。
+
+### 阅读位置与自动跟随
+
+[Transcript scroll](../../../src/features/chat/use-transcript-scroll.ts) 参考原版 Lody 的滚动控制器，将跟随意图与底部是否可见分开维护。
+向上滚动、选中文字或展开详情会暂停跟随；只有下方内容超出可见区时才显示「回到最新」，按钮覆盖在消息区内，不改变其高度。
+主动回到底部后恢复跟随；消息内容、输入框和视口尺寸变化都参与位置更新，布局导致的位置变化不会被当作读者操作。
+阅读偏移与跟随意图按账号、会话保存在当前窗口；刷新后等待消息加载再恢复，未加载到的偏移继续等待内容增长，读者主动操作则取消恢复。
+[阅读位置旅程](../../../tests/e2e/features/scroll-follow.feature) 验证短内容检查、小幅上滚、流式追加、布局变化和延迟加载恢复。
 
 ### 不以 Desktop 为默认依赖
 
-历史、附件、MCP、skills、Prompt Shortcuts、分享及调度都有既有 Lody 接口，直接通过 SDK 实现。只有浏览器 Agent 执行缺少完整的扩展发现、认证、路由、文档身份、写租约、去重和接管协议；增加一个本地按钮或假 tool handler 不会补齐这条链。因此浏览器控制、录制/重放及密码管理器适配保持不可用，不把它们笼统标为“需要桌面端”。
+历史、附件、MCP、skills、Prompt Shortcuts、分享及调度都有既有 Lody 接口，直接通过 SDK 实现。只有浏览器 Agent 执行缺少完整的扩展发现、认证、路由、文档身份、写租约、去重和接管协议；增加一个本地按钮或假 tool handler 不会补齐这条链。当前优先收稳轻量会话及异常恢复，暂缓这条执行通道及依赖它的浏览器控制、录制/重放和密码管理器适配，不把它们笼统标为“需要桌面端”。
 
 ### 真实实验发现
 
-| 现象                                         | 根因及处理                                                                                   | 验证位置                                                                                                                      |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 工具栏打开侧栏后截图被 Chrome 拒绝           | 自动 `openPanelOnActionClick` 路径未授予预期 activeTab；改由真实 action 点击监听同步打开侧栏 | [打包上下文测试](../../tests/extension/extended-context.spec.ts)                                                              |
-| 隐藏的文件输入框露出原生按钮                 | 官方 Input 的 display 样式覆盖浏览器对 hidden 的默认规则；用隐藏容器承接文件 input           | Composer 和 PDF 文件输入的真实页面检查                                                                                        |
-| 分享预览出现空用户气泡                       | 旧 turn 只有 `inputConfig.prompt`，直接剔除执行配置会丢失问题；先物化可展示文本，再脱敏      | [分享 SDK 测试](../../packages/lody-sdk/test/sharing.test.mjs)、[分享旅程](../../tests/e2e/features/sharing.feature)          |
-| 有 MCP 名称却没有连接配置                    | 目录存在不代表配置有效或运行端连接成功；禁止默认选择缺配置项，允许移除已失效选择             | [工具与队列旅程](../../tests/e2e/features/tools-queue.feature)                                                                |
-| 网页预览可以读快捷指令，打包后授权和保存失败 | MV3 JSON 桥接仅放行 Convex query；补齐官方 action/mutation 路径并保留来源、方法和调用方校验  | [打包真实 HTTPS 网络测试](../../tests/extension/network.spec.ts)、[网络边界测试](../../tests/browser/network.browser.test.ts) |
-| 归档请求成功但列表仍未变化                   | 接受机器命令不等于实际归档；列表只跟随同步元数据，fixture 也必须模拟真实命令结果             | [侧栏管理旅程](../../tests/e2e/features/sidebar-management.feature)                                                           |
-| 分叉成功却提示找不到新会话                   | RPC 回复与元数据同步相互独立；保留请求身份并有界等待权威元数据，不补造目标或重复请求         | [消息操作旅程](../../tests/e2e/features/message-actions.feature)、RealLodyClient 浏览器回归                                   |
-| 刷新恢复期间可以提前发送                     | 恢复先等待连接初始化，再持有统一操作锁；已选会话缺失时保留草稿并拒绝误建新会话               | ConnectedChat 的恢复和发送入口、消息操作刷新旅程                                                                              |
+| 现象                                         | 根因及处理                                                                                   | 验证位置                                                                                                                            |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| 工具栏打开侧栏后截图被 Chrome 拒绝           | 自动 `openPanelOnActionClick` 路径未授予预期 activeTab；改由真实 action 点击监听同步打开侧栏 | [打包上下文测试](../../../tests/extension/extended-context.spec.ts)                                                                 |
+| 隐藏的文件输入框露出原生按钮                 | 官方 Input 的 display 样式覆盖浏览器对 hidden 的默认规则；用隐藏容器承接文件 input           | Composer 和 PDF 文件输入的真实页面检查                                                                                              |
+| 分享预览出现空用户气泡                       | 旧 turn 只有 `inputConfig.prompt`，直接剔除执行配置会丢失问题；先物化可展示文本，再脱敏      | [分享 SDK 测试](../../../packages/lody-sdk/test/sharing.test.mjs)、[分享旅程](../../../tests/e2e/features/sharing.feature)          |
+| 有 MCP 名称却没有连接配置                    | 目录存在不代表配置有效或运行端连接成功；禁止默认选择缺配置项，允许移除已失效选择             | [工具与队列旅程](../../../tests/e2e/features/tools-queue.feature)                                                                   |
+| 网页预览可以读快捷指令，打包后授权和保存失败 | MV3 JSON 桥接仅放行 Convex query；补齐官方 action/mutation 路径并保留来源、方法和调用方校验  | [打包真实 HTTPS 网络测试](../../../tests/extension/network.spec.ts)、[网络边界测试](../../../tests/browser/network.browser.test.ts) |
+| 归档请求成功但列表仍未变化                   | 接受机器命令不等于实际归档；列表只跟随同步元数据，fixture 也必须模拟真实命令结果             | [侧栏管理旅程](../../../tests/e2e/features/sidebar-management.feature)                                                              |
+| 分叉成功却提示找不到新会话                   | RPC 回复与元数据同步相互独立；保留请求身份并有界等待权威元数据，不补造目标或重复请求         | [消息操作旅程](../../../tests/e2e/features/message-actions.feature)、RealLodyClient 浏览器回归                                      |
+| 刷新恢复期间可以提前发送                     | 恢复先等待连接初始化，再持有统一操作锁；已选会话缺失时保留草稿并拒绝误建新会话               | ConnectedChat 的恢复和发送入口、消息操作刷新旅程                                                                                    |
 
-后台通知的有界同步、权限注册、WASM 初始化及真实 worker 重启证据见 [Notifications](../../src/features/notifications/README.md)。浏览器主动禁用无痕安装，避免沿用普通窗口的持久化边界。
+后台通知的有界同步、权限注册、WASM 初始化及真实 worker 重启证据见 [Notifications](../../../src/features/notifications/README.md)。浏览器主动禁用无痕安装，避免沿用普通窗口的持久化边界。
 
 ## 部署配置
 
@@ -112,7 +124,7 @@ feature 持有分区 IndexedDB、同步生命周期和迁移日志，SDK 持有�
 
 ## 验证与后续推进
 
-每个新增旅程先声明状态所有者与完整生命周期，再在同一次尝试中断言所有义务。当前入口覆盖附件恢复/失败、资料采集、同步快捷指令/旧模板迁移/调度、个人偏好、听写边界、分享恢复、侧栏管理及工具选择/排队。消息动作和通知的具体义务以 [model](../../tools/assurance/model.mjs) 为准。
+每个新增旅程先声明状态所有者与完整生命周期，再在同一次尝试中断言所有义务。当前入口覆盖附件恢复/失败、资料采集、同步快捷指令/旧模板迁移/调度、个人偏好、听写边界、分享恢复、侧栏管理及工具选择/排队。消息动作和通知的具体义务以 [model](../../../tools/assurance/model.mjs) 为准。
 
 `pnpm check` 检查类型、仓库规则、格式及未用代码；`pnpm test:browser` 仅覆盖非组件基础设施；Cucumber/Playwright/axe 验证实际界面；`pnpm test:extension` 验证打包权限、CSP、worker、路由与存储。Storybook 与手动检查补充窄屏、主题及展开内容。性能目标只有带环境、原始分布和 baseline 的报告才能证明，不把单次本地速度写成 p95 达标。
 

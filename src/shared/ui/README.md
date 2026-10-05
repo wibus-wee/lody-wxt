@@ -22,7 +22,7 @@ Only the resolved brand crosses into the UI, without agent environment variables
 Agent menu rows set `Menu.RadioItem`'s `indicatorSide="end"`; the default leading indicator replaces the `icon` slot.
 
 The [icon generator](../../../scripts/generate-icons.mjs) reads Lody’s brand and registry assets on each UI refresh.
-Brand marks retain their canonical shape in every mood; interface glyphs follow the global mood, with an outline fallback where Runeicons lacks a variant.
+Brand marks retain their canonical shape; interface glyphs follow the global Jotai mood, fixed to outline by the preferences model.
 MiMo uses the [Xiaomi source asset](../../../tools/icons/xiaomi.svg) matching upstream’s Simple Icons mark.
 
 Git submodules target repositories, not subdirectories, so `vendor/lody` checks out the whole repository.

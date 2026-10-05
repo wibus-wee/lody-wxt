@@ -20,6 +20,8 @@ trustPolicy: no-downgrade
 # semver 6 predates provenance; the registry-signed 2023 release matches the pinned integrity.
 trustPolicyExclude:
   - semver@6.3.1
+  # Excalidraw's parser pins this pre-provenance release; integrity matches the CCE reference lockfile.
+  - langium@3.3.1
 allowBuilds:
   '@ast-grep/cli': true
   esbuild: true

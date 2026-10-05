@@ -7,13 +7,15 @@ const config: KnipConfig = {
   workspaces: {
     '.': {
       entry: [
-        'docs/content/**/*.mdx',
+        'docs/contents/**/*.mdx',
+        'docs/source.config.ts',
         'src/entrypoints/**/*.ts',
         'src/entrypoints/**/*.tsx',
         'tests/e2e/steps/**/*.ts',
         'tests/sdk-consumer/*.{mjs,mts}',
         'scripts/*.mjs',
         'tools/assurance/*.test.mjs',
+        'tools/docs/*.mjs',
         'tests/e2e/journey-steps/**/*.ts',
       ],
       // Upstream UI runtime entrypoints import Base UI from the root installation.
@@ -21,7 +23,7 @@ const config: KnipConfig = {
       project: [
         'src/**/*.{ts,tsx}',
         'web/**/*.{ts,tsx}',
-        'docs/**/*.{ts,tsx,mdx}',
+        'docs/**/*.{ts,tsx,mdx,css}',
         'tools/**/*.ts',
         'tests/**/*.{ts,mts,mjs}',
         '*.ts',

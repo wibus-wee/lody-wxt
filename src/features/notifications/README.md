@@ -11,9 +11,9 @@ The settings surface uses the [official Lody controls](../../shared/ui/README.md
 | `observe.ts`   | SDK metadata sync and terminal/permission verification from the matching session document.                     |
 | `model.ts`     | Local notification journal; no prompt, response or generated conversation title in system notifications.       |
 
-Enabling requests optional `notifications` and `alarms` permissions.
+Enabling requests the optional `notifications` permission; `alarms` is already required for [workspace synchronization](../connection/README.md).
 Denial leaves the existing sidebar status available.
-Chrome does not expose those APIs before permission is granted, so listeners register both at worker startup and after grants.
+Chrome does not expose the notification API before permission is granted, so listeners register both at worker startup and after grants.
 Revocation aborts an active read, disables polling and clears its alarm.
 Changing the stored account, token or workspace clears the old journal and requires explicit re-enabling.
 Existing foreground ports are bound to their initial account generation and disconnected on account change; a late focus message cannot reassign an old session to the new account.

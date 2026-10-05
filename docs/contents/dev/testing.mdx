@@ -5,9 +5,9 @@ description: Architecture-derived journey assurance and interaction performance 
 
 ## Product obligations first
 
-The [assurance model](../../tools/assurance/model.mjs) follows mounted product surfaces, state ownership, durable writes, identity fences and remote execution boundaries. Its lifecycle cases are independently authored. Test discovery provides observations against those cases; it never supplies the coverage denominator.
+The [assurance model](../../../tools/assurance/model.mjs) follows mounted product surfaces, state ownership, durable writes, identity fences and remote execution boundaries. Its lifecycle cases are independently authored. Test discovery provides observations against those cases; it never supplies the coverage denominator.
 
-Read [Architecture](./architecture.mdx) and the [assurance contract](../../tools/assurance/README.md) before adding a scenario. Establish the user goal, owner chain, persistence/invalidation boundaries and joint state obligations first. Include reload, uncertain delivery, cancellation, destructive effects and cross-surface behavior where relevant. Each assurance scenario must exercise a real multi-link journey; a visible page is insufficient.
+Read [Architecture](./architecture.mdx) and the [assurance contract](../../../tools/assurance/README.md) before adding a scenario. Establish the user goal, owner chain, persistence/invalidation boundaries and joint state obligations first. Include reload, uncertain delivery, cancellation, destructive effects and cross-surface behavior where relevant. Each assurance scenario must exercise a real multi-link journey; a visible page is insufficient.
 
 Quick chat retains its mounted runtime through settings and owns scoped drafts and three delivery records. The advanced workspace owns a separate runtime and journals, disconnecting on route unmount. Verification of one cannot establish the other's recovery. A synchronized turn or command is not agent completion, and a delete command receipt is not deletion. Original request identity and immutable payload must survive uncertainty.
 
@@ -23,7 +23,7 @@ Quick chat retains its mounted runtime through settings and owns scoped drafts a
 | Rendered states             | `pnpm storybook`, journey axe checks     | Component states, keyboard behavior and rendered accessibility.                    |
 | Static and audit contracts  | `pnpm check`                             | Types, rules, lint, formatting, unused code and assurance-tool rejection checks.   |
 
-Never write unit tests for web components. Framework pass counts and infrastructure line percentages are not product coverage. Local protocol fixtures do not establish deployed authorization, a real remote agent or production latency. Detailed SDK error, cancellation and attachment contracts belong to the [SDK README](../../packages/lody-sdk/README.md).
+Never write unit tests for web components. Framework pass counts and infrastructure line percentages are not product coverage. Local protocol fixtures do not establish deployed authorization, a real remote agent or production latency. Detailed SDK error, cancellation and attachment contracts belong to the [SDK README](../../../packages/lody-sdk/README.md).
 
 Finish SDK/UI builds before starting a browser run, then keep its sources and generated modules fixed. The SDK build replaces `dist`; running it alongside Vite can trigger missing modules and HMR remounts that invalidate conversation state and test evidence. Serialize shared extension builds as well. The assurance runner owns its build and server lifecycle; stop an existing server on its port before starting it.
 
@@ -31,7 +31,7 @@ Finish SDK/UI builds before starting a browser run, then keep its sources and ge
 
 `COVERAGE.md` is generated from the authored model and fresh reports. Namespace disposition comes from the model; the JSON registry must match it. Scenarios declare namespace, journey, case, joint states and lifecycle transitions. Tags cannot certify coverage: every obligation must be asserted in the same successful attempt, and its receipt must match the framework result, run, model and source fingerprint. Partial or failed attempts stay visible; unrelated runs cannot be stitched together.
 
-The [generated audit](../../COVERAGE.md) lists verified lifecycle cases and risk-prioritized missing obligations, including product blockers and unmounted adapters. `pnpm assurance:audit` rejects stale, failed, incomplete and regressed evidence. `--strict` additionally rejects unverified P0 cases. The default gate keeps gaps visible without claiming that all high-risk journeys are complete. Never hand-edit evidence.
+The [generated audit](../../../COVERAGE.md) lists verified lifecycle cases and risk-prioritized missing obligations, including product blockers and unmounted adapters. `pnpm assurance:audit` rejects stale, failed, incomplete and regressed evidence. `--strict` additionally rejects unverified P0 cases. The default gate keeps gaps visible without claiming that all high-risk journeys are complete. Never hand-edit evidence.
 
 Packaged capture verifies explicit extraction, preview/removal, retained context across reload and the remote submitted prompt. Its headless HTTP fixture grants one origin through Chromium settings; native permission approval remains outside that evidence. Independent storage/network checks remain supporting contracts until the complete restart journey is observed.
 
@@ -39,4 +39,4 @@ Packaged capture verifies explicit extraction, preview/removal, retained context
 
 The model authors user action → observable response boundaries independently of tests. Probes timestamp trusted browser events before handlers and sample a declared visible DOM response at animation frames. They record environment/workload, resource overlaps, supported long-task observations and traces. This measures presentation opportunity, not physical paint or INP. Failed journeys, hidden pages and missing/timeout probes are excluded.
 
-Run `ASSURANCE_REPEAT=5 pnpm test:assurance` to collect comparable samples and `pnpm assurance:baseline` to explicitly promote a reviewed candidate. Baselines are never updated by tests. Comparison requires the same environment/workload; five samples remain provisional. The [assurance contract](../../tools/assurance/README.md) owns measurement semantics, promotion criteria, regression policy and the trace-based investigation procedure.
+Run `ASSURANCE_REPEAT=5 pnpm test:assurance` to collect comparable samples and `pnpm assurance:baseline` to explicitly promote a reviewed candidate. Baselines are never updated by tests. Comparison requires the same environment/workload; five samples remain provisional. The [assurance contract](../../../tools/assurance/README.md) owns measurement semantics, promotion criteria, regression policy and the trace-based investigation procedure.

@@ -1,0 +1,14 @@
+{
+  "title": "开发资料",
+  "root": true,
+  "pages": [
+    "index",
+    "getting-started",
+    "architecture",
+    "browser-assistant-spec",
+    "browser-assistant-implementation",
+    "design",
+    "testing"
+  ],
+  "defaultOpen": false
+}

@@ -84,7 +84,7 @@ Corrupted web storage falls back to defaults.
 
 [Runeicons](https://github.com/Runeicons/runeicons) is pinned as a full-repository submodule because Git cannot submodule a directory.
 The source package is `packages/runeicons`.
-The asset generator extracts five home glyphs: outline → normal, pixel → pixelated; glass uses the separate glass collection.
+Application icons are fixed to outline, which maps to Runeicons' normal collection; legacy style preferences normalize to outline.
 Add named glyphs in the generator and consume them through the global mood adapter.
 Keep the upstream Apache-2.0 license with distributed icons.
 
@@ -98,8 +98,8 @@ Copy `.env.example` to `.env`, then enable the desired flag.
 Production builds remove the development import branches.
 Devframe remains Node-only and is not shipped in the extension; see the [Devframe getting-started guide](https://devfra.me/raw/guide/getting-started.md).
 
-Read the [architecture](./docs/content/architecture.mdx), [testing policy](./docs/content/testing.mdx) and [interaction guidance](./docs/content/design.mdx) before extending features.
-The [browser assistant SPEC](./docs/content/browser-assistant-spec.mdx) defines the target feature set, ChatGPT/Claude extension comparison, protocol dependencies and acceptance journeys; it is not a claim of implemented capabilities.
-The [implementation record](./docs/content/browser-assistant-implementation.mdx) maps every feature ID to current code, protocol limits and validation entrypoints.
+Read the [architecture](./docs/contents/dev/architecture.mdx), [testing policy](./docs/contents/dev/testing.mdx) and [interaction guidance](./docs/contents/dev/design.mdx) before extending features.
+The [browser assistant SPEC](./docs/contents/dev/browser-assistant-spec.mdx) defines the target feature set, ChatGPT/Claude extension comparison, protocol dependencies and acceptance journeys; it is not a claim of implemented capabilities.
+The [implementation record](./docs/contents/dev/browser-assistant-implementation.mdx) maps every feature ID to current code, protocol limits and validation entrypoints.
 The [assurance contract](./tools/assurance/README.md) derives obligations from product architecture and state ownership.
 The generated report keeps missing journeys visible and measures authored user actions against observable responses; verification framework counts do not define coverage.

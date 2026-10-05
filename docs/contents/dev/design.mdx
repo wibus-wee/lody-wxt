@@ -1,0 +1,10 @@
+---
+title: Interaction and design
+description: HIG-inspired interaction rules for your own UI.
+---
+
+Use Lody UI controls through `src/shared/ui`, visible keyboard focus, explicit labels, readable contrast and at least 44-pixel interactive targets. Respect system Reduce Motion in Motion and decorative effects. Ambient shaders are opt-in; important content never depends on them. These defaults follow the accessibility and motion direction of [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/).
+
+The Lody component library owns visual design and component APIs. Keep its adapter in `src/shared/ui`, StyleX tokens in `src/shared/theme`, and globally mood-aware icons in `src/shared/icons`.
+
+Use spring transitions as the default for interaction feedback. Add duration-based choreography only when a timed sequence actually requires it. Cuelens currently introduces the app through explicit steps so the user controls reading speed.

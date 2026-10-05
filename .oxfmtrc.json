@@ -7,6 +7,7 @@
     ".output/**",
     "dist/**",
     "docs/dist/**",
+    "docs/diagrams/*.json",
     "coverage/**",
     "reports/**",
     "storybook-static/**",
