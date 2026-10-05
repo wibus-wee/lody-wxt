@@ -18,6 +18,7 @@ test('real Loro writer preserves history, persists before dispatch, and deduplic
         unsubscribe() {},
       }),
       persistDocNow: async () => events.push('history'),
+      getDocMeta: async () => null,
       upsertDocMeta: async (id, patch) => events.push(patch),
       persistMetaNow: async () => events.push('meta'),
       listDoc: async () => [],
@@ -45,11 +46,12 @@ test('real Loro writer preserves history, persists before dispatch, and deduplic
   assert.deepEqual(events, [
     'history',
     'history-remote',
-    { latestUserMsgId: 'turn' },
+    { latestUserMsgId: 'turn', lastMessageAt: Date.parse(input.timestamp) },
     'meta',
     'meta-remote',
   ]);
   assert.equal(handle.read().history[0].items[0].text, 'Hello');
+  assert.equal(handle.read().history[0].read, false);
   assert.deepEqual(handle.read().history[0].inputConfig.inputBlocks, input.inputConfig.inputBlocks);
   assert.deepEqual(handle.read().history[0].inputConfig.mcpServerIds, ['research']);
   await assert.rejects(
@@ -81,6 +83,144 @@ test('real Loro writer preserves history, persists before dispatch, and deduplic
   assert.equal(handle.read().history.length, 1);
   await handle.close();
   await repository.close();
+});
+
+test('dispatch seeds activity once without replacing later daemon-owned activity', async () => {
+  const doc = new LoroDoc();
+  let metadata = {};
+  const repository = new LoroSessionRepository({
+    repo: {
+      acquireDoc: async () => ({ doc, release: async () => {} }),
+      joinDocRoom: async () => ({
+        firstSyncedWithRemote: Promise.resolve(),
+        waitUntilSynced: async () => {},
+        unsubscribe() {},
+      }),
+      persistDocNow: async () => {},
+      getDocMeta: async () => ({ meta: metadata }),
+      upsertDocMeta: async (_id, patch) => {
+        metadata = { ...metadata, ...patch };
+      },
+      persistMetaNow: async () => {},
+    },
+    metaRoom: { waitUntilSynced: async () => {} },
+  });
+  const handle = await repository.open('session');
+  const first = {
+    requestId: 'first',
+    userId: 'user',
+    timestamp: '2026-10-05T00:00:00.000Z',
+    inputConfig: { prompt: 'Hello', cliType: 'builtin', agentType: 'codex' },
+  };
+  try {
+    await handle.append(first, 'dispatch');
+    assert.equal(metadata.lastMessageAt, Date.parse(first.timestamp));
+    metadata.lastMessageAt = Date.parse(first.timestamp) + 10000;
+    await handle.append(
+      { ...first, requestId: 'second', timestamp: '2026-10-05T00:00:01.000Z' },
+      'dispatch',
+    );
+    assert.equal(metadata.latestUserMsgId, 'second');
+    assert.equal(metadata.lastMessageAt, Date.parse(first.timestamp) + 10000);
+    await handle.append(first, 'dispatch');
+    assert.equal(metadata.latestUserMsgId, 'second');
+    assert.equal(handle.read().history.length, 2);
+  } finally {
+    await handle.close();
+    await repository.close();
+  }
+});
+
+for (const stopped of ['archived', 'deleted']) {
+  test(`retry never activates a ${stopped} conversation`, async () => {
+    const doc = new LoroDoc();
+    let stoppedTarget = false;
+    let patches = 0;
+    const repository = new LoroSessionRepository({
+      repo: {
+        acquireDoc: async () => ({ doc, release: async () => {} }),
+        joinDocRoom: async () => ({
+          firstSyncedWithRemote: Promise.resolve(),
+          waitUntilSynced: async () => {},
+          unsubscribe() {},
+        }),
+        persistDocNow: async () => {},
+        getDocMeta: async () => ({
+          deleted: stoppedTarget && stopped === 'deleted',
+          meta: { isArchived: stoppedTarget && stopped === 'archived' },
+        }),
+        upsertDocMeta: async () => {
+          patches++;
+        },
+        persistMetaNow: async () => {},
+      },
+      metaRoom: { waitUntilSynced: async () => {} },
+    });
+    const handle = await repository.open('session');
+    const input = {
+      requestId: 'turn',
+      userId: 'user',
+      timestamp: '2026-10-05T00:00:00.000Z',
+      inputConfig: { prompt: 'Hello', cliType: 'builtin', agentType: 'codex' },
+    };
+    try {
+      await handle.append(input, 'dispatch');
+      assert.equal(patches, 1);
+      stoppedTarget = true;
+      await handle.append(input, 'dispatch');
+      assert.equal(patches, 1);
+      assert.equal(handle.read().history.length, 1);
+    } finally {
+      await handle.close();
+      await repository.close();
+    }
+  });
+}
+
+test('same-watermark retry still confirms metadata after an uncertain sync receipt', async () => {
+  const doc = new LoroDoc();
+  let metadata = {};
+  let syncs = 0;
+  let patches = 0;
+  const repository = new LoroSessionRepository({
+    repo: {
+      acquireDoc: async () => ({ doc, release: async () => {} }),
+      joinDocRoom: async () => ({
+        firstSyncedWithRemote: Promise.resolve(),
+        waitUntilSynced: async () => {},
+        unsubscribe() {},
+      }),
+      persistDocNow: async () => {},
+      getDocMeta: async () => ({ meta: metadata }),
+      upsertDocMeta: async (_id, patch) => {
+        patches++;
+        metadata = { ...metadata, ...patch };
+      },
+      persistMetaNow: async () => {},
+    },
+    metaRoom: {
+      waitUntilSynced: async () => {
+        if (++syncs === 1) throw new Error('lost receipt');
+      },
+    },
+  });
+  const handle = await repository.open('session');
+  const input = {
+    requestId: 'turn',
+    userId: 'user',
+    timestamp: '2026-10-05T00:00:00.000Z',
+    inputConfig: { prompt: 'Hello', cliType: 'builtin', agentType: 'codex' },
+  };
+  try {
+    await assert.rejects(handle.append(input, 'dispatch'), /lost receipt/);
+    await handle.append(input, 'dispatch');
+    assert.equal(syncs, 2);
+    assert.equal(patches, 1);
+    assert.equal(handle.read().history.length, 1);
+  } finally {
+    await handle.close();
+    await repository.close();
+  }
 });
 
 test('machine command subscribes before appending real envelope and correlates response identity', async () => {

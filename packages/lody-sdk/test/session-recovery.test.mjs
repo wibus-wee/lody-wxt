@@ -26,6 +26,7 @@ function repositoryFixture(failure) {
         unsubscribe() {},
       }),
       persistDocNow: () => step('history-persist'),
+      getDocMeta: async () => null,
       upsertDocMeta: () => step('dispatch'),
       persistMetaNow: () => step('metadata-persist'),
     },

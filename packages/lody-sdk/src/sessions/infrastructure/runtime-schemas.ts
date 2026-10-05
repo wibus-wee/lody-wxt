@@ -85,6 +85,29 @@ const metadataSchema = v.looseObject({
   userId: idSchema,
   createdAt: v.string(),
   isArchived: v.boolean(),
+  cliType: v.exactOptional(v.picklist(['builtin', 'registry', 'custom'])),
+  agentType: v.exactOptional(idSchema),
+  agentConfigId: v.exactOptional(idSchema),
+  historyBackend: v.exactOptional(v.picklist(['loro', 'roost'])),
+  status: v.exactOptional(v.looseObject({ type: idSchema })),
+  title: v.exactOptional(v.string()),
+  titleSource: v.exactOptional(v.picklist(['user', 'generated', 'draft'])),
+  lastMessageAt: v.exactOptional(v.pipe(v.number(), v.finite())),
+  repoFullName: v.exactOptional(v.string()),
+  baseBranch: v.exactOptional(v.string()),
+  isWorktree: v.exactOptional(v.boolean()),
+  project: v.exactOptional(
+    v.variant('kind', [
+      v.looseObject({ kind: v.literal('github'), repoFullName: v.string(), branch: idSchema }),
+      v.looseObject({
+        kind: v.literal('local'),
+        localProjectId: idSchema,
+        branch: v.exactOptional(idSchema),
+        githubRepoFullName: v.exactOptional(idSchema),
+        useWorktree: v.exactOptional(v.boolean()),
+      }),
+    ]),
+  ),
 });
 const permissionOutcomeSchema = v.variant('outcome', [
   v.looseObject({ outcome: v.literal('cancelled') }),

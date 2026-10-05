@@ -54,6 +54,7 @@ export type {
 export { SessionRuntime } from './sessions/application/session-runtime.js';
 export { SessionSubmissionService } from './sessions/application/submission-service.js';
 export type { MachineInfo } from './sessions/domain/machine.js';
+export { buildSessionMetadata, type SessionMetadataInput } from './sessions/domain/metadata.js';
 export type {
   SendTurn,
   SessionMetadata,

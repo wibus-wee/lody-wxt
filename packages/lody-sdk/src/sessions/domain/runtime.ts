@@ -29,8 +29,18 @@ export interface SessionMetadata {
   userId: string;
   createdAt: string;
   isArchived: boolean;
+  cliType?: TurnInput['cliType'];
+  agentType?: string;
+  agentConfigId?: string;
+  historyBackend?: 'loro' | 'roost';
+  status?: { type: string; [key: string]: unknown };
   title?: string;
+  titleSource?: 'user' | 'generated' | 'draft';
+  lastMessageAt?: number;
   project?: ProjectRef;
+  repoFullName?: string;
+  baseBranch?: string;
+  isWorktree?: boolean;
   latestUserMsgId?: string;
   [key: string]: unknown;
 }

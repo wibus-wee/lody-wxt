@@ -132,6 +132,30 @@ export class LoroSessionRepository implements SessionRepository {
         stored.createdAt !== parsed.createdAt
       )
         throw new Error('session_conflict');
+      for (const key of [
+        'agentConfigId',
+        'cliType',
+        'agentType',
+        'historyBackend',
+        'project',
+      ] as const) {
+        if (
+          stored[key] !== undefined &&
+          parsed[key] !== undefined &&
+          canonical(stored[key]) !== canonical(parsed[key])
+        )
+          throw new Error('session_conflict');
+      }
+      const missing = Object.fromEntries(
+        Object.entries(parsed).filter(
+          ([key, value]) =>
+            key !== 'id' && value !== undefined && !Object.hasOwn(existing.meta, key),
+        ),
+      );
+      if (Object.keys(missing).length) {
+        await this.patch(parsed.id, missing);
+        return;
+      }
       await bounded(this.options.metaRoom.waitUntilSynced(), this.signal());
       return;
     }
@@ -219,6 +243,30 @@ export class LoroSessionRepository implements SessionRepository {
       doc.commit();
       await this.options.repo.persistDocNow(roomId, doc);
     };
+    const activate = async (input: SendTurn) => {
+      const metadata = await this.options.repo.getDocMeta(roomId);
+      if (metadata?.deleted || metadata?.meta.isArchived) return;
+      const history = read().history;
+      const latest = metadata?.meta.latestUserMsgId;
+      if (
+        latest === input.requestId ||
+        (latest &&
+          history.findIndex((turn) => turn.id === latest) >
+            history.findIndex((turn) => turn.id === input.requestId))
+      ) {
+        // A prior attempt may have written this watermark before losing its sync receipt.
+        await bounded(this.options.metaRoom.waitUntilSynced(), this.signal());
+        return;
+      }
+      const firstTurn = history[0]?.id === input.requestId;
+      await this.patch(sessionId, {
+        latestUserMsgId: input.requestId,
+        // Creation owns initial activity. Later activity remains daemon-owned.
+        ...(firstTurn && metadata?.meta.lastMessageAt === undefined
+          ? { lastMessageAt: Date.parse(input.timestamp) }
+          : {}),
+      });
+    };
     const append = (value: SendTurn, kind: 'dispatch' | 'queue' | 'guide') => {
       const input = v.parse(sendSchema, value);
       const blocks = input.inputConfig.inputBlocks ?? [
@@ -293,7 +341,7 @@ export class LoroSessionRepository implements SessionRepository {
           await persist();
           await bounded(room.waitUntilSynced(), this.signal());
           if (kind === 'dispatch' && ['pending', 'seen'].includes(existing.status ?? 'pending'))
-            await this.patch(sessionId, { latestUserMsgId: input.requestId });
+            await activate(input);
           return;
         }
         const history = doc.getList('history');
@@ -305,6 +353,7 @@ export class LoroSessionRepository implements SessionRepository {
           userId: input.userId,
           status: kind === 'guide' ? 'pending_apply' : 'pending',
           finished: true,
+          read: false,
         });
         mapValues(turn.setContainer('inputConfig', new LoroMap()), input.inputConfig);
         const items = turn.setContainer('items', new LoroList());
@@ -318,7 +367,7 @@ export class LoroSessionRepository implements SessionRepository {
         turn.setContainer('fileDiff', new LoroList());
         await persist();
         await bounded(room.waitUntilSynced(), this.signal());
-        if (kind === 'dispatch') await this.patch(sessionId, { latestUserMsgId: input.requestId });
+        if (kind === 'dispatch') await activate(input);
       });
     };
     const permission: SessionHandle['respondPermission'] = (turnId, requestId, outcome) => {

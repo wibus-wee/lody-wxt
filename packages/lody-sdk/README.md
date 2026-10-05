@@ -139,6 +139,8 @@ There is no uniform `LodySdkError` conversion, JWT cache, automatic retry or cre
 It creates/lists/patches sessions, opens readable/subscribable handles, sends dispatch or queued turns, responds to permissions and issues stop, steer, fork, edit-and-resend and capability-refresh commands.
 Each steering call issues one RPC and returns its protocol result.
 The caller composes session creation with its first turn and owns admission progress and recovery.
+Use `buildSessionMetadata` to project the official creation fields from a frozen target; supply `lastMessageAt` for a first-turn admission.
+The [session protocol comparison](./SESSION_PROTOCOL.md) records upstream field ownership, adapter differences and verification limits.
 Implement these ports to use another storage or command transport without importing those adapters into application code.
 
 ```ts
@@ -204,8 +206,8 @@ Preserve the guide turn identity after failure; delivery/recovery results do not
 Keep `requestId`, timestamp, user ID and input configuration stable when recovering an uncertain send.
 Repeating an existing turn ID with matching content does not append a second history entry; conflicting content rejects with `request_conflict`.
 This is document-level duplicate handling, not an end-to-end exactly-once execution guarantee.
-Creating an existing session with matching identity waits for metadata synchronization; conflicting identity rejects with `session_conflict`.
-Repeated sends still confirm history synchronization before publishing dispatch metadata.
+Creating an existing session with matching identity fills missing creation fields and waits for metadata synchronization without replacing later edits; conflicting identity rejects with `session_conflict`.
+Repeated sends still confirm history synchronization before publishing dispatch metadata; an older turn cannot replace a newer activation pointer.
 Repeated matching permission outcomes still persist and synchronize the outcome.
 A timeout after persistence can leave a write that later synchronizes; reconcile the same session/turn before creating a new identity.
 
@@ -370,6 +372,10 @@ These operations provide no automatic retry or durable browser storage.
 
 ## HTTP submissions and recovery
 
+This optional gateway requires a separately deployed receipt service.
+Its `session-submissions` route is not part of the audited official Lody tree and is not used by the extension.
+See the [protocol comparison](./SESSION_PROTOCOL.md).
+
 Construct `SessionSubmissionService` with `HttpSessionSubmissionGateway({convexSiteUrl, auth})`.
 Supply the deployment's explicit HTTPS site origin and an `AuthTokenProvider`; the gateway does not infer the site origin from the Convex query origin.
 It POSTs `/api/workspaces/{workspaceId}/session-submissions` and looks up a request through GET on the same path plus `/{requestId}`.
@@ -508,4 +514,4 @@ node --import tsx tools/sdk/verify-upstream.mjs /path/to/lody-oss
 Run it from the workspace root after building the SDK; the supplied checkout must have its dependencies installed.
 It checks queue interoperability and progress/final response handling and reports the tested upstream revision.
 These checks are verification entry points, not a statement that they currently pass or that live cloud, Machine, attachment service, native fetch/WASM, persistence durability or production lifecycle behavior has been exercised.
-See the repository's [architecture](../../docs/content/architecture.mdx) and [testing scope](../../docs/content/testing.mdx) for integration ownership and evidence boundaries.
+See the repository's [architecture](../../docs/contents/dev/architecture.mdx) and [testing scope](../../docs/contents/dev/testing.mdx) for integration ownership and evidence boundaries.

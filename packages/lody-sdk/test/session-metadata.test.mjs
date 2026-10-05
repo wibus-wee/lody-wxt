@@ -4,7 +4,134 @@ import test from 'node:test';
 import { LoroDoc, LoroMap } from 'loro-crdt';
 import { LoroRepo } from 'loro-repo';
 
+import { buildSessionMetadata } from '../dist/index.js';
 import { LoroSessionRepository } from '../dist/sessions/infrastructure/loro-session-repository.js';
+
+const creation = {
+  id: 'new-session',
+  machineId: 'machine',
+  userId: 'user',
+  createdAt: '2026-10-05T00:00:00.000Z',
+  agentConfigId: 'agent',
+  cliType: 'builtin',
+  agentType: 'codex',
+};
+
+// Production policy: components/lib/session-submission.ts buildSessionCreateResult.
+test('creation metadata follows official provider, history backend and project derivation', () => {
+  const github = { kind: 'github', repoFullName: 'org/repo', branch: 'main' };
+  const value = buildSessionMetadata({
+    ...creation,
+    project: github,
+    title: '  Review  ',
+    titleSource: 'draft',
+    lastMessageAt: 10,
+  });
+  assert.deepEqual(value, {
+    ...creation,
+    status: { type: 'idle' },
+    historyBackend: 'loro',
+    isArchived: false,
+    project: github,
+    repoFullName: 'org/repo',
+    baseBranch: 'main',
+    isWorktree: true,
+    title: 'Review',
+    titleSource: 'draft',
+    lastMessageAt: 10,
+  });
+  github.branch = 'changed';
+  assert.equal(value.project.branch, 'main');
+  const local = buildSessionMetadata({
+    ...creation,
+    project: {
+      kind: 'local',
+      localProjectId: 'local',
+      branch: 'work',
+      githubRepoFullName: 'org/local',
+      useWorktree: true,
+    },
+  });
+  assert.equal(local.repoFullName, 'org/local');
+  assert.equal(local.isWorktree, true);
+  assert.equal(local.baseBranch, undefined);
+  assert.equal(local.project.branch, 'work');
+  const chat = buildSessionMetadata({ ...creation, title: '  ' });
+  assert.equal(chat.project, undefined);
+  assert.equal(chat.repoFullName, undefined);
+  assert.equal(chat.isWorktree, undefined);
+  assert.equal(chat.title, undefined);
+  assert.equal(chat.lastMessageAt, undefined);
+});
+
+test('creation recovery fills missing protocol fields without overwriting runtime progress or user edits', async () => {
+  const repo = await LoroRepo.create({ metaDebounceCommitMs: 0 });
+  const repository = new LoroSessionRepository({
+    repo,
+    metaRoom: { waitUntilSynced: async () => {} },
+  });
+  const initial = buildSessionMetadata({ ...creation, title: 'Draft', lastMessageAt: 10 });
+  try {
+    await repo.upsertDocMeta('session-new-session', {
+      id: creation.id,
+      machineId: creation.machineId,
+      userId: creation.userId,
+      createdAt: creation.createdAt,
+      isArchived: true,
+      title: 'Renamed',
+      titleSource: 'user',
+      status: { type: 'running' },
+      lastMessageAt: 20,
+    });
+    await repository.create(initial);
+    const restored = (await repo.getDocMeta('session-new-session')).meta;
+    assert.equal(restored.cliType, 'builtin');
+    assert.equal(restored.agentType, 'codex');
+    assert.equal(restored.agentConfigId, 'agent');
+    assert.equal(restored.historyBackend, 'loro');
+    assert.equal(restored.title, 'Renamed');
+    assert.equal(restored.titleSource, 'user');
+    assert.equal(restored.isArchived, true);
+    assert.equal(restored.lastMessageAt, 20);
+    assert.deepEqual(restored.status, { type: 'running' });
+    await repository.create(initial);
+    assert.deepEqual((await repo.getDocMeta('session-new-session')).meta, restored);
+    await assert.rejects(
+      repository.create({ ...initial, agentConfigId: 'other-agent' }),
+      /session_conflict/,
+    );
+  } finally {
+    await repository.close();
+    await repo.destroy();
+  }
+});
+
+test('metadata accepts absent legacy provider fields but rejects malformed present protocol fields', async () => {
+  let metadata = {
+    id: 'legacy',
+    machineId: 'machine',
+    userId: 'user',
+    createdAt: '2026-01-01',
+    isArchived: false,
+  };
+  const repository = new LoroSessionRepository({
+    repo: { listDoc: async () => [{ docId: 'session-legacy', meta: metadata }] },
+  });
+  assert.deepEqual(await repository.list(), [metadata]);
+  for (const field of [
+    'cliType',
+    'agentType',
+    'agentConfigId',
+    'historyBackend',
+    'status',
+    'lastMessageAt',
+    'isWorktree',
+  ]) {
+    metadata = { ...metadata, [field]: null };
+    await assert.rejects(repository.list(), new RegExp(`at ${field}`));
+    delete metadata[field];
+  }
+});
 
 // Lody shared/session-operation-targets.ts projects identity from the document key.
 test('session metadata reads canonical room identity without requiring a duplicate id field', async () => {

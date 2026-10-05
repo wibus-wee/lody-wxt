@@ -27,6 +27,7 @@ const agentSchema = v.looseObject({
   name: v.string(),
   cliType: v.picklist(['builtin', 'registry', 'custom']),
   agentType: v.string(),
+  prompt: v.exactOptional(v.string()),
 });
 const projectSchema = v.looseObject({
   id: v.string(),

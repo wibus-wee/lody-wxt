@@ -39,10 +39,15 @@ export const capabilitySchema = v.looseObject({
       v.looseObject({
         id: v.string(),
         name: v.string(),
+        category: v.exactOptional(v.string()),
         type: v.picklist(['select', 'boolean']),
         currentValue: v.union([v.string(), v.boolean()]),
         options: v.array(
-          v.looseObject({ value: v.union([v.string(), v.boolean()]), name: v.string() }),
+          v.looseObject({
+            value: v.union([v.string(), v.boolean()]),
+            name: v.string(),
+            description: v.exactOptional(v.nullable(v.string())),
+          }),
         ),
       }),
     ),
