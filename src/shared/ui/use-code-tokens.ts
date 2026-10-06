@@ -2,9 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ThemedToken } from 'shiki';
 
 let highlighter:
-  | ReturnType<
-      typeof import('../../../vendor/lody/packages/components/src/lib/markdown-highlighter').createMarkdownHighlighter
-    >
+  | ReturnType<typeof import('./markdown-highlighter').createMarkdownHighlighter>
   | undefined;
 
 export function useCodeTokens(code: string, language: string) {
@@ -16,7 +14,7 @@ export function useCodeTokens(code: string, language: string) {
   useEffect(() => {
     if (!language || code.length > 20000) return;
     let active = true;
-    void import('../../../vendor/lody/packages/components/src/lib/markdown-highlighter')
+    void import('./markdown-highlighter')
       .then(async (module) => {
         highlighter ??= module.createMarkdownHighlighter();
         const engine = await highlighter;

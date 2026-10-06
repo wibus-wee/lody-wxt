@@ -24,6 +24,7 @@ import { IndexedDBStorageAdaptor } from 'loro-repo/storage/indexeddb';
 import * as v from 'valibot';
 
 import { agentIdentity } from '../../shared/icons/agent-identity';
+import { initializeLoroWasm } from '../../shared/loro/wasm';
 import { SyncedShortcuts } from '../automations/shortcut-client';
 import { contextInput, contextSchema, mapHistory } from '../chat/real-adapter';
 import { turnSchema } from '../conversations/admission';
@@ -276,6 +277,8 @@ export class RealLodyClient implements LodyClient {
       this.active();
       return grant.token;
     };
+    await initializeLoroWasm();
+    this.active();
     const connection = await (options.ports?.createConnection ?? createLoroSessionRuntime)({
       workspaceId: options.workspaceId,
       streamsBaseUrl: baseUrl,

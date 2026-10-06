@@ -3,6 +3,9 @@ import path from 'node:path';
 
 import type { Plugin } from 'vite';
 
+import { sharedFlockWasmUrl } from './shared-flock-wasm';
+import { sharedLoroWasmUrl } from './shared-loro-wasm';
+
 const requireSdk = createRequire(new URL('../../packages/lody-sdk/package.json', import.meta.url));
 const virtualId = 'virtual:lody-worker-wasm';
 const resolvedId = `\0${virtualId}`;
@@ -24,9 +27,9 @@ export function workerWasmPlugin(): Plugin {
       if (id !== resolvedId) return undefined;
       return `
         import loroInit from ${JSON.stringify(path.join(loroRoot, 'web/index.js'))};
-        import loroUrl from ${JSON.stringify(`${path.join(loroRoot, 'web/loro_wasm_bg.wasm')}?url&no-inline`)};
+        const loroUrl = ${JSON.stringify(sharedLoroWasmUrl)};
         import flockInit from ${JSON.stringify(path.join(flockRoot, 'bundler/flock_wasm.js'))};
-        import flockUrl from ${JSON.stringify(`${path.join(flockRoot, 'bundler/flock_wasm_bg.wasm')}?url&no-inline`)};
+        const flockUrl = ${JSON.stringify(sharedFlockWasmUrl)};
         let ready;
         export function initializeWorkerWasm() {
           return ready ??= Promise.all([
@@ -48,15 +51,18 @@ export function workerWasmPlugin(): Plugin {
         if (id === path.join(flockRoot, 'bundler/flock_wasm.js')) {
           return {
             code: code.replace(
-              '"./flock_wasm_bg.wasm"',
-              JSON.stringify(`${path.join(flockRoot, 'bundler/flock_wasm_bg.wasm')}?url&no-inline`),
+              'import * as wasmModule from "./flock_wasm_bg.wasm";',
+              `const wasmModule = ${JSON.stringify(sharedFlockWasmUrl)};`,
             ),
             map: null,
           };
         }
         if (id === path.join(loroRoot, 'web/loro_wasm.js')) {
           return {
-            code: `import packagedLoroWasmUrl from './loro_wasm_bg.wasm?url&no-inline';\n${code.replace("new URL('loro_wasm_bg.wasm', import.meta.url)", 'new URL(packagedLoroWasmUrl, globalThis.location.href)')}`,
+            code: code.replace(
+              "new URL('loro_wasm_bg.wasm', import.meta.url)",
+              `new URL(${JSON.stringify(sharedLoroWasmUrl)}, globalThis.location.href)`,
+            ),
             map: null,
           };
         }

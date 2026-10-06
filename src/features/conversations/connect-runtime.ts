@@ -9,6 +9,7 @@ import { createLoroSessionRuntime } from '@lody-mobile/sdk/loro';
 import { JsonRpcStreams } from '@lody-mobile/sdk/rpc';
 
 import { productConfig } from '../../app/product-config';
+import { initializeLoroWasm } from '../../shared/loro/wasm';
 import { connectBackgroundWorkspace } from '../connection/background-client';
 import { workspaceScope } from '../connection/state';
 import { cloudFetch } from '../connection/worker-fetch';
@@ -74,6 +75,8 @@ export async function connectConversationWorkspace(options: WorkspaceConnectionO
     workspaceId: options.workspaceId,
     streams: new JsonRpcStreams({ baseUrl: grant.gatewayBaseUrl, auth }),
   });
+  await initializeLoroWasm();
+  options.signal?.throwIfAborted();
   const connection = await createLoroSessionRuntime({
     workspaceId: options.workspaceId,
     streamsBaseUrl: grant.gatewayBaseUrl,

@@ -1,6 +1,8 @@
 import { defineConfig } from 'wxt';
 
 import { appPlugins } from './tools/vite/plugins';
+import { sharedFlockWasmAsset } from './tools/vite/shared-flock-wasm';
+import { sharedLoroWasmAsset } from './tools/vite/shared-loro-wasm';
 import { wasmConfig } from './tools/vite/wasm';
 import { workerWasmPlugin } from './tools/vite/worker-wasm';
 
@@ -42,7 +44,12 @@ export default defineConfig({
   hooks: {
     'vite:build:extendConfig': (entrypoints, config) => {
       if (entrypoints.some((entry) => entry.type === 'background')) {
-        config.plugins = [workerWasmPlugin(), ...(config.plugins ?? [])];
+        config.plugins = [
+          workerWasmPlugin(),
+          sharedFlockWasmAsset(),
+          sharedLoroWasmAsset(),
+          ...(config.plugins ?? []),
+        ];
       }
     },
     'build:manifestGenerated': (wxt, manifest) => {
@@ -50,7 +57,7 @@ export default defineConfig({
     },
   },
   vite: () => {
-    const wasm = wasmConfig();
+    const wasm = wasmConfig({ loroBuild: 'web' });
     return { ...wasm, plugins: [...appPlugins(), ...(wasm.plugins ?? [])] };
   },
 });

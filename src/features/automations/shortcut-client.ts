@@ -9,6 +9,7 @@ import {
 import { createPromptShortcutRepo } from '@lody-mobile/sdk/loro';
 import { IndexedDBStorageAdaptor } from 'loro-repo/storage/indexeddb';
 
+import { initializeLoroWasm } from '../../shared/loro/wasm';
 import type { ChatShortcuts } from '../connection/client';
 import { requireApiAccess } from '../connection/state';
 import { cloudFetch } from '../connection/worker-fetch';
@@ -103,6 +104,8 @@ export class SyncedShortcuts implements ChatShortcuts {
       fetch,
       getJwt: (signal) => jwt.getJwt(AbortSignal.any([this.lifetime.signal, signal])),
     });
+    await initializeLoroWasm();
+    this.active();
     const repo = await createPromptShortcutRepo({
       storageAdapter: new IndexedDBStorageAdaptor({ dbName: this.database }),
     });
