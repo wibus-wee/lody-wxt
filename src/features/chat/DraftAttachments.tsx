@@ -2,6 +2,7 @@ import * as stylex from '@stylexjs/stylex';
 import { useEffect, useState } from 'react';
 
 import { button } from '../../../vendor/lody/packages/ui/src/button/button.tokens.stylex';
+import { card } from '../../../vendor/lody/packages/ui/src/card/card.tokens.stylex';
 import { Icon } from '../../shared/icons/Icon';
 import { Button } from '../../shared/ui';
 import { Card } from '../../shared/ui/card';
@@ -9,10 +10,11 @@ import { composer } from '../../shared/ui/composer.stylex';
 import { Dialog } from '../../shared/ui/dialog';
 import type { DraftAttachment } from './attachment-drafts';
 
-const previewButton = stylex.createTheme(button, { heightSmall: 'auto' });
+const attachmentCard = stylex.createTheme(card, { padding: '6px', gap: '4px' });
+const previewButton = stylex.createTheme(button, { heightSmall: '48px', paddingXSmall: '0px' });
 const styles = stylex.create({
   strip: { display: 'flex', gap: 8, overflowX: 'auto', padding: 4, minWidth: 0 },
-  card: { width: 112, flexShrink: 0, gap: 4, padding: 8 },
+  card: { width: 112, flexShrink: 0 },
   row: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 },
   name: {
     overflow: 'hidden',
@@ -53,7 +55,7 @@ function DraftAttachmentItem({
     };
   }, [item.source, item.mimeType]);
   return (
-    <Card.Root {...stylex.props(styles.card)}>
+    <Card.Root {...stylex.props(attachmentCard, styles.card)}>
       <div {...stylex.props(styles.row)}>
         {url ? (
           <Dialog.Root>

@@ -2,9 +2,9 @@
 
 Generated from the independently authored [product model](./tools/assurance/model.mjs). Test discovery supplies evidence, never the denominator. See the [assurance contract](./tools/assurance/README.md).
 
-Model: `dfcb3881df85`. Source: `77f25554d438`. Evidence: run `89c6a274-86a5-4ee4-a4c6-07935ea098a7`.
+Model: `56f2290e314d`. Source: `cb1071865704`. Evidence: run `9b9aadb6-3547-4712-b4d2-9eed163ed260`.
 
-1/42 authored lifecycle cases verified. This counts explicit lifecycle cases, not product safety or an exhaustive Cartesian state space.
+2/43 authored lifecycle cases verified. This counts explicit lifecycle cases, not product safety or an exhaustive Cartesian state space.
 
 ## Journey and lifecycle/state fusion
 
@@ -41,7 +41,8 @@ A case is verified only when every authored checkpoint was asserted in the same 
 | P0 | interrupt-and-resolve-permission/inspect-stopped-work | stream → inspect → stop-request → terminal-observed → reload → continue | documents:partial-work-retained; machine:stopped; quickDraft:retained | missing |
 | P0 | interrupt-and-resolve-permission/stop-unconfirmed | stream → stop-request → failure → reread | machine:stop-unconfirmed; documents:still-active | missing |
 | P0 | capture-and-send-context/packaged-source-picker | choose → capture → preview → refresh → retain → inline-mention → source-change → reject-stale | capture:source-bound; capture:partial-declared; quickDraft:snapshot-retained | missing |
-| P0 | capture-and-send-context/packaged-document-image | select → parse → preview → remove → recover | capture:local-pdf-parsed; capture:visual-preview; quickDraft:retained | missing |
+| P0 | capture-and-send-context/packaged-document-image | select → parse → preview → remove → recover | capture:local-pdf-parsed; capture:visual-preview; quickDraft:retained | verified: [extension](reports/assurance/9b9aadb6-3547-4712-b4d2-9eed163ed260/packaged-document-image.trace.zip) |
+| P0 | capture-and-send-context/packaged-screenshot-overlay | grant → capture → select → attach → cancel → navigate | capture:visual-preview; quickDraft:retained; capture:source-bound | verified: [extension](reports/assurance/9b9aadb6-3547-4712-b4d2-9eed163ed260/packaged-screenshot-overlay.trace.zip) |
 | P0 | capture-and-send-context/packaged-browser-library | grant → search → select → manage → revoke | capture:library-authorized; quickDraft:selected-link-only; capture:permission-revoked | missing |
 | P0 | capture-and-send-context/packaged-selection | grant → capture → preview → remove → reload → send | capture:untrusted; capture:sanitized; quickDraft:context-retained | missing |
 | P0 | capture-and-send-context/permission-denied | draft → capture-denial → recover → send | capture:denied; quickDraft:unchanged | missing |
@@ -51,7 +52,7 @@ A case is verified only when every authored checkpoint was asserted in the same 
 | P0 | edit-fork-and-delete/confirmed | edit → fork → confirm-delete → reload | documents:source-retained; machine:fork-deleted | missing |
 | P0 | edit-fork-and-delete/delete-unconfirmed | confirm-delete → failure → reload → reconcile | machine:delete-unconfirmed; advanced:error-visible | missing |
 | P0 | queue-steer-and-recover/ambiguous-guide | queue → guide → failure → reload → reconcile | machine:active-turn; advanced:journal-retained; documents:request-confirmed | missing |
-| P1 | personalize-without-losing-work/cross-surface | draft → settings → cross-surface-sync → reload → continue | appearance:persisted; appearance:reduce-motion; quickDraft:retained | verified: [web](reports/assurance/89c6a274-86a5-4ee4-a4c6-07935ea098a7/personalize-without-losing-work-cross-surface-1.trace.zip) |
+| P1 | personalize-without-losing-work/cross-surface | draft → settings → cross-surface-sync → reload → continue | appearance:persisted; appearance:reduce-motion; quickDraft:retained | missing |
 | P0 | restart-extension-during-work/background-preconnect | stored-identity → background-connect → panel-open → panel-close → remote-update → worker-restart → active-panel-restart → logout | account:validated-in-worker; connection:shared-workspace; shell:panel-independent | missing |
 | P0 | restart-extension-during-work/profile-restart | worker-request → persist → extension-reload → profile-restart → logout | account:trusted-storage; shell:installed-panel; transport:cookies-omitted | missing |
 
@@ -73,7 +74,7 @@ A case is verified only when every authored checkpoint was asserted in the same 
 | advanced | Session list/history, creation draft, reply draft and dispatch/queue/guide journals. | Independent scoped localStorage journals and IndexedDB repository; not the quick-chat journal. Route unmount disconnects handles; identity fences suppress late completion; command failure stays visible. | [code](./src/features/conversations/WorkspacePage.tsx), [code](./src/features/conversations/runtime-controller.ts), [code](./src/features/conversations/admission.ts), [code](./src/features/conversations/turn-journal.ts) |
 | documents | Session metadata, history, permission outcomes and remote sync cursors. | Remote Streams/Loro plus scoped local repository and cursors. Append/flush and metadata publication are separate confirmation links; subscribe errors remain visible. | [code](./packages/lody-sdk/src/sessions/infrastructure/loro-session-repository.ts), [code](./packages/lody-sdk/src/documents/infrastructure/birpc-document-session.ts) |
 | machine | Agent capabilities and remote execution, stop, steer, fork, edit and deletion requests. | Remote machine; a local promise or command receipt is not completed execution. Commands name exact session/turn/request; abort ends local waiting, not necessarily remote work. | [code](./packages/lody-sdk/src/sessions/application/session-runtime.ts), [code](./packages/lody-sdk/src/sessions/infrastructure/machine-flock.ts) |
-| capture | Active tab grant, selection and extracted untrusted text. | Explicitly captured context enters a scoped draft; URL secrets and sensitive DOM are excluded. Only a user capture action crosses tab-to-extension boundary; denial preserves draft. | [code](./src/features/page-context/capture.ts), [code](./src/features/page-context/model.ts) |
+| capture | Active tab grant, selection, extracted untrusted text and frozen viewport pixels. | Explicitly captured context enters a scoped draft; URL secrets and sensitive DOM are excluded. Only a user capture action crosses tab-to-extension boundary; denial preserves draft. Screenshot overlays disconnect on navigation or draft change; cancellation restores page focus without attachment. | [code](./src/features/page-context/capture.ts), [code](./src/features/page-context/model.ts), [code](./src/features/page-context/screenshot-selection.ts), [code](./src/features/page-context/screenshot-overlay.tsx) |
 | transport | Trusted sender, allowlisted origin/method, deadline, request ID and abort controller. | Worker request map is ephemeral; credentials are explicit and cookies omitted. Worker restart loses in-flight requests; cancellation is sender/request scoped. | [code](./src/features/network/background.ts), [code](./src/features/network/transport.ts), [code](./src/features/network/protocol.ts) |
 | appearance | Persisted preferences, Jotai mood, React Query cache, system theme and Reduce Motion. | Extension storage.local or web localStorage; cross-surface change subscriptions. Save publishes after durable write; system motion policy also governs shader mounting. | [code](./src/features/preferences/use-preferences.ts), [code](./src/shared/storage.ts), [code](./src/app/App.tsx), [code](./src/features/ambient/Ambient.tsx) |
 | shell | Popup/options/sidepanel/web surfaces, hash route and extension lifecycle registration. | Manifest and browser-installed side panel behavior. Popup delegates; sidepanel hosts quick chat; options hosts settings; advanced routes mount separate runtimes. | [code](./src/app/App.tsx), [code](./src/features/page-context/lifecycle.ts), [code](./src/features/introduction/Introduction.tsx), [code](./src/features/introduction/sequence.ts), [code](./wxt.config.ts) |
@@ -128,7 +129,6 @@ A case is verified only when every authored checkpoint was asserted in the same 
 | P0 | interrupt-and-resolve-permission/inspect-stopped-work (missing) | live-work-inspected; terminal-keeps-partial-work; reload-keeps-stopped-work; continuation-from-stopped-work | quickDraft → documents → machine → connection |
 | P0 | interrupt-and-resolve-permission/stop-unconfirmed (missing) | stop-error-visible; no-fabricated-terminal-state; reread-reconciles-real-state | quickDraft → documents → machine → connection |
 | P0 | capture-and-send-context/packaged-source-picker (missing) | chosen-tab-is-exact-source; denied-source-preserves-draft; truncation-and-safe-locator-visible; snapshot-immutable-until-explicit-refresh; inline-tab-mention-preserves-draft-without-send; stale-tab-mention-rejected | shell → capture → quickDraft → quickDelivery → documents → transport |
-| P0 | capture-and-send-context/packaged-document-image (missing) | packaged-pdf-worker-and-page-markers; invalid-or-scanned-pdf-keeps-draft; real-image-preview-and-removal; changed-document-capture-refused | shell → capture → quickDraft → quickDelivery → documents → transport |
 | P0 | capture-and-send-context/packaged-browser-library (missing) | library-permission-explicit; bounded-search-selected-link-only; bookmark-mutations-observed; revocation-prevents-next-query | shell → capture → quickDraft → quickDelivery → documents → transport |
 | P0 | capture-and-send-context/packaged-selection (missing) | secret-content-excluded; preview-and-removal-observed; context-restored-after-reload; only-retained-context-sent | shell → capture → quickDraft → quickDelivery → documents → transport |
 | P0 | capture-and-send-context/permission-denied (missing) | denial-visible; draft-unchanged; later-explicit-capture-works | shell → capture → quickDraft → quickDelivery → documents → transport |
@@ -145,6 +145,7 @@ A case is verified only when every authored checkpoint was asserted in the same 
 | P1 | workflow-lifecycle/legacy-migration (missing) | legacy-records-never-upload-on-open; migration-preview-cancel-preserves-local; confirmed-migration-publishes-private-once; migration-reload-retains-cloud-and-draft | automations → connection → quickDraft |
 | P1 | manage-durable-conversation/quick-sidebar (missing) | fulltext-finds-body-without-switching-session; sidebar-rename-and-archive-observed; sidebar-restores-same-history-after-reload; export-contains-original-history; diagnostic-export-excludes-content-and-credentials | account → advanced → quickDraft → documents → shell |
 | P1 | manage-durable-conversation/archive-restore (missing) | metadata-survives-reload; archive-filter-is-consistent; restored-history-unchanged | account → advanced → quickDraft → documents → shell |
+| P1 | personalize-without-losing-work/cross-surface (missing) | preferences-propagate; draft-survives-settings-and-reload; motion-policy-disables-shader; keyboard-and-accessibility-usable | quickDraft → shell → appearance → account |
 
 ## User action → observable response
 
@@ -157,7 +158,7 @@ The browser captures the trusted action event before its handler and samples the
 | history-open | Trusted click on an existing conversation in history. | Selected conversation history visible with its expected user turn. | not measured | — | no baseline evidence |
 | recovery-confirmed | Trusted click on confirmation after reload. | Recovered user turn visible and uncertainty indicator removed. | not measured | — | no baseline evidence |
 | stop-observed | Trusted click on Stop while streaming. | Terminal turn state reflected by a ready Send control. | not measured | — | no baseline evidence |
-| appearance-applied | Trusted theme selection action. | Chosen theme present on the main surface after durable preference publication. | 1 / 0 | 18.2 / 18.2 ms | no comparable baseline |
+| appearance-applied | Trusted theme selection action. | Chosen theme present on the main surface after durable preference publication. | not measured | — | no baseline evidence |
 | capture-preview | Trusted explicit page/selection capture click. | Captured context chip with preview action visible in the composer. | not measured | — | no baseline evidence |
 
 Required measurements missing/invalid: none in executed cases.
@@ -170,4 +171,4 @@ Baseline promotion requires five successful comparable samples per measured boun
 
 SDK/Node and Vitest Browser Mode verify non-component contracts; Storybook verifies component states; Playwright/Cucumber execute authored user journeys; axe checks rendered accessibility within journeys. Counts and code percentages are not assurance coverage. Packaged observations require extension-layer receipts. Controlled HTTP/Streams evidence does not prove a deployed agent, native permission-dialog approval or production latency.
 
-Artifacts: [run manifest](./reports/assurance/89c6a274-86a5-4ee4-a4c6-07935ea098a7/run.json), [machine-readable audit](./reports/assurance/89c6a274-86a5-4ee4-a4c6-07935ea098a7/audit.json). Source drift invalidates credit; missing runs remain missing.
+Artifacts: [run manifest](./reports/assurance/9b9aadb6-3547-4712-b4d2-9eed163ed260/run.json), [machine-readable audit](./reports/assurance/9b9aadb6-3547-4712-b4d2-9eed163ed260/audit.json). Source drift invalidates credit; missing runs remain missing.

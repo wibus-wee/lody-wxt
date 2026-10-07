@@ -158,12 +158,17 @@ export const model = {
         'Commands name exact session/turn/request; abort ends local waiting, not necessarily remote work.',
     },
     capture: {
-      source: ['src/features/page-context/capture.ts', 'src/features/page-context/model.ts'],
-      state: 'Active tab grant, selection and extracted untrusted text.',
+      source: [
+        'src/features/page-context/capture.ts',
+        'src/features/page-context/model.ts',
+        'src/features/page-context/screenshot-selection.ts',
+        'src/features/page-context/screenshot-overlay.tsx',
+      ],
+      state: 'Active tab grant, selection, extracted untrusted text and frozen viewport pixels.',
       persistence:
         'Explicitly captured context enters a scoped draft; URL secrets and sensitive DOM are excluded.',
       lifetime:
-        'Only a user capture action crosses tab-to-extension boundary; denial preserves draft.',
+        'Only a user capture action crosses tab-to-extension boundary; denial preserves draft. Screenshot overlays disconnect on navigation or draft change; cancellation restores page focus without attachment.',
     },
     transport: {
       source: [
@@ -903,6 +908,18 @@ export const model = {
             'invalid-or-scanned-pdf-keeps-draft',
             'real-image-preview-and-removal',
             'changed-document-capture-refused',
+          ],
+        },
+        {
+          id: 'packaged-screenshot-overlay',
+          lifecycle: ['grant', 'capture', 'select', 'attach', 'cancel', 'navigate'],
+          states: ['capture:visual-preview', 'quickDraft:retained', 'capture:source-bound'],
+          obligations: [
+            'overlay-isolated-accessible-and-no-panel-dialog',
+            'pointer-crop-matches-screenshot-pixels',
+            'full-screenshot-excludes-overlay',
+            'cancel-preserves-draft-and-page',
+            'source-navigation-cleans-overlay',
           ],
         },
         {

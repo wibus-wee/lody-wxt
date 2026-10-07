@@ -4,14 +4,14 @@ This feature owns explicit browser capture and local source previews.
 It passes immutable, untrusted page snapshots or real `File` objects to the quick draft; the connection adapter owns SDK submission.
 The [browser assistant specification](../../../docs/contents/dev/browser-assistant-spec.mdx) defines the broader capability target.
 
-| Area             | Entry point                                                                  | Contract                                                                                                                                          |
-| ---------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Browser entry    | [lifecycle](./lifecycle.ts), [intents](./intents.ts)                         | Toolbar/shortcut opens the surface. Context-menu capture uses the event tab/frame, requires confirmation and never sends.                         |
-| Page snapshots   | [capture](./capture.ts), [model](./model.ts)                                 | Fixed source identity, sanitized locator, capture time, length, truncation and revision. Closed or navigated tabs are failures, not replacements. |
-| Source selection | [PageContextMenu](./PageContextMenu.tsx), [ContextStrip](./ContextStrip.tsx) | Lody controls, previews, explicit refresh/removal and scope lifetime fences.                                                                      |
-| Visual input     | [screenshot](./screenshot.ts), [image](./image.ts)                           | Actual image bytes; capture validates tab/document/viewport/scroll before and after. Pointer and numeric crop share pixel coordinates.            |
-| Documents        | [pdf](./pdf.ts), [video](./video.ts)                                         | Local PDF text layer with page numbers; exposed browser text-track cues with timestamps. Missing text is reported.                                |
-| Local library    | [library](./library.ts), [LibraryPicker](./LibraryPicker.tsx)                | Optional history/bookmark grants, explicit bounded search, selected links, confirmed bookmark mutations and permission revocation.                |
+| Area             | Entry point                                                                                                                     | Contract                                                                                                                                          |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Browser entry    | [lifecycle](./lifecycle.ts), [intents](./intents.ts)                                                                            | Toolbar/shortcut opens the surface. Context-menu capture uses the event tab/frame, requires confirmation and never sends.                         |
+| Page snapshots   | [capture](./capture.ts), [model](./model.ts)                                                                                    | Fixed source identity, sanitized locator, capture time, length, truncation and revision. Closed or navigated tabs are failures, not replacements. |
+| Source selection | [PageContextMenu](./PageContextMenu.tsx), [ContextStrip](./ContextStrip.tsx)                                                    | Lody controls, previews, explicit refresh/removal and scope lifetime fences.                                                                      |
+| Visual input     | [screenshot](./screenshot.ts), [selection](./screenshot-selection.ts), [overlay](./screenshot-overlay.tsx), [image](./image.ts) | Actual image bytes; capture validates tab/document/viewport/scroll before and after. Pointer and numeric crop share pixel coordinates.            |
+| Documents        | [pdf](./pdf.ts), [video](./video.ts)                                                                                            | Local PDF text layer with page numbers; exposed browser text-track cues with timestamps. Missing text is reported.                                |
+| Local library    | [library](./library.ts), [LibraryPicker](./LibraryPicker.tsx)                                                                   | Optional history/bookmark grants, explicit bounded search, selected links, confirmed bookmark mutations and permission revocation.                |
 
 ## Composer entry points
 
@@ -78,6 +78,12 @@ Browser-exposed subtitles can seek the captured document by timestamp.
 Private video transcript endpoints and automatic transcription are not used.
 
 Screenshots are visible-viewport images.
+After capture, a runtime-injected [ScreenshotOverlay](./ScreenshotOverlay.tsx) displays the frozen screenshot at viewport size inside an isolated shadow root on the source page.
+Pointer selection and labelled numeric fields use screenshot pixels; confirmation returns a region or the full-image choice through an extension port to the owning draft.
+The extension surface crops the original bytes and attaches the image without sending it.
+CSS is loaded by the extension surface and passed to the isolated UI, so the tool needs no default host grants or web-accessible resources.
+Injection is bound to the captured document and viewport; navigation or closing the source disconnects the port and reports failure.
+Cancel or Escape removes the overlay and restores page focus; changing the owning draft disconnects the port and prevents delayed attachment.
 They do not claim full-page capture.
 A navigation, tab switch, viewport or scroll mismatch cancels capture.
 Visible password/OTP/sensitive fields block it.
@@ -95,12 +101,13 @@ Revoking access clears displayed results and the next query must obtain permissi
 
 The source-picker case checks the three-action menu, separate context/tools/dictation controls, current-page opt-in, keyboard entry, restored focus and axe at 360px.
 It also uses native `chrome.tabs.setZoom(2)` at a 640 × 960 browser viewport, checks the resulting 320px layout for reachable composer controls and horizontal overflow, and attaches a screenshot.
-The screenshot case invokes Chrome's actual toolbar action through CDP `Extensions.triggerAction`.
+The screenshot cases invoke Chrome's actual toolbar action through CDP `Extensions.triggerAction`.
+The in-page overlay case checks shadow-style isolation, axe, focus, pointer coordinates and cropped pixels, full-image capture without the tool, cancellation and navigation cleanup.
 The library case installs an isolated extension copy with initial grants, restores its manifest byte-for-byte to production, and then runs with real revocable optional permissions.
 That controlled permission baseline is attached to the trace; acceptance of Chrome's native permission dialog is not automated.
 JavaScript modules and CSP are unchanged.
 
 Non-component browser tests exercise PDF bytes/worker and capture contracts.
-Storybook `Chat/Page context` covers the compact attachment menu, grouped source picker, full source limit, snapshot, mixed tab results and the PDF importer.
+Storybook `Chat/Page context` covers the compact attachment menu, grouped source picker, full source limit, snapshot, mixed tab results and the PDF importer; `Chat/Screenshot overlay` covers region and full-image confirmation.
 Model cases and all checkpoints are owned by [assurance model](../../../tools/assurance/model.mjs), not inferred from test discovery.
 Run `pnpm check`, affected browser tests and `pnpm test:extension`; generate coverage only from their real reports.

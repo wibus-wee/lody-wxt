@@ -475,10 +475,11 @@ test('packaged PDF worker and visual attachments preserve drafts and reject chan
         targetId: target!.targetId,
       });
       await menu(panel, '截图并裁剪…');
-      await expect(panel.getByRole('dialog', { name: '附加截图' })).toBeVisible();
-      await panel.getByLabel('宽度（像素）', { exact: true }).fill('40');
-      await panel.getByLabel('高度（像素）', { exact: true }).fill('30');
-      await panel.getByRole('button', { name: '附加裁剪区域', exact: true }).click();
+      await expect(source.getByRole('dialog', { name: '截取可见内容' })).toBeVisible();
+      await expect(panel.getByRole('dialog', { name: '附加截图' })).toHaveCount(0);
+      await source.getByLabel('宽度（像素）', { exact: true }).fill('40');
+      await source.getByLabel('高度（像素）', { exact: true }).fill('30');
+      await source.getByRole('button', { name: '附加裁剪区域', exact: true }).click();
       await panel.getByRole('button', { name: '预览 区域截图.png', exact: true }).click();
       expect(
         await panel
@@ -702,10 +703,11 @@ test('denied screenshot permission preserves the draft and a later explicit capt
       contentType: 'text/plain',
     });
     await menu(panel, '截图并裁剪…');
-    await expect(panel.getByRole('dialog', { name: '附加截图' })).toBeVisible();
-    await panel.getByLabel('宽度（像素）', { exact: true }).fill('40');
-    await panel.getByLabel('高度（像素）', { exact: true }).fill('30');
-    await panel.getByRole('button', { name: '附加裁剪区域', exact: true }).click();
+    await expect(source.getByRole('dialog', { name: '截取可见内容' })).toBeVisible();
+    await expect(panel.getByRole('dialog', { name: '附加截图' })).toHaveCount(0);
+    await source.getByLabel('宽度（像素）', { exact: true }).fill('40');
+    await source.getByLabel('高度（像素）', { exact: true }).fill('30');
+    await source.getByRole('button', { name: '附加裁剪区域', exact: true }).click();
     await panel.getByRole('button', { name: '预览 区域截图.png', exact: true }).click();
     expect(
       await panel
@@ -750,5 +752,172 @@ test('denied screenshot permission preserves the draft and a later explicit capt
         panel.getByText('网页分析完成：这是一个协作项目。', { exact: true }),
       ).toBeVisible();
     });
+  });
+});
+
+test('screenshot selection runs inside the source page and preserves the owning draft', async () => {
+  test.setTimeout(90_000);
+  await withPanel('packaged-screenshot-overlay', async (panel, context, evidence, cloud) => {
+    const origin = 'https://backend.lody.ai';
+    await context.route(`${origin}/overlay-*`, (route) =>
+      route.fulfill({
+        contentType: 'text/html',
+        body: '<!doctype html><html lang="en"><title>Screenshot source</title><style>body{margin:0;background:rgb(240,80,40);font-size:50px}button,input{opacity:.2}main{height:2000px}</style><main><button>Page action</button><input aria-label="Page field"></main></html>',
+      }),
+    );
+    const source = await context.newPage();
+    await source.setViewportSize({ width: 1000, height: 800 });
+    await source.goto(`${origin}/overlay-one`);
+    await source.getByRole('button', { name: 'Page action' }).focus();
+    await source.bringToFront();
+    const browserSession = await context.browser()!.newBrowserCDPSession();
+    const { targetInfos } = await browserSession.send('Target.getTargets', {
+      filter: [{ type: 'tab' }],
+    });
+    const target = targetInfos.find((item) => item.url === source.url());
+    expect(target).toBeDefined();
+    await browserSession.send('Extensions.triggerAction', {
+      id: new URL(panel.url()).host,
+      targetId: target!.targetId,
+    });
+    await menu(panel, '截图并裁剪…');
+    const overlay = source.getByRole('dialog', { name: '截取可见内容' });
+    await evidence.check('overlay-isolated-accessible-and-no-panel-dialog', async () => {
+      await expect(overlay).toBeVisible();
+      await expect(panel.getByRole('dialog')).toHaveCount(0);
+      await expect(overlay.getByRole('button', { name: '取消', exact: true })).toBeFocused();
+      await expect(overlay.getByRole('button', { name: '附加整张截图' })).toHaveCSS(
+        'font-size',
+        '13px',
+      );
+      expect(
+        (await new AxeBuilder({ page: source }).include('lody-screenshot').analyze()).violations,
+      ).toEqual([]);
+      const manifest = JSON.parse(await readFile('.output/chrome-mv3/manifest.json', 'utf8'));
+      expect(manifest.content_scripts).toBeUndefined();
+      expect(manifest.host_permissions).not.toContain('<all_urls>');
+      expect(manifest.host_permissions).not.toContain('https://*/*');
+      await source.keyboard.press('Tab');
+      await source.keyboard.press('Tab');
+      await expect(overlay.getByRole('button', { name: '附加整张截图' })).toBeFocused();
+      await source.keyboard.press('Tab');
+      await expect(overlay.getByLabel('左边距（像素）', { exact: true })).toBeFocused();
+      await source.keyboard.press('Shift+Tab');
+      await expect(overlay.getByRole('button', { name: '附加整张截图' })).toBeFocused();
+    });
+    const imageSize = await overlay
+      .getByRole('img')
+      .evaluate((image) => [
+        (image as HTMLImageElement).naturalWidth,
+        (image as HTMLImageElement).naturalHeight,
+      ]);
+    await source.mouse.move(100, 100);
+    await source.mouse.down();
+    await source.mouse.move(220, 180);
+    await source.mouse.up();
+    await evidence.check('pointer-crop-matches-screenshot-pixels', async () => {
+      const width =
+        Math.round((220 * imageSize[0]!) / 1000) - Math.round((100 * imageSize[0]!) / 1000);
+      const height =
+        Math.round((180 * imageSize[1]!) / 800) - Math.round((100 * imageSize[1]!) / 800);
+      await expect(overlay.getByLabel('宽度（像素）', { exact: true })).toHaveValue(String(width));
+      await expect(overlay.getByLabel('高度（像素）', { exact: true })).toHaveValue(String(height));
+      await overlay.getByLabel('宽度（像素）', { exact: true }).fill(String(imageSize[0]! + 1));
+      await overlay.getByRole('button', { name: '附加裁剪区域' }).click();
+      await expect(overlay.getByRole('alert')).toContainText('裁剪范围');
+      await overlay.getByLabel('宽度（像素）', { exact: true }).fill(String(width));
+      await overlay.getByRole('button', { name: '附加裁剪区域' }).click();
+      await expect(source.locator('lody-screenshot')).toHaveCount(0);
+      await panel.getByRole('button', { name: '预览 区域截图.png', exact: true }).click();
+      const pixels = await panel
+        .getByRole('dialog')
+        .getByRole('img')
+        .evaluate((element) => {
+          const image = element as HTMLImageElement;
+          const canvas = document.createElement('canvas');
+          canvas.width = image.naturalWidth;
+          canvas.height = image.naturalHeight;
+          const context = canvas.getContext('2d')!;
+          context.drawImage(image, 0, 0);
+          return {
+            width: canvas.width,
+            height: canvas.height,
+            color: [...context.getImageData(10, 10, 1, 1).data],
+          };
+        });
+      expect(pixels).toEqual({ width, height, color: [240, 80, 40, 255] });
+      await panel.keyboard.press('Escape');
+      await panel.getByRole('button', { name: '移除 区域截图.png', exact: true }).click();
+    });
+    await source.bringToFront();
+    await menu(panel, '截图并裁剪…');
+    await evidence.check('full-screenshot-excludes-overlay', async () => {
+      const fullSize = await overlay
+        .getByRole('img')
+        .evaluate((image) => [
+          (image as HTMLImageElement).naturalWidth,
+          (image as HTMLImageElement).naturalHeight,
+        ]);
+      await overlay.getByRole('button', { name: '附加整张截图' }).click();
+      await expect(source.locator('lody-screenshot')).toHaveCount(0);
+      await panel.getByRole('button', { name: '预览 页面截图.png', exact: true }).click();
+      expect(
+        await panel
+          .getByRole('dialog')
+          .getByRole('img')
+          .evaluate((element) => {
+            const image = element as HTMLImageElement;
+            const canvas = document.createElement('canvas');
+            canvas.width = image.naturalWidth;
+            canvas.height = image.naturalHeight;
+            const context = canvas.getContext('2d')!;
+            context.drawImage(image, 0, 0);
+            return [
+              image.naturalWidth,
+              image.naturalHeight,
+              [
+                ...context.getImageData(
+                  Math.floor(image.naturalWidth / 2),
+                  image.naturalHeight - 20,
+                  1,
+                  1,
+                ).data,
+              ],
+            ];
+          }),
+      ).toEqual([...fullSize, [240, 80, 40, 255]]);
+      await panel.keyboard.press('Escape');
+      await panel.getByRole('button', { name: '移除 页面截图.png', exact: true }).click();
+    });
+    await source.bringToFront();
+    await menu(panel, '截图并裁剪…');
+    await expect(overlay).toBeVisible();
+    await evidence.check('cancel-preserves-draft-and-page', async () => {
+      await source.keyboard.press('Escape');
+      await expect(source.locator('lody-screenshot')).toHaveCount(0);
+      await expect(source.getByRole('button', { name: 'Page action' })).toBeFocused();
+      await expect(panel.getByRole('textbox', { name: '消息', exact: true })).toHaveValue(
+        'Keep this draft',
+      );
+      await expect(panel.getByRole('button', { name: /^预览 .*截图\.png$/ })).toHaveCount(0);
+      expect(
+        cloud.traffic.filter(
+          (row) => row.kind === 'append' && row.stream.startsWith('workspace-a:s:'),
+        ),
+      ).toEqual([]);
+    });
+    await source.bringToFront();
+    await menu(panel, '截图并裁剪…');
+    await expect(overlay).toBeVisible();
+    await source.goto(`${origin}/overlay-two`);
+    await evidence.check('source-navigation-cleans-overlay', async () => {
+      await expect(source.locator('lody-screenshot')).toHaveCount(0);
+      await expect(panel.getByRole('alert')).toContainText('来源网页或截图工具已关闭');
+      await expect(panel.getByRole('textbox', { name: '消息', exact: true })).toHaveValue(
+        'Keep this draft',
+      );
+      await expect(panel.getByRole('button', { name: /^预览 .*截图\.png$/ })).toHaveCount(0);
+    });
+    await expect(panel.getByRole('menu', { includeHidden: true })).toHaveCount(0);
   });
 });

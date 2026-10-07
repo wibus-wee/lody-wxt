@@ -3,7 +3,7 @@ import { browser } from 'wxt/browser';
 
 import { authorizedCaptureTab } from './capture';
 
-const viewportSchema = v.object({
+export const screenshotViewportSchema = v.object({
   url: v.string(),
   document: v.number(),
   x: v.number(),
@@ -20,6 +20,7 @@ export interface Screenshot {
   height: number;
   capturedAt: string;
   tabId: number;
+  viewport: v.InferOutput<typeof screenshotViewportSchema>;
 }
 
 export interface ScreenshotRegion {
@@ -62,7 +63,7 @@ export async function captureVisiblePage(): Promise<Screenshot> {
         }),
       }),
     });
-    return v.parse(viewportSchema, result?.result);
+    return v.parse(screenshotViewportSchema, result?.result);
   };
   const before = await read();
   if (before.sensitive) throw new Error('当前可见区域包含密码、验证码或敏感内容，请隐藏后再截图。');
@@ -88,6 +89,7 @@ export async function captureVisiblePage(): Promise<Screenshot> {
     height: bitmap.height,
     capturedAt: new Date().toISOString(),
     tabId,
+    viewport: before,
   };
   bitmap.close();
   return result;

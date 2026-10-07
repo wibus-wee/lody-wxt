@@ -6,8 +6,6 @@ import { useTheme } from 'next-themes';
 import type { ComponentProps } from 'react';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 
-import { Button } from '../src/shared/ui';
-import { colors } from '../vendor/lody/packages/ui/src/tokens/colors.stylex';
 import metadata from './diagrams/metadata.json';
 
 window.EXCALIDRAW_ASSET_PATH = new URL('/excalidraw/', window.location.origin).href;
@@ -18,13 +16,7 @@ const Excalidraw = lazy(() =>
 type Scene = Pick<ExcalidrawInitialDataState, 'elements' | 'appState' | 'files'>;
 type DiagramAPI = Parameters<NonNullable<ComponentProps<typeof Excalidraw>['excalidrawAPI']>>[0];
 const scenes = import.meta.glob<Scene>('./diagrams/*.excalidraw.json', { import: 'default' });
-const downloads = import.meta.glob<string>('./diagrams/*.light.excalidraw.json', {
-  eager: true,
-  query: '?url',
-  import: 'default',
-});
 
-const downloadTheme = stylex.createTheme(colors, { accent: 'var(--color-fd-primary)' });
 const styles = stylex.create({
   figure: { marginBlock: 28, marginInline: 0 },
   scroll: { overflowX: 'auto', borderRadius: 12, border: '1px solid light-dark(#d4d9e1, #485364)' },
@@ -34,9 +26,8 @@ const styles = stylex.create({
     aspectRatio: ratio,
   }),
   placeholder: { padding: 24 },
-  caption: { marginTop: 10, fontSize: 14, color: 'light-dark(#4b596b, #bcc8d8)' },
+  caption: { marginTop: 10, fontSize: 12, color: 'light-dark(#4b596b, #bcc8d8)', textAlign: 'center', opacity: 0.6 },
   footer: { display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginTop: 8 },
-  hint: { fontSize: 12, color: 'light-dark(#4b596b, #bcc8d8)' },
 });
 
 function SceneView({ scene, theme }: { scene: Scene; theme: 'light' | 'dark' }) {
@@ -155,24 +146,6 @@ export function Diagram({ id }: { id: string }) {
         </div>
       </section>
       <figcaption {...stylex.props(styles.caption)}>{entry.alt}</figcaption>
-      <div {...stylex.props(styles.footer, downloadTheme)}>
-        <Button
-          variant="link"
-          size="small"
-          nativeButton={false}
-          render={
-            <a
-              role="link"
-              aria-label="下载 Excalidraw 源图"
-              href={downloads[`./diagrams/${id}.light.excalidraw.json`]}
-              download={`${id}.excalidraw`}
-            />
-          }
-        >
-          下载 Excalidraw 源图
-        </Button>
-        <span {...stylex.props(styles.hint)}>窄屏可横向查看完整图；布局为示意。</span>
-      </div>
     </figure>
   );
 }

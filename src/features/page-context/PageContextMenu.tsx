@@ -12,9 +12,7 @@ import { dismissPageIntent, pendingPageIntents, watchPageIntents } from './inten
 import { LibraryPicker } from './LibraryPicker';
 import type { PageContext } from './model';
 import { PdfImportDialog } from './PdfImportDialog';
-import type { Screenshot } from './screenshot';
-import { captureVisiblePage } from './screenshot';
-import { ScreenshotPreview } from './ScreenshotPreview';
+import { captureAndCropVisiblePage } from './screenshot-selection';
 import type { PageSource } from './SourcePickerDialog';
 import { SourcePickerDialog } from './SourcePickerDialog';
 import { captureVideoTranscript } from './video';
@@ -70,7 +68,6 @@ export function PageContextMenu({
   const [panel, setPanel] = useState<'sources' | 'link' | 'library' | 'pdf' | null>(null);
   const [link, setLink] = useState('');
   const [busy, setBusy] = useState(false);
-  const [screenshot, setScreenshot] = useState<Screenshot | null>(null);
   const [intents, setIntents] = useState<PageContextIntent[]>([]);
   useEffect(() => {
     let live = true;
@@ -154,9 +151,11 @@ export function PageContextMenu({
             disabled={!onImage}
             onClick={() =>
               void act(async () => {
-                const captured = await captureVisiblePage();
+                const file = await captureAndCropVisiblePage(
+                  lifetimeRef.current!.controller.signal,
+                );
                 assertActive();
-                setScreenshot(captured);
+                if (file) await onImage?.(file);
               })
             }
           >
@@ -222,16 +221,6 @@ export function PageContextMenu({
             </Dialog.Footer>
           </Dialog.Content>
         </Dialog.Root>
-      )}
-      {screenshot && onImage && (
-        <ScreenshotPreview
-          screenshot={screenshot}
-          onAdd={async (file) => {
-            assertActive();
-            await onImage(file);
-          }}
-          onClose={() => setScreenshot(null)}
-        />
       )}
       {intent && !disabled && (
         <Dialog.Root
