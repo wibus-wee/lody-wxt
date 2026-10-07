@@ -13,6 +13,7 @@ import {
 } from './background-protocol';
 import type { BackgroundWorkspace } from './background-workspace';
 import { BackgroundWorkspaceOwner } from './background-workspace';
+import { clearCachedBootstrap } from './workspace-bootstrap-cache';
 
 const alarm = 'lody:workspace:sync';
 const commandMethods = new Set([
@@ -288,6 +289,7 @@ export function registerWorkspaceConnectionLifecycle() {
   browser.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && (changes.accountSession || changes.accountConfig)) {
       owner.reset();
+      void clearCachedBootstrap();
       refresh();
     }
   });

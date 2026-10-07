@@ -3,13 +3,8 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { NavLink, Route, Routes, useLocation } from 'react-router';
 import { browser } from 'wxt/browser';
 
-import { AccountPage } from '../features/account/AccountPage';
 import { ChatHeader } from '../features/chat/ChatHeader';
-import { ConnectedChat } from '../features/chat/ConnectedChat';
 import { Popup } from '../features/connection/Popup';
-import { Settings } from '../features/connection/Settings';
-import { ConversationsPage } from '../features/conversations/ConversationsPage';
-import { WorkspacePage } from '../features/conversations/WorkspacePage';
 import { openSidePanel } from '../features/page-context/actions';
 import { usePreferences } from '../features/preferences/use-preferences';
 import { Alert, Button, installFocusModality, ThemeRoot, Tooltip } from '../shared/ui';
@@ -17,6 +12,9 @@ import { composer, composerDark, composerLight } from '../shared/ui/composer.sty
 import { syntaxDark, syntaxLight } from '../shared/ui/message.tokens.stylex';
 import { readableFeedbackTheme, readableFieldTheme } from '../shared/ui/readable.stylex';
 
+// Every surface opens on the chat or the popup shell. The routes behind the header are
+// loaded on demand so a cold open does not parse the workspace, conversations and account
+// features, or the markdown renderer they pull in, before the first paint.
 const Ambient = lazy(() =>
   import('../features/ambient/Ambient').then((module) => ({ default: module.Ambient })),
 );
@@ -24,6 +22,25 @@ const Introduction = lazy(() =>
   import('../features/introduction/Introduction').then((module) => ({
     default: module.Introduction,
   })),
+);
+const AccountRoute = lazy(() =>
+  import('../features/account/AccountPage').then((module) => ({ default: module.AccountPage })),
+);
+const ConversationsRoute = lazy(() =>
+  import('../features/conversations/ConversationsPage').then((module) => ({
+    default: module.ConversationsPage,
+  })),
+);
+const WorkspaceRoute = lazy(() =>
+  import('../features/conversations/WorkspacePage').then((module) => ({
+    default: module.WorkspacePage,
+  })),
+);
+const SettingsRoute = lazy(() =>
+  import('../features/connection/Settings').then((module) => ({ default: module.Settings })),
+);
+const Chat = lazy(() =>
+  import('../features/chat/ConnectedChat').then((module) => ({ default: module.ConnectedChat })),
 );
 const styles = stylex.create({
   canvas: { backgroundColor: composer.canvas, minHeight: '100dvh' },
@@ -65,7 +82,13 @@ export function App({ surface = 'web' }: { surface?: 'popup' | 'options' | 'side
     );
   const settings = (
     <div {...stylex.props(styles.page)}>
-      <Settings preferences={preferences} onSave={mutation.mutate} pending={mutation.isPending} />
+      <Suspense fallback={<p>Loading settings…</p>}>
+        <SettingsRoute
+          preferences={preferences}
+          onSave={mutation.mutate}
+          pending={mutation.isPending}
+        />
+      </Suspense>
     </div>
   );
   return (
@@ -113,7 +136,10 @@ export function App({ surface = 'web' }: { surface?: 'popup' | 'options' | 'side
                 aria-hidden={!isChat}
                 inert={!isChat}
               >
-                <ConnectedChat active={isChat} />
+                {/* Stays mounted while another route is active so chat state survives navigation. */}
+                <Suspense fallback={<p>Loading chat…</p>}>
+                  <Chat active={isChat} />
+                </Suspense>
               </div>
             )}
             <div {...stylex.props(styles.route, isChat && styles.hidden)}>
@@ -147,7 +173,9 @@ export function App({ surface = 'web' }: { surface?: 'popup' | 'options' | 'side
                     path="/workspace"
                     element={
                       <div {...stylex.props(styles.page)}>
-                        <WorkspacePage />
+                        <Suspense fallback={<p>Loading workspace…</p>}>
+                          <WorkspaceRoute />
+                        </Suspense>
                       </div>
                     }
                   />
@@ -155,7 +183,9 @@ export function App({ surface = 'web' }: { surface?: 'popup' | 'options' | 'side
                     path="/conversations"
                     element={
                       <div {...stylex.props(styles.page)}>
-                        <ConversationsPage />
+                        <Suspense fallback={<p>Loading conversations…</p>}>
+                          <ConversationsRoute />
+                        </Suspense>
                       </div>
                     }
                   />
@@ -163,7 +193,9 @@ export function App({ surface = 'web' }: { surface?: 'popup' | 'options' | 'side
                     path="/account"
                     element={
                       <div {...stylex.props(styles.page)}>
-                        <AccountPage />
+                        <Suspense fallback={<p>Loading account…</p>}>
+                          <AccountRoute />
+                        </Suspense>
                       </div>
                     }
                   />

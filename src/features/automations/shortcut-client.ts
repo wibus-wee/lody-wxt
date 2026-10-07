@@ -6,10 +6,8 @@ import {
   PromptShortcutRuntime,
   PromptShortcutSync,
 } from '@lody-mobile/sdk';
-import { createPromptShortcutRepo } from '@lody-mobile/sdk/loro';
-import { IndexedDBStorageAdaptor } from 'loro-repo/storage/indexeddb';
+import type { createPromptShortcutRepo } from '@lody-mobile/sdk/loro';
 
-import { initializeLoroWasm } from '../../shared/loro/wasm';
 import type { ChatShortcuts } from '../connection/client';
 import { requireApiAccess } from '../connection/state';
 import { cloudFetch } from '../connection/worker-fetch';
@@ -104,6 +102,15 @@ export class SyncedShortcuts implements ChatShortcuts {
       fetch,
       getJwt: (signal) => jwt.getJwt(AbortSignal.any([this.lifetime.signal, signal])),
     });
+    // The shortcut repo is the last thing `open` needs and the first thing a surface does not:
+    // loading it on demand keeps the Loro wasm-bindgen glue out of the entry chunk that every
+    // popup and side panel open parses.
+    const [{ createPromptShortcutRepo }, { IndexedDBStorageAdaptor }, { initializeLoroWasm }] =
+      await Promise.all([
+        import('@lody-mobile/sdk/loro'),
+        import('loro-repo/storage/indexeddb'),
+        import('../../shared/loro/wasm'),
+      ]);
     await initializeLoroWasm();
     this.active();
     const repo = await createPromptShortcutRepo({

@@ -25,7 +25,7 @@ type ChromeApi = {
       set: (values: object) => Promise<void>;
       remove: (key: string) => Promise<void>;
     };
-    session: { get: (key: string) => Promise<Record<string, ConnectionStatus>> };
+    session: { get: (key: string) => Promise<Record<string, unknown>> };
   };
   alarms: { create: (name: string, spec: { when: number }) => Promise<void> };
 };
@@ -37,9 +37,22 @@ async function status(worker: Worker) {
         await (globalThis as typeof globalThis & { chrome: ChromeApi }).chrome.storage.session.get(
           'lody:workspace:status',
         )
-      )['lody:workspace:status'],
+      )['lody:workspace:status'] as ConnectionStatus,
   );
 }
+
+/** The derived bootstrap facts a warm worker respawn reuses instead of re-asking the server. */
+const cachedBootstrap = (worker: Worker) =>
+  worker.evaluate(async () => {
+    const stored = await (
+      globalThis as typeof globalThis & { chrome: ChromeApi }
+    ).chrome.storage.session.get('lody:workspace:bootstrap');
+    return (stored['lody:workspace:bootstrap'] ?? null) as {
+      accountId: string;
+      gatewayBaseUrl: string;
+      machineIds: string[];
+    } | null;
+  });
 
 test('packaged workspace connects before panels, reuses its runtime and recovers after worker restart', async () => {
   test.setTimeout(90_000);
@@ -116,6 +129,12 @@ test('packaged workspace connects before panels, reuses its runtime and recovers
       expect(
         account.requests.some((request) => request.path === '/api/auth/organization/list'),
       ).toBe(true);
+      // A live bootstrap seeds the cache a respawned worker reuses. It carries derived facts
+      // only: no bearer grant, so it can never stand in for an authorization decision.
+      const seeded = await cachedBootstrap(worker);
+      expect(seeded?.accountId).not.toBe('');
+      expect(seeded?.machineIds).toEqual(['machine-a']);
+      expect(JSON.stringify(seeded)).not.toContain(session.token.access_token);
       noPanel();
     });
     const panel = await context.newPage();
@@ -300,6 +319,9 @@ test('packaged workspace connects before panels, reuses its runtime and recovers
       await expect
         .poll(() => status(worker))
         .toMatchObject({ status: 'disconnected', workspaceId: null });
+      // Derived bootstrap facts are scoped to the credential that produced them, and signing
+      // out drops them rather than leaving a signed-out profile holding workspace metadata.
+      await expect.poll(() => cachedBootstrap(worker)).toBeNull();
       cloud.setSessionMetadata('history-a', { title: 'Old account update after logout' });
       for (const surface of [restored, companion]) {
         await expect(surface.getByRole('button', { name: '登录 Lody', exact: true })).toBeVisible();

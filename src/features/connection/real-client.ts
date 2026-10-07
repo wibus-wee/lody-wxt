@@ -1,5 +1,6 @@
 import type {
   AttachmentRequestOptions,
+  ConvexCloudDirectory,
   LodyClient as SdkClient,
   ScheduleRepository,
   SendTurn,
@@ -9,26 +10,20 @@ import type {
 import {
   BetterAuthConvexJwtProvider,
   buildSessionMetadata,
-  ConvexCloudDirectory,
   ConvexShareManagement,
   createAttachmentClient,
   openStaticShare,
   prepareSharePackage,
   skillResultSchema,
-  StreamsMachineCommands,
   uploadPreparedShare,
 } from '@lody-mobile/sdk';
-import { createLoroSessionRuntime } from '@lody-mobile/sdk/loro';
-import { JsonRpcStreams } from '@lody-mobile/sdk/rpc';
-import { IndexedDBStorageAdaptor } from 'loro-repo/storage/indexeddb';
+import type { createLoroSessionRuntime } from '@lody-mobile/sdk/loro';
 import * as v from 'valibot';
 
 import { agentIdentity } from '../../shared/icons/agent-identity';
-import { initializeLoroWasm } from '../../shared/loro/wasm';
 import { SyncedShortcuts } from '../automations/shortcut-client';
 import { contextInput, contextSchema, mapHistory } from '../chat/real-adapter';
 import { turnSchema } from '../conversations/admission';
-import { createDocumentCursorStore } from '../conversations/runtime-storage';
 import {
   refreshMachineCapabilities,
   SessionAdmissionError,
@@ -234,75 +229,24 @@ export class RealLodyClient implements LodyClient {
       return remote;
     }
     const access = options.ports?.requireAccess ?? requireApiAccess;
-    const fetch = cloudFetch();
-    const jwt = new BetterAuthConvexJwtProvider({
-      authOrigin: options.authOrigin,
-      fetch,
-      getSessionBearer: async () => {
-        this.active();
-        return options.token;
-      },
-    });
-    const directory =
-      options.ports?.directory ??
-      new ConvexCloudDirectory({ convexUrl: options.convexUrl, jwt, fetch });
-    let grant = await options.client.streams.getGrant(options.token, options.workspaceId, {
-      signal: this.lifecycle.signal,
-    });
-    this.active();
-    const baseUrl = grant.gatewayBaseUrl;
-    if (!baseUrl) throw new Error('Streams grant did not provide a gateway URL.');
-    this.publish({ gatewayOrigin: new URL(baseUrl).origin });
-    await access(new URL(baseUrl).origin);
-    this.active();
-    let expiresAt = Date.now() + grant.expiresIn * 1000;
-    let refresh: Promise<void> | null = null;
-    const auth = async () => {
-      this.active();
-      if (Date.now() >= expiresAt - 10_000) {
-        refresh ??= options.client.streams
-          .getGrant(options.token, options.workspaceId, { signal: this.lifecycle.signal })
-          .then((next) => {
-            this.active();
-            if (next.gatewayBaseUrl !== baseUrl)
-              throw new Error('Streams gateway changed. Reconnect the workspace.');
-            grant = next;
-            expiresAt = Date.now() + next.expiresIn * 1000;
-          })
-          .finally(() => {
-            refresh = null;
-          });
-        await refresh;
-      }
-      this.active();
-      return grant.token;
-    };
-    await initializeLoroWasm();
-    this.active();
-    const connection = await (options.ports?.createConnection ?? createLoroSessionRuntime)({
-      workspaceId: options.workspaceId,
-      streamsBaseUrl: baseUrl,
-      auth,
-      commands: new StreamsMachineCommands({
+    // Loaded on demand: an extension surface never reaches this branch, and keeping the
+    // Loro runtime out of the static graph keeps its wasm glue out of the entry chunk.
+    const { connectDirectWorkspace } = await import('./direct-workspace');
+    const direct = await connectDirectWorkspace(
+      {
+        accountKey: this.accountKey,
         workspaceId: options.workspaceId,
-        streams: new JsonRpcStreams({ baseUrl, auth }),
-      }),
-      storageAdapter: new IndexedDBStorageAdaptor({
-        dbName: `lody:repo:${this.accountKey}`,
-        durability: 'strict',
-      }),
-      documentRemoteCursorStore: createDocumentCursorStore(this.accountKey),
-      signal: this.lifecycle.signal,
-    });
-    try {
-      const machines = await directory.listMachines(options.workspaceId, {
-        signal: this.lifecycle.signal,
-      });
-      return { connection, machineIds: machines.map((row) => row.machineId) };
-    } catch (error) {
-      await connection.close();
-      throw error;
-    }
+        authOrigin: options.authOrigin,
+        convexUrl: options.convexUrl,
+        token: options.token,
+        client: options.client,
+        requireAccess: access,
+        onGatewayOrigin: (origin) => this.publish({ gatewayOrigin: origin }),
+        ports: options.ports,
+      },
+      this.lifecycle.signal,
+    );
+    return direct;
   }
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   private backgroundDisconnected = (error: Error) => {
