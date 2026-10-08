@@ -1,6 +1,6 @@
 import * as stylex from '@stylexjs/stylex';
 import type { ReactNode } from 'react';
-import { NavLink } from 'react-router';
+import { NavLink, useLocation } from 'react-router';
 
 import { Icon } from '../../shared/icons/Icon';
 import { Button, Tooltip } from '../../shared/ui';
@@ -12,10 +12,12 @@ const styles = stylex.create({
   header: {
     display: 'flex',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 4,
-    padding: '10px 12px',
+    padding: '8px 12px 6px',
     flexShrink: 0,
     minWidth: 0,
+    borderBottom: `1px solid ${composer.border}`,
   },
   brand: {
     color: composer.label,
@@ -35,10 +37,39 @@ const styles = stylex.create({
     marginInlineStart: 'auto',
     minWidth: 0,
   },
+  title: {
+    minWidth: 0,
+    flex: '1 1 100%',
+    margin: '2px 0 0',
+    paddingInline: 4,
+    fontSize: 18,
+    lineHeight: 1.25,
+    fontWeight: 650,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  navigation: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+    flex: '1 1 100%',
+    minWidth: 0,
+    overflowX: 'auto',
+    paddingBlock: 2,
+    scrollbarWidth: 'thin',
+  },
+  navLink: { flexShrink: 0 },
+  current: {
+    backgroundColor: composer.background,
+    color: composer.label,
+  },
 });
 
 export function ChatHeader({ children }: { children?: ReactNode }) {
   const { preferences } = usePreferences();
+  const { pathname } = useLocation();
+  const current = routes.find((route) => route.path === pathname);
   return (
     <header {...stylex.props(styles.header)}>
       <Button
@@ -74,6 +105,32 @@ export function ChatHeader({ children }: { children?: ReactNode }) {
           <Tooltip.Content>设置</Tooltip.Content>
         </Tooltip.Root>
       </div>
+      {current && <p {...stylex.props(styles.title)}>{current.label}</p>}
+      {current && (
+        <nav aria-label="次级页面" {...stylex.props(styles.navigation)}>
+          {routes.map((route) => (
+            <Button
+              key={route.path}
+              nativeButton={false}
+              variant="ghost"
+              size="small"
+              aria-current={route.path === pathname ? 'page' : undefined}
+              render={<NavLink to={route.path} />}
+              {...stylex.props(styles.navLink, route.path === pathname && styles.current)}
+            >
+              {route.label}
+            </Button>
+          ))}
+        </nav>
+      )}
     </header>
   );
 }
+
+const routes = [
+  { path: '/conversations', label: '对话历史' },
+  { path: '/workspace', label: '工作区' },
+  { path: '/account', label: '账户' },
+  { path: '/settings', label: '设置' },
+  { path: '/intro', label: '使用指南' },
+] as const;

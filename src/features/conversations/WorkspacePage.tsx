@@ -21,24 +21,37 @@ import { ConversationRuntimeController } from './runtime-controller';
 import { TurnJournal } from './turn-journal';
 import { TurnActions } from './TurnActions';
 const styles = stylex.create({
-  page: { display: 'flex', flexDirection: 'column', gap: 16, padding: 16, minWidth: 0 },
-  columns: {
-    display: 'grid',
-    gridTemplateColumns: {
-      default: 'minmax(180px, 1fr) minmax(0, 3fr)',
-      '@media (max-width: 640px)': 'minmax(0, 1fr)',
-    },
-    gap: 16,
+  page: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+    padding: 12,
+    minWidth: 0,
+    minHeight: 0,
+    height: '100%',
+    boxSizing: 'border-box',
+    overflowY: 'auto',
   },
   list: { display: 'flex', flexDirection: 'column', gap: 8, padding: 0, listStyleType: 'none' },
-  turn: {
-    padding: 16,
-    overflowWrap: 'anywhere',
-  },
+  turn: { padding: 12, overflowWrap: 'anywhere' },
   actions: { display: 'flex', gap: 8, flexWrap: 'wrap' },
-  prompt: { width: '100%', minHeight: 100 },
+  prompt: { width: '100%', minHeight: 88 },
   history: { minWidth: 0, overflowWrap: 'anywhere' },
   detail: { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' },
+  listViewport: { minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain' },
+  conversationButton: {
+    width: '100%',
+    justifyContent: 'start',
+    textAlign: 'start',
+    overflow: 'hidden',
+  },
+  titleText: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 },
+  reply: {
+    position: 'sticky',
+    bottom: 0,
+    paddingBlock: 8,
+    backgroundColor: 'var(--surface, Canvas)',
+  },
 });
 const textItemSchema = v.object({ type: v.literal('text'), text: v.string() });
 const toolItemSchema = v.object({
@@ -169,6 +182,7 @@ function WorkspaceSurface({ scope }: { scope: string }) {
   const [archived, setArchived] = useState(false);
   const [page, setPage] = useState(0);
   const [newConversation, setNewConversation] = useState(false);
+  const [showList, setShowList] = useState(true);
   const [title, setTitle] = useState('');
   const reducedMotion = useReducedMotion();
   const accountId = account.account?.user.id;
@@ -178,6 +192,20 @@ function WorkspaceSurface({ scope }: { scope: string }) {
   const signedIn = account.status === 'signed_in';
   const client = account.client;
   const [connectionRevision, setConnectionRevision] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshList = async () => {
+    setRefreshing(true);
+    try {
+      await controller.refresh();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+  const openConversation = async (id: string) => {
+    setTitle(state.sessions.find((session) => session.id === id)?.title ?? '');
+    await controller.open(id);
+    if (controller.getSnapshot().snapshot?.sessionId === id) setShowList(false);
+  };
   useEffect(() => {
     if (!signedIn || !accountId || !sessionId || !workspaceId || !token || !client) return;
     const storageAdapter = new IndexedDBStorageAdaptor({
@@ -187,26 +215,25 @@ function WorkspaceSurface({ scope }: { scope: string }) {
     const lifecycle = new AbortController();
     const selected = controller.getSnapshot().snapshot?.sessionId;
     let reconnect: ReturnType<typeof setTimeout> | undefined;
-    const opening = connectConversationWorkspace({
-      accountId,
-      workspaceId,
-      token,
-      authOrigin: productConfig.authOrigin,
-      convexUrl: productConfig.convexOrigin,
-      client,
-      storageAdapter,
-      signal: lifecycle.signal,
-      onDisconnect: () => {
-        clearTimeout(reconnect);
-        reconnect = setTimeout(() => {
-          if (!lifecycle.signal.aborted) setConnectionRevision((value) => value + 1);
-        }, 500);
-      },
-    });
     let active = true;
     void controller
       .connect(async () => {
-        const next = await opening;
+        const next = await connectConversationWorkspace({
+          accountId,
+          workspaceId,
+          token,
+          authOrigin: productConfig.authOrigin,
+          convexUrl: productConfig.convexOrigin,
+          client,
+          storageAdapter,
+          signal: lifecycle.signal,
+          onDisconnect: () => {
+            clearTimeout(reconnect);
+            reconnect = setTimeout(() => {
+              if (!lifecycle.signal.aborted) setConnectionRevision((value) => value + 1);
+            }, 500);
+          },
+        });
         if (active) setConnection(next);
         return next;
       })
@@ -271,125 +298,197 @@ function WorkspaceSurface({ scope }: { scope: string }) {
   };
   return (
     <section {...stylex.props(styles.page)} aria-label="Workspace conversations">
-      <h1>Conversations</h1>
-      <output>{state.status === 'connected' ? account.workspace?.name : state.status}</output>
+      <header {...stylex.props(styles.actions)}>
+        {selected ? (
+          <>
+            <Button type="button" variant="ghost" onClick={() => setShowList(true)}>
+              All conversations
+            </Button>
+            <h1 {...stylex.props(styles.titleText)}>{selected.title ?? selected.id}</h1>
+          </>
+        ) : (
+          <h1>Conversations</h1>
+        )}
+      </header>
+      <output aria-live="polite">
+        {state.status === 'connected'
+          ? `${account.workspace?.name ?? 'Workspace'} · ${state.sessions.length} conversations`
+          : state.status === 'connecting'
+            ? 'Connecting to workspace…'
+            : state.status}
+      </output>
       {state.error && (
         <Alert.Root role="alert">
           <Alert.Description>{state.error}</Alert.Description>
         </Alert.Root>
       )}
-      <Button type="button" onClick={() => setNewConversation(true)}>
-        New conversation
-      </Button>
-      {newConversation &&
-        connection &&
-        state.status === 'connected' &&
-        accountId &&
-        workspaceId &&
-        token && (
-          <NewSessionSheet
-            key={scope}
-            connection={connection}
-            userId={accountId}
-            workspaceId={workspaceId}
-            token={token}
-            scope={scope}
-            onClose={() => setNewConversation(false)}
-            onCreated={(id) => {
-              setNewConversation(false);
-              void controller.refresh().then(() => controller.open(id));
-            }}
-          />
-        )}
-      <div {...stylex.props(styles.columns)}>
-        <nav aria-label="Conversation list">
-          <label htmlFor="conversation-search">
-            Search
-            <Input
-              id="conversation-search"
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-                setPage(0);
-              }}
-            />
-          </label>
-          <label htmlFor="archived-conversations">
-            <Switch
-              id="archived-conversations"
-              checked={archived}
-              onCheckedChange={(checked) => {
-                setArchived(checked);
-                setPage(0);
-              }}
-            />
-            Archived conversations
-          </label>
-          <ul {...stylex.props(styles.list)}>
-            {rows.slice(page * 20, (page + 1) * 20).map((session) => (
-              <li key={session.id}>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    void controller.open(session.id);
-                    setTitle(session.title ?? '');
-                  }}
-                >
-                  {session.title ?? session.id}
-                </Button>
-              </li>
-            ))}
-          </ul>
+      {!selected || showList ? (
+        <>
           <div {...stylex.props(styles.actions)}>
-            <Button disabled={page === 0} onClick={() => setPage(page - 1)}>
-              Previous
+            <Button
+              type="button"
+              disabled={state.status === 'connecting' || refreshing || !signedIn}
+              onClick={() => {
+                if (state.status === 'connected') void refreshList();
+                else setConnectionRevision((value) => value + 1);
+              }}
+            >
+              {state.status === 'connected'
+                ? refreshing
+                  ? 'Refreshing conversations…'
+                  : 'Refresh conversations'
+                : state.status === 'connecting'
+                  ? 'Connecting…'
+                  : 'Retry connection'}
             </Button>
-            <Button disabled={(page + 1) * 20 >= rows.length} onClick={() => setPage(page + 1)}>
-              Next
+            <Button
+              type="button"
+              disabled={state.status !== 'connected'}
+              onClick={() => setNewConversation(true)}
+            >
+              New conversation
             </Button>
           </div>
-        </nav>
-        <article aria-label="Conversation history" {...stylex.props(styles.history)}>
-          {selected && (
-            <>
-              <h2>{selected.title ?? selected.id}</h2>
-              <Button disabled={state.busy} onClick={() => void controller.open(selected.id)}>
-                Check delivery and refresh history
-              </Button>
+          {newConversation &&
+            connection &&
+            state.status === 'connected' &&
+            accountId &&
+            workspaceId &&
+            token && (
+              <NewSessionSheet
+                key={scope}
+                connection={connection}
+                userId={accountId}
+                workspaceId={workspaceId}
+                token={token}
+                scope={scope}
+                onClose={() => setNewConversation(false)}
+                onCreated={(id) => {
+                  setNewConversation(false);
+                  setShowList(false);
+                  void controller.refresh().then(() => controller.open(id));
+                }}
+              />
+            )}
+          <nav aria-label="Conversation list">
+            <label htmlFor="conversation-search">
+              Search conversations
+              <Input
+                id="conversation-search"
+                type="search"
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setPage(0);
+                }}
+              />
+            </label>
+            <label htmlFor="archived-conversations">
+              <Switch
+                id="archived-conversations"
+                checked={archived}
+                onCheckedChange={(checked) => {
+                  setArchived(checked);
+                  setPage(0);
+                }}
+              />
+              Show archived conversations
+            </label>
+            <div {...stylex.props(styles.listViewport)}>
+              {state.status !== 'connected' ? (
+                <p role={state.status === 'error' ? 'alert' : 'status'}>
+                  {state.status === 'error'
+                    ? 'Could not load conversations. Check the connection and try again.'
+                    : 'Loading conversations…'}
+                </p>
+              ) : rows.length === 0 ? (
+                <p>
+                  {search.trim()
+                    ? 'No conversations match this search. Try another title or clear the search.'
+                    : archived
+                      ? 'No archived conversations yet.'
+                      : 'No conversations yet. Create one to get started.'}
+                </p>
+              ) : (
+                <ul {...stylex.props(styles.list)}>
+                  {rows.slice(page * 20, (page + 1) * 20).map((session) => (
+                    <li key={session.id}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        {...stylex.props(styles.conversationButton)}
+                        onClick={() => void openConversation(session.id)}
+                      >
+                        {session.isPinned ? 'Pinned · ' : ''}
+                        {session.title ?? session.id}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {rows.length > 20 && (
               <div {...stylex.props(styles.actions)}>
+                <Button disabled={page === 0} onClick={() => setPage(page - 1)}>
+                  Previous
+                </Button>
+                <span aria-live="polite">
+                  {page + 1} / {Math.ceil(rows.length / 20)}
+                </span>
+                <Button disabled={(page + 1) * 20 >= rows.length} onClick={() => setPage(page + 1)}>
+                  Next
+                </Button>
+              </div>
+            )}
+          </nav>
+        </>
+      ) : null}
+      {selected && !showList && (
+        <>
+          <div {...stylex.props(styles.actions)}>
+            <Button disabled={state.busy} onClick={() => void controller.open(selected.id)}>
+              Refresh history / check delivery
+            </Button>
+            <Collapsible.Root>
+              <Collapsible.Trigger render={<Button variant="ghost" />}>
+                More conversation actions
+              </Collapsible.Trigger>
+              <Collapsible.Panel>
                 <label htmlFor="conversation-title">
-                  Title
+                  Conversation title
                   <Input
                     id="conversation-title"
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
                   />
                 </label>
-                <Button
-                  disabled={state.busy || !title.trim()}
-                  onClick={() => void controller.patch(selected.id, { title: title.trim() })}
-                >
-                  Rename
-                </Button>
-                <Button
-                  disabled={state.busy}
-                  onClick={() =>
-                    void controller.patch(selected.id, { isPinned: selected.isPinned !== true })
-                  }
-                >
-                  {selected.isPinned === true ? 'Unpin' : 'Pin'}
-                </Button>
-                <Button
-                  disabled={state.busy}
-                  onClick={() =>
-                    void controller.patch(selected.id, { isArchived: !selected.isArchived })
-                  }
-                >
-                  {selected.isArchived ? 'Restore' : 'Archive'}
-                </Button>
+                <div {...stylex.props(styles.actions)}>
+                  <Button
+                    disabled={state.busy || !title.trim()}
+                    onClick={() => void controller.patch(selected.id, { title: title.trim() })}
+                  >
+                    Rename
+                  </Button>
+                  <Button
+                    disabled={state.busy}
+                    onClick={() =>
+                      void controller.patch(selected.id, { isPinned: selected.isPinned !== true })
+                    }
+                  >
+                    {selected.isPinned ? 'Unpin' : 'Pin'}
+                  </Button>
+                  <Button
+                    disabled={state.busy}
+                    onClick={() =>
+                      void controller.patch(selected.id, { isArchived: !selected.isArchived })
+                    }
+                  >
+                    {selected.isArchived ? 'Restore from archive' : 'Archive'}
+                  </Button>
+                </div>
                 <Collapsible.Root>
                   <Collapsible.Trigger render={<Button variant="destructive" />}>
-                    Delete conversation
+                    Delete conversation…
                   </Collapsible.Trigger>
                   <Collapsible.Panel>
                     <p>This permanently requests deletion on the machine.</p>
@@ -402,9 +501,20 @@ function WorkspaceSurface({ scope }: { scope: string }) {
                     </Button>
                   </Collapsible.Panel>
                 </Collapsible.Root>
-              </div>
+              </Collapsible.Panel>
+            </Collapsible.Root>
+          </div>
+          {state.deliveryPending && (
+            <Alert.Root role="alert">
+              <Alert.Description>
+                Delivery is unconfirmed. Refresh history to check the request before sending again.
+              </Alert.Description>
+            </Alert.Root>
+          )}
+          <article aria-label="Conversation history" {...stylex.props(styles.history)}>
+            {state.snapshot?.history.length ? (
               <ol {...stylex.props(styles.list)}>
-                {state.snapshot?.history.map((turn) => (
+                {state.snapshot.history.map((turn) => (
                   <HistoryTurn
                     key={turn.id}
                     turn={turn}
@@ -414,63 +524,71 @@ function WorkspaceSurface({ scope }: { scope: string }) {
                   />
                 ))}
               </ol>
-              <label htmlFor="conversation-message">
-                Message
-                <Textarea
-                  id="conversation-message"
-                  {...stylex.props(styles.prompt)}
-                  value={prompt}
-                  onChange={(event) => {
-                    localStorage.setItem(`lody:reply:${scope}`, event.target.value);
-                    setPrompt(event.target.value);
-                  }}
-                />
-              </label>
-              <div {...stylex.props(styles.actions)}>
-                <m.div
-                  whileTap={{ scale: reducedMotion ? 1 : 0.97 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                >
-                  <Button
-                    variant="primary"
-                    disabled={state.busy || state.deliveryPending || !latestInput || !prompt.trim()}
-                    onClick={() => send('dispatch')}
-                  >
-                    Send
-                  </Button>
-                </m.div>
+            ) : (
+              <output>
+                This conversation has no messages yet. Write a message below to begin.
+              </output>
+            )}
+          </article>
+          <div {...stylex.props(styles.reply)}>
+            <label htmlFor="conversation-message">
+              Message
+              <Textarea
+                id="conversation-message"
+                {...stylex.props(styles.prompt)}
+                value={prompt}
+                onChange={(event) => {
+                  localStorage.setItem(`lody:reply:${scope}`, event.target.value);
+                  setPrompt(event.target.value);
+                }}
+              />
+            </label>
+            {!latestInput && (
+              <p>Reply options will be available after conversation settings load.</p>
+            )}
+            <div {...stylex.props(styles.actions)}>
+              <m.div
+                whileTap={{ scale: reducedMotion ? 1 : 0.97 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              >
                 <Button
+                  variant="primary"
                   disabled={state.busy || state.deliveryPending || !latestInput || !prompt.trim()}
-                  onClick={() => send('queue')}
+                  onClick={() => send('dispatch')}
                 >
-                  Queue
+                  Send
                 </Button>
-                <Button
-                  disabled={
-                    state.busy ||
-                    state.deliveryPending ||
-                    !latestInput ||
-                    !prompt.trim() ||
-                    !activeTurn
-                  }
-                  onClick={() => send('guide')}
-                >
-                  Steer active turn
-                </Button>
-                <Button
-                  disabled={state.busy || !activeTurn}
-                  onClick={() => {
-                    if (activeTurn) void controller.stop(activeTurn.id);
-                  }}
-                >
-                  Stop active turn
-                </Button>
-              </div>
-            </>
-          )}
-          {!selected && <p>Select a conversation to view its history.</p>}
-        </article>
-      </div>
+              </m.div>
+              <Button
+                disabled={state.busy || state.deliveryPending || !latestInput || !prompt.trim()}
+                onClick={() => send('queue')}
+              >
+                Queue
+              </Button>
+              <Button
+                disabled={
+                  state.busy ||
+                  state.deliveryPending ||
+                  !latestInput ||
+                  !prompt.trim() ||
+                  !activeTurn
+                }
+                onClick={() => send('guide')}
+              >
+                Steer active turn
+              </Button>
+              <Button
+                disabled={state.busy || !activeTurn}
+                onClick={() => {
+                  if (activeTurn) void controller.stop(activeTurn.id);
+                }}
+              >
+                Stop active turn
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
     </section>
   );
 }

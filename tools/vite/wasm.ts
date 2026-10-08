@@ -3,8 +3,8 @@ import path from 'node:path';
 
 import type { Plugin, UserConfig } from 'vite';
 
-import { sharedFlockWasmAsset, sharedFlockWasmUrl } from './shared-flock-wasm';
-import { sharedLoroWasmAsset, sharedLoroWasmUrl } from './shared-loro-wasm';
+import { sharedFlockWasmAsset, sharedFlockWasmUrl } from './shared-flock-wasm.ts';
+import { sharedLoroWasmAsset, sharedLoroWasmUrl } from './shared-loro-wasm.ts';
 
 const loroImport = /^loro-crdt$/;
 const loroWebInitImport = 'loro-crdt/web/loro_wasm.js';

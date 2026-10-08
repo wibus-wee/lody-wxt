@@ -3,8 +3,80 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import AxeBuilder from '@axe-core/playwright';
-import type { BrowserContext } from '@playwright/test';
+import type { BrowserContext, Route } from '@playwright/test';
 import { chromium, expect, test } from '@playwright/test';
+
+import { AccountBoundary, signIn } from '../e2e/support/account-boundary';
+import { RuntimeBoundary } from '../e2e/support/runtime-boundary';
+
+test('conversation management fits a narrow side panel and keeps list and selected detail distinct', async () => {
+  const profile = await mkdtemp(path.join(tmpdir(), 'lody-conversation-panel-'));
+  const extension = path.resolve('.output/chrome-mv3');
+  let context: BrowserContext | undefined;
+  try {
+    context = await chromium.launchPersistentContext(profile, {
+      channel: 'chromium',
+      headless: true,
+      viewport: { width: 360, height: 780 },
+      args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
+    });
+    const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+    const id = new URL(worker.url()).host;
+    await new AccountBoundary().install(context);
+    await new RuntimeBoundary().install(context);
+    const panel = await context.newPage();
+    await panel.goto(`chrome-extension://${id}/sidepanel.html`);
+    await signIn(panel);
+    const failWorkspaceToken = (route: Route) =>
+      route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"offline"}' });
+    await context.route('https://backend.lody.ai/api/loro-streams/token', failWorkspaceToken);
+    await panel.goto(`chrome-extension://${id}/sidepanel.html#/conversations`);
+    await expect(panel.getByRole('heading', { name: 'Conversations', exact: true })).toBeVisible();
+    await expect(
+      panel.getByRole('button', { name: 'Retry connection', exact: true }),
+    ).toBeEnabled();
+    await context.unroute('https://backend.lody.ai/api/loro-streams/token', failWorkspaceToken);
+    await panel.getByRole('button', { name: 'Retry connection', exact: true }).click();
+    await expect(
+      panel.getByRole('button', { name: 'New conversation', exact: true }),
+    ).toBeEnabled();
+    await expect(
+      panel.getByRole('button', { name: 'Refresh conversations', exact: true }),
+    ).toBeVisible();
+    await expect(panel.getByRole('searchbox', { name: 'Search conversations' })).toBeVisible();
+    await expect(
+      panel.getByRole('button', { name: 'Historical conversation', exact: true }),
+    ).toBeVisible();
+    const main = panel.locator('main');
+    const bounds = await main.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.width).toBeLessThanOrEqual(360);
+    await expect(
+      panel.getByRole('button', { name: 'Historical conversation', exact: true }),
+    ).toBeVisible();
+    await panel.getByRole('button', { name: 'Historical conversation', exact: true }).click();
+    await expect(
+      panel.getByRole('button', { name: 'All conversations', exact: true }),
+    ).toBeVisible();
+    await expect(
+      panel.getByRole('button', { name: 'Refresh history / check delivery' }),
+    ).toBeVisible();
+    await expect(panel.getByLabel('Conversation history')).toContainText(
+      'controlled HTTP snapshot',
+    );
+    await expect(panel.getByRole('textbox', { name: 'Message' })).toBeVisible();
+    expect(await panel.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      360,
+    );
+    const violations = (
+      await new AxeBuilder({ page: panel }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()
+    ).violations;
+    expect(violations).toEqual([]);
+  } finally {
+    await context?.close();
+    await rm(profile, { recursive: true, force: true });
+  }
+});
 
 test('built MV3 popup and options synchronize durable preferences through the service worker', async () => {
   const profile = await mkdtemp(path.join(tmpdir(), 'lody-extension-'));

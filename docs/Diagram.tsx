@@ -26,7 +26,13 @@ const styles = stylex.create({
     aspectRatio: ratio,
   }),
   placeholder: { padding: 24 },
-  caption: { marginTop: 10, fontSize: 12, color: 'light-dark(#4b596b, #bcc8d8)', textAlign: 'center', opacity: 0.6 },
+  caption: {
+    marginTop: 10,
+    fontSize: 12,
+    color: 'light-dark(#4b596b, #bcc8d8)',
+    textAlign: 'center',
+    opacity: 0.6,
+  },
   footer: { display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginTop: 8 },
 });
 

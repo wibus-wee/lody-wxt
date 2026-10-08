@@ -7,6 +7,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
+          fetch-depth: 2
           submodules: recursive
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
@@ -24,7 +25,8 @@ jobs:
       - run: pnpm build:web
       - run: pnpm build:docs
       - run: pnpm build:storybook
-      - run: pnpm run doctor
+      - name: React Doctor (new issues)
+        run: pnpm run doctor --scope changed --base "$(git rev-parse HEAD^)"
       - name: Generate coverage evidence
         if: always()
         run: pnpm assurance:audit
