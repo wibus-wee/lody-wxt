@@ -24,7 +24,11 @@ export default defineConfig({
     rules: { 'jsonc/sort-keys': 'off' },
   },
   {
-    files: ['packages/lody-sdk/test/*.test.mjs', 'tools/assurance/*.test.mjs'],
+    files: [
+      'packages/lody-sdk/test/*.test.mjs',
+      'tools/assurance/*.test.mjs',
+      'tools/release/*.test.mjs',
+    ],
     // The standalone SDK tests execute the built package through Node's test runner.
     rules: { 'test/no-import-node-test': 'off', 'antfu/no-import-dist': 'off' },
   },

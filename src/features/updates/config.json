@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "application": "lody-wxt",
+  "channel": "stable",
+  "repository": "https://github.com/wibus-wee/lody-wxt",
+  "feedUrl": "https://github.com/wibus-wee/lody-wxt/releases/latest/download/appcast.json"
+}

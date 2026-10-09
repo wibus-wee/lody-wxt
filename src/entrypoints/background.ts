@@ -9,6 +9,7 @@ import { registerNotificationLifecycle } from '../features/notifications/lifecyc
 import { registerPageContextEntrypoints } from '../features/page-context/intents';
 import { registerSidePanelLifecycle } from '../features/page-context/lifecycle';
 import { parsePreferences } from '../features/preferences/model';
+import { registerUpdateLifecycle } from '../features/updates/lifecycle';
 
 export default defineBackground(() => {
   registerAccountStorageLifecycle();
@@ -16,6 +17,7 @@ export default defineBackground(() => {
   registerSidePanelLifecycle();
   registerPageContextEntrypoints();
   registerNotificationLifecycle();
+  registerUpdateLifecycle();
   browser.runtime.onMessage.addListener(createNetworkHandler());
   browser.runtime.onMessage.addListener((message: unknown) => {
     const request = v.safeParse(v.object({ type: v.literal('preferences:get') }), message);

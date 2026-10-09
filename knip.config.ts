@@ -16,6 +16,7 @@ const config: KnipConfig = {
         'scripts/*.mjs',
         'tools/assurance/*.test.mjs',
         'tools/docs/*.mjs',
+        'tools/release/*.mjs',
         'tests/e2e/journey-steps/**/*.ts',
       ],
       // Upstream UI runtime entrypoints import Base UI from the root installation.

@@ -3,20 +3,27 @@
 Lody browser extension built with WXT and Vite 8, with an independent TypeScript SDK.
 The popup, side panel, options page and browser preview share one application; Lody's own `@lody/ui` is the component-library source behind the shared UI boundary.
 
-| Area            | Entry                                                                                                  | Responsibility                                                                       |
-| --------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| Extension       | [`src/entrypoints`](./src/entrypoints)                                                                 | Popup, options and MV3 background worker                                             |
-| Application     | [`src/app`](./src/app)                                                                                 | React Query, Jotai, hash routing and spring motion                                   |
-| Features        | [`src/features`](./src/features)                                                                       | Account lifecycle, conversation submission journals, page context and preferences    |
-| SDK             | [`packages/lody-sdk`](./packages/lody-sdk)                                                             | Protocol adapters and domain use cases independent of React and Chrome               |
-| Structural lint | [`rules`](./rules), [`sgconfig.yml`](./sgconfig.yml)                                                   | Sorbet ast-grep rules enforced for TypeScript and TSX                                |
-| Lody UI         | [`vendor/lody/packages/ui`](./vendor/lody/packages/ui), [`src/shared/ui`](./src/shared/ui/README.md)   | Own component-library source tracking upstream `main`; local adapter boundary        |
-| Icons           | [`vendor/runeicons`](./vendor/runeicons), [`scripts/generate-icons.mjs`](./scripts/generate-icons.mjs) | Pinned fork and global five-mood SVG adapter                                         |
-| Documentation   | [`docs`](./docs)                                                                                       | Fumadocs MDX + Core on Vite, with native HTML presentation                           |
-| Developer tools | [`tools/devframe`](./tools/devframe)                                                                   | Read-only Devframe RPC for coverage and metadata                                     |
-| Verification    | [`tests`](./tests), [`COVERAGE.md`](./COVERAGE.md)                                                     | Authored product obligations, lifecycle receipts and action-to-response measurements |
+**Install Lody:** download [lody-chrome.zip from the latest release](https://github.com/wibus-wee/lody-wxt/releases/latest/download/lody-chrome.zip), extract it to a permanent location, then load the `lody` folder from `chrome://extensions` with Developer mode enabled.
+No Node, pnpm or source checkout is needed.
+See the [installation and manual update guide](./docs/contents/tutorial/install.mdx); the ZIP includes an offline copy.
+The extension checks the release appcast every six hours and offers version-pinned downloads in Settings; installation remains manual.
+Release downloads become available after the first successful tagged release.
 
-## Start
+| Area            | Entry                                                                                                   | Responsibility                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Extension       | [`src/entrypoints`](./src/entrypoints)                                                                  | Popup, options and MV3 background worker                                             |
+| Application     | [`src/app`](./src/app)                                                                                  | React Query, Jotai, hash routing and spring motion                                   |
+| Features        | [`src/features`](./src/features)                                                                        | Account lifecycle, conversation submission journals, page context and preferences    |
+| SDK             | [`packages/lody-sdk`](./packages/lody-sdk)                                                              | Protocol adapters and domain use cases independent of React and Chrome               |
+| Structural lint | [`rules`](./rules), [`sgconfig.yml`](./sgconfig.yml)                                                    | Sorbet ast-grep rules enforced for TypeScript and TSX                                |
+| Lody UI         | [`vendor/lody/packages/ui`](./vendor/lody/packages/ui), [`src/shared/ui`](./src/shared/ui/README.md)    | Own component-library source tracking upstream `main`; local adapter boundary        |
+| Icons           | [`vendor/runeicons`](./vendor/runeicons), [`scripts/generate-icons.mjs`](./scripts/generate-icons.mjs)  | Pinned fork and global five-mood SVG adapter                                         |
+| Documentation   | [`docs`](./docs)                                                                                        | Fumadocs MDX + Core on Vite, with native HTML presentation                           |
+| Distribution    | [Release workflow](./.github/workflows/release.yml), [release guide](./docs/contents/dev/releasing.mdx) | Verified Chrome downloads, offline installation guide and build provenance           |
+| Developer tools | [`tools/devframe`](./tools/devframe)                                                                    | Read-only Devframe RPC for coverage and metadata                                     |
+| Verification    | [`tests`](./tests), [`COVERAGE.md`](./COVERAGE.md)                                                      | Authored product obligations, lifecycle receipts and action-to-response measurements |
+
+## Develop
 
 Requires Node 26 and pnpm 12.
 The lockfile pins dependencies; TypeScript 7 runs strict checks through the `@typescript/native` alias.
@@ -39,6 +46,8 @@ Load `.output/chrome-mv3` from Chrome's extension developer mode after `pnpm bui
 | `pnpm dev:docs`                                             | Fumadocs on port 4000                                                                    |
 | `pnpm storybook`                                            | Stories on port 6006; accessibility addon enabled                                        |
 | `pnpm build`, `pnpm build:firefox`, `pnpm zip`              | Packaged extension outputs                                                               |
+| `pnpm release:check v<version>`, `pnpm release:package`     | Validate a stable version tag; build the user download and release attachments           |
+| `pnpm release:verify`                                       | Extract the download, verify Chrome installation and reload with retained preferences    |
 | `pnpm build:web`, `pnpm build:docs`, `pnpm build:storybook` | Production preview, docs and stories                                                     |
 | `pnpm check`                                                | Strict TypeScript 7, ast-grep rule tests and scan, Oxlint, Hyoban ESLint, Oxfmt and Knip |
 | `pnpm test:sdk`, `pnpm test:sdk:package`                    | SDK protocol tests and independent tarball JS/TS consumer verification                   |

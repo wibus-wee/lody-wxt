@@ -1,0 +1,55 @@
+---
+title: 版本发布
+description: 自动构建并验证 Chrome 下载包，通过 GitHub Releases 提供本地安装与手动更新。
+---
+
+用户通过 GitHub Releases 下载 `lody-chrome.zip`，在桌面 Chrome 解压加载，后续覆盖原目录手动更新。用户操作由 [安装与准备](../tutorial/install.mdx) 维护；发布工具从该正文生成 `INSTALL.md`，随包分发。
+
+| 产物              | 用途                                                                       |
+| ----------------- | -------------------------------------------------------------------------- |
+| `lody-chrome.zip` | 固定的 `lody/` 程序目录、离线安装说明和构建来源；每个版本保持同一目录名。  |
+| `INSTALL.md`      | 从安装教程生成的同版本离线说明；文档链接指向对应版本标签。                 |
+| `SHA256SUMS`      | ZIP、说明和构建来源的 SHA-256 校验值。                                     |
+| `build-info.json` | 应用提交、实际 Lody UI 与 Runeicons 提交、锁文件摘要。                     |
+| `appcast.json`    | 稳定版更新元数据，包含版本、同版本的下载与说明链接、ZIP 字节数和 SHA-256。 |
+
+## 发布新版本
+
+1. 在 `package.json` 设置新的稳定版本 `major.minor.patch`。版本必须递增，匹配 Chrome 的数字版本限制；工作流拒绝预发布后缀和与标签不一致的版本。安装教程中的下载地址使用固定附件名，不随版本改动。
+2. 执行 `pnpm check`、`pnpm test:extension` 和 `pnpm release:package`。检查 `dist/release` 的文件，解压 ZIP，确认 `lody/manifest.json` 和 `INSTALL.md`。文档变更还需运行文档站的渲染与 axe 检查。
+3. 将变更合入要发布的提交，对该提交创建匹配的版本标签并推送。例如版本 `0.1.0` 使用：
+
+```sh
+git tag -a v0.1.0 -m 'Lody 0.1.0'
+git push origin v0.1.0
+```
+
+推送 `v*` 标签触发 [Release 工作流](https://github.com/wibus-wee/lody-wxt/actions/workflows/release.yml)。它确认标签指向当前提交、版本一致，使用冻结的锁文件构建下载包，执行项目检查、SDK 测试、浏览器基础设施测试和打包扩展测试，再通过 `pnpm release:verify` 从实际下载 ZIP 解压安装，关闭浏览器后覆盖同一目录并重启，确认扩展 ID 与偏好保留、设置和侧栏可打开、首次引导可切换，并运行 axe 审计。全部通过后，独立发布任务才创建 GitHub Release，附上产物及安装说明。
+
+下载包验收使用当前包覆盖同一版本，验证安装目录与浏览器数据保留；它不代替跨版本状态迁移验收。结果、截图和 trace 位于 `reports/release-install`，记录实际 ZIP 摘要、浏览器、平台和扩展 ID。
+
+工作流仅发布稳定版本，已有 Release 不会被覆盖。请勿移动已发布标签或替换同版本附件；需要修复时发布更高版本，保留用户获取旧包的路径。首次成功发布后，[固定下载地址](https://github.com/wibus-wee/lody-wxt/releases/latest/download/lody-chrome.zip) 和 [更新源](https://github.com/wibus-wee/lody-wxt/releases/latest/download/appcast.json) 才可用。
+
+## 更新源与扩展检查
+
+协议配置由 [`config.json`](https://github.com/wibus-wee/lody-wxt/blob/main/src/features/updates/config.json) 维护。发布工具从最终 ZIP 计算 `enclosure.length` 和 `enclosure.sha256`，生成 JSON 更新源并与 ZIP 一起上传到同一 Release；更新源放在 ZIP 外，避免摘要循环引用。`SHA256SUMS` 也覆盖更新源。它采用 Appcast 的版本、说明和附件结构，使用 JSON，不能直接供 Sparkle 的 RSS 客户端读取。
+
+后台每 6 小时检查一次，启动或打开扩展时补做已经到期的检查，设置页支持强制检查。版本按数字段比较，只提示高于已安装版本的稳定版。提示只在现有设置图标上增加小标记，版本说明通过悬停或键盘聚焦查看，下载入口保留在设置页。跳过版本与已确认元数据保存在扩展本地存储，多个页面共享；新版发布或手动成功检查会恢复标记。
+
+请求只访问固定 HTTPS 更新源及 GitHub Release 附件域名，不发送 Cookie、账户令牌或对话资料。响应有 20 秒超时和 64 KiB 大小限制，下载和说明链接必须精确指向官方仓库的同版本标签。HTTP、格式、链接和更新源版本回退错误均保留并显示，不替换已确认元数据。SHA-256 可用于核对下载文件，它不是独立数字签名；扩展提供下载入口，实际安装仍由用户按安装教程覆盖原目录完成。
+
+实现与状态边界见 [`updates`](https://github.com/wibus-wee/lody-wxt/tree/main/src/features/updates)。打包浏览器验收见 [`updates.spec.ts`](https://github.com/wibus-wee/lody-wxt/blob/main/tests/extension/updates.spec.ts)，在一次真实扩展安装中覆盖发现、跳过、手动检查、失败保留和浏览器重启。
+
+## 构建前提与依赖来源
+
+Actions 需要能拉取仓库和两个子模块，以及访问锁文件中的 npm 依赖。发布任务使用仓库自带的 `GITHUB_TOKEN`，仅发布任务授予 `contents: write`。如果子模块对 Actions 不可读，必须先修复访问权限；失败不会发布替代包。
+
+`pnpm release:package` 沿用 `pnpm zip`，通过 `pnpm ui:update` 跟随 Lody UI 的 `main`，Runeicons 仍固定在项目记录的提交。实际 UI 提交写入构建来源，所以应用版本标签本身不代表 UI 也固定在同一历史时点。本地构建有未提交的应用变更时，`sourceTreeDirty` 会明确记录，提交号不代表这些变更已保存。检查与浏览器测试使用刚打包的产物，不在验证期间重新更新 UI 或重建扩展。
+
+本地打包需要 Node 26、pnpm 12、Git、`zip` 和 `unzip`。产物生成器验证 manifest 版本、MV3、后台与页面入口以及图标许可证，拒绝开发文件和越界路径，再生成带固定目录的用户 ZIP。
+
+## 失败与重试
+
+构建或验收失败时，在 Actions 的 `release-verification` 附件查看报告和 trace；成功打包的产物另存为 `release-assets`。尚未创建 Release 的同一标签可重新运行失败任务，或在 Release 工作流的 **Run workflow** 中填入已有标签。手动运行仍会检查标签与版本，不接受任意分支名。
+
+Release 已创建后应使用新版本发布修复。下载包不会主动更新用户安装目录；不要添加下载远程脚本或伪造自动更新结果。用户反馈安装问题时，先核对浏览器版本、Release 版本、原加载目录和扩展 ID，再按安装教程恢复。
