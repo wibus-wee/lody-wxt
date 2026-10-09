@@ -1,27 +1,51 @@
+<div align="center">
+
+<img src="./src/public/notification-icon.png" width="80" height="80" alt="" />
+
 # Lody WXT
 
-Lody browser extension built with WXT and Vite 8, with an independent TypeScript SDK.
-The popup, side panel, options page and browser preview share one application; Lody's own `@lody/ui` is the component-library source behind the shared UI boundary.
+**Your Lody workspace, beside the web.**
 
-**Install Lody:** download [lody-chrome.zip from the latest release](https://github.com/wibus-wee/lody-wxt/releases/latest/download/lody-chrome.zip), extract it to a permanent location, then load the `lody` folder from `chrome://extensions` with Developer mode enabled.
-No Node, pnpm or source checkout is needed.
-See the [installation and manual update guide](./docs/contents/tutorial/install.mdx); the ZIP includes an offline copy.
-The extension checks the release appcast every six hours and offers version-pinned downloads in Settings; installation remains manual.
-Release downloads become available after the first successful tagged release.
+Ask about a page, compare tabs and continue your conversations in the browser side panel.
 
-| Area            | Entry                                                                                                   | Responsibility                                                                       |
-| --------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Extension       | [`src/entrypoints`](./src/entrypoints)                                                                  | Popup, options and MV3 background worker                                             |
-| Application     | [`src/app`](./src/app)                                                                                  | React Query, Jotai, hash routing and spring motion                                   |
-| Features        | [`src/features`](./src/features)                                                                        | Account lifecycle, conversation submission journals, page context and preferences    |
-| SDK             | [`packages/lody-sdk`](./packages/lody-sdk)                                                              | Protocol adapters and domain use cases independent of React and Chrome               |
-| Structural lint | [`rules`](./rules), [`sgconfig.yml`](./sgconfig.yml)                                                    | Sorbet ast-grep rules enforced for TypeScript and TSX                                |
-| Lody UI         | [`vendor/lody/packages/ui`](./vendor/lody/packages/ui), [`src/shared/ui`](./src/shared/ui/README.md)    | Own component-library source tracking upstream `main`; local adapter boundary        |
-| Icons           | [`vendor/runeicons`](./vendor/runeicons), [`scripts/generate-icons.mjs`](./scripts/generate-icons.mjs)  | Pinned fork and global five-mood SVG adapter                                         |
-| Documentation   | [`docs`](./docs)                                                                                        | Fumadocs MDX + Core on Vite, with native HTML presentation                           |
-| Distribution    | [Release workflow](./.github/workflows/release.yml), [release guide](./docs/contents/dev/releasing.mdx) | Verified Chrome downloads, offline installation guide and build provenance           |
-| Developer tools | [`tools/devframe`](./tools/devframe)                                                                    | Read-only Devframe RPC for coverage and metadata                                     |
-| Verification    | [`tests`](./tests), [`COVERAGE.md`](./COVERAGE.md)                                                      | Authored product obligations, lifecycle receipts and action-to-response measurements |
+[**Download for Chrome**](https://github.com/wibus-wee/lody-wxt/releases/latest/download/lody-chrome.zip) · [Install & update](./docs/contents/tutorial/install.mdx) · [User guide](./docs/contents/index.mdx) · [Developer guide](./docs/contents/dev/index.mdx)
+
+</div>
+
+---
+
+| Bring your context                                     | Keep your workflow                                      | Update on your terms                                                        |
+| ------------------------------------------------------ | ------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Add pages, selections, tabs or files to your question. | Continue conversations and reuse Lody Prompt Shortcuts. | A quiet Settings marker points to new releases; you choose when to install. |
+
+## Install
+
+1. Download [**lody-chrome.zip**](https://github.com/wibus-wee/lody-wxt/releases/latest/download/lody-chrome.zip) from the latest release.
+2. Extract it to a permanent location.
+   Keep the **`lody`** folder there after installation.
+3. Open `chrome://extensions`, enable **Developer mode**, then choose **Load unpacked** and select the `lody` folder containing `manifest.json`.
+4. Pin Lody in the extensions menu and click its icon to open the side panel.
+
+You need a Lody account and an online machine with an Agent in the same workspace to receive answers.
+No Node, pnpm or source checkout is needed to install the release package.
+
+> **Release availability:** Downloads become available after the first successful tagged release.
+> If the ZIP is missing, that release is not ready to install.
+
+**Already installed?** The extension checks for updates every six hours.
+Open **Settings → Extension updates** to check manually or download a newer version.
+Overwrite the files in your original `lody` folder, then reload the existing extension in `chrome://extensions`.
+See the [full installation and manual update guide](./docs/contents/tutorial/install.mdx) before updating; an offline copy is included in the ZIP.
+
+## Find your next step
+
+| I want to…                                  | Start here                                                            |
+| ------------------------------------------- | --------------------------------------------------------------------- |
+| Ask my first question                       | [First conversation](./docs/contents/tutorial/first-conversation.mdx) |
+| Work with pages, selections or several tabs | [Page questions](./docs/contents/guides/page-questions.mdx)           |
+| Understand what the extension supports      | [Capabilities & limits](./docs/contents/reference/availability.mdx)   |
+| Recover from an error                       | [Troubleshooting](./docs/contents/guides/troubleshooting.mdx)         |
+| Build or publish a release                  | [Release guide](./docs/contents/dev/releasing.mdx)                    |
 
 ## Develop
 
@@ -64,6 +88,25 @@ The E2E runner owns port 4173; stop `dev:web` before running it.
 Web component unit tests are prohibited; browser journeys verify UI behavior.
 Vitest only tests storage/state infrastructure in a real browser.
 
+## Project map
+
+Lody is built with WXT and Vite 8, with an independent TypeScript SDK.
+The popup, side panel, options page and browser preview share one application.
+
+| Area            | Entry                                                                                                   | Responsibility                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Extension       | [`src/entrypoints`](./src/entrypoints)                                                                  | Popup, options and MV3 background worker                                             |
+| Application     | [`src/app`](./src/app)                                                                                  | React Query, Jotai, hash routing and spring motion                                   |
+| Features        | [`src/features`](./src/features)                                                                        | Account lifecycle, conversation submission journals, page context and preferences    |
+| SDK             | [`packages/lody-sdk`](./packages/lody-sdk)                                                              | Protocol adapters and domain use cases independent of React and Chrome               |
+| Structural lint | [`rules`](./rules), [`sgconfig.yml`](./sgconfig.yml)                                                    | Sorbet ast-grep rules enforced for TypeScript and TSX                                |
+| Lody UI         | [`vendor/lody/packages/ui`](./vendor/lody/packages/ui), [`src/shared/ui`](./src/shared/ui/README.md)    | Own component-library source tracking upstream `main`; local adapter boundary        |
+| Icons           | [`vendor/runeicons`](./vendor/runeicons), [`scripts/generate-icons.mjs`](./scripts/generate-icons.mjs)  | Pinned fork and global five-mood SVG adapter                                         |
+| Documentation   | [`docs`](./docs)                                                                                        | Fumadocs MDX + Core on Vite, with native HTML presentation                           |
+| Distribution    | [Release workflow](./.github/workflows/release.yml), [release guide](./docs/contents/dev/releasing.mdx) | Verified Chrome downloads, offline installation guide and build provenance           |
+| Developer tools | [`tools/devframe`](./tools/devframe)                                                                    | Read-only Devframe RPC for coverage and metadata                                     |
+| Verification    | [`tests`](./tests), [`COVERAGE.md`](./COVERAGE.md)                                                      | Authored product obligations, lifecycle receipts and action-to-response measurements |
+
 ## Runtime and extension points
 
 WXT, web preview and Storybook share [`tools/vite/plugins.ts`](./tools/vite/plugins.ts).
@@ -71,6 +114,8 @@ Vite performs OXC transforms, the official React Compiler preset compiles eligib
 No third-party styled component library is installed.
 Application UI uses Lody's own components through [`src/shared/ui`](./src/shared/ui/README.md); feature styles compose layouts.
 That boundary documents the source location, automatic refresh policy and upstream checkout protections.
+
+### Accounts and delivery
 
 Sign in to Lody and select a workspace.
 The official application supplies service endpoints and its authentication client internally.
@@ -85,11 +130,15 @@ The composer follows Lody's inline `/` commands and Prompt Shortcuts, `@` mentio
 [Prompt Shortcuts](./src/features/automations/README.md) synchronize with the existing Lody directory using resource-scoped grants and immutable body revisions.
 Legacy browser templates remain local until an explicit migration preview is confirmed; choosing a shortcut fills the draft without sending.
 
+### Preferences
+
 React Query owns asynchronous preference loads and saves.
 Jotai exposes current preferences to mood-aware icons and effects.
 Extension pages use `browser.storage.local` and subscribe to storage changes; the web preview uses localStorage.
 Failed writes retain the previous preferences and expose a retryable error.
 Corrupted web storage falls back to defaults.
+
+### Icons and motion
 
 [Runeicons](https://github.com/Runeicons/runeicons) is pinned as a full-repository submodule because Git cannot submodule a directory.
 The source package is `packages/runeicons`.
@@ -102,10 +151,14 @@ Paper shaders are lazy, opt-in decoration and are disabled under Reduce Motion.
 The introduction uses Cuelens' host-controlled steps without automatic playback.
 Interaction defaults follow [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/); your library owns the final visual system.
 
+### Development tools
+
 React Scan and React Grab are opt-in development tools.
 Copy `.env.example` to `.env`, then enable the desired flag.
 Production builds remove the development import branches.
 Devframe remains Node-only and is not shipped in the extension; see the [Devframe getting-started guide](https://devfra.me/raw/guide/getting-started.md).
+
+### Further reading
 
 Read the [architecture](./docs/contents/dev/architecture.mdx), [testing policy](./docs/contents/dev/testing.mdx) and [interaction guidance](./docs/contents/dev/design.mdx) before extending features.
 The [browser assistant SPEC](./docs/contents/dev/browser-assistant-spec.mdx) defines the target feature set, ChatGPT/Claude extension comparison, protocol dependencies and acceptance journeys; it is not a claim of implemented capabilities.
