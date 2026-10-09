@@ -26,16 +26,6 @@ const Introduction = lazy(() =>
 const AccountRoute = lazy(() =>
   import('../features/account/AccountPage').then((module) => ({ default: module.AccountPage })),
 );
-const ConversationsRoute = lazy(() =>
-  import('../features/conversations/ConversationsPage').then((module) => ({
-    default: module.ConversationsPage,
-  })),
-);
-const WorkspaceRoute = lazy(() =>
-  import('../features/conversations/WorkspacePage').then((module) => ({
-    default: module.WorkspacePage,
-  })),
-);
 const SettingsRoute = lazy(() =>
   import('../features/connection/Settings').then((module) => ({ default: module.Settings })),
 );
@@ -169,26 +159,6 @@ export function App({ surface = 'web' }: { surface?: 'popup' | 'options' | 'side
               ) : (
                 <Routes>
                   <Route path="/" element={surface === 'options' ? settings : null} />
-                  <Route
-                    path="/workspace"
-                    element={
-                      <div {...stylex.props(styles.page)}>
-                        <Suspense fallback={<p>Loading workspace…</p>}>
-                          <WorkspaceRoute />
-                        </Suspense>
-                      </div>
-                    }
-                  />
-                  <Route
-                    path="/conversations"
-                    element={
-                      <div {...stylex.props(styles.page)}>
-                        <Suspense fallback={<p>Loading conversations…</p>}>
-                          <ConversationsRoute />
-                        </Suspense>
-                      </div>
-                    }
-                  />
                   <Route
                     path="/account"
                     element={

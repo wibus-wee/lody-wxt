@@ -12,15 +12,8 @@ export const introduction = defineSequenceSteps({
     {
       id: 'personalize',
       state: {
-        title: '带上网页一起聊',
-        body: '点击输入框旁的加号附加当前网页或选中文字。点击资料标签可预览内容，发送前随时移除。',
-      },
-    },
-    {
-      id: 'ready',
-      state: {
-        title: '接着上次聊',
-        body: '顶部的历史按钮可以搜索并继续对话。新对话沿用你选好的助手，设置和历史切换不会丢掉草稿。',
+        title: '把网页带进对话',
+        body: '需要页面上下文时，附上当前网页或选中的文字。你可以先预览，再决定是否发送。',
       },
     },
   ],

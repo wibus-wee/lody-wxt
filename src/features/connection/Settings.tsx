@@ -1,11 +1,10 @@
 import * as stylex from '@stylexjs/stylex';
 import { useEffect } from 'react';
-import { useForm, useFormState } from 'react-hook-form';
 import { NavLink } from 'react-router';
 import * as v from 'valibot';
 
 import { productConfig } from '../../app/product-config';
-import { Button, Field, Input, Select, Switch } from '../../shared/ui';
+import { Button, Field, Select, Switch } from '../../shared/ui';
 import { composer } from '../../shared/ui/composer.stylex';
 import { AccountPage } from '../account/AccountPage';
 import { useAccount } from '../account/useAccount';
@@ -27,7 +26,6 @@ const styles = stylex.create({
   title: { fontSize: 13, fontWeight: 600, color: composer.hint, margin: 0 },
   form: { display: 'grid', gap: 8 },
   row: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  links: { display: 'flex', flexWrap: 'wrap', gap: 4 },
 });
 const themes = [
   { value: 'system', label: '跟随系统' },
@@ -58,13 +56,6 @@ export function Settings({
           new URL(productConfig.convexOrigin).origin,
         ])
       : undefined;
-  const { register, handleSubmit, control, reset } = useForm<{ displayName: string }>({
-    defaultValues: { displayName: preferences.displayName },
-  });
-  const { errors, isDirty } = useFormState({ control });
-  useEffect(() => {
-    reset({ displayName: preferences.displayName });
-  }, [preferences.displayName, reset]);
   return (
     <section {...stylex.props(styles.settings)} aria-label="Settings">
       <div {...stylex.props(styles.row)}>
@@ -102,62 +93,16 @@ export function Settings({
         </Field.Root>
         <Field.Root disabled={pending}>
           <div {...stylex.props(styles.row)}>
-            <Field.Label htmlFor="ambient">氛围效果</Field.Label>
+            <Field.Label htmlFor="ambient">背景动态效果</Field.Label>
             <Switch
               id="ambient"
               checked={preferences.ambient}
               onCheckedChange={(ambient) => onSave({ ...preferences, ambient })}
             />
           </div>
-          <Field.Description>跟随系统的减少动态效果设置。</Field.Description>
+          <Field.Description>为侧栏背景添加柔和的动态光效；系统开启“减少动态效果”时会自动停用。</Field.Description>
         </Field.Root>
-        <form
-          noValidate
-          {...stylex.props(styles.form)}
-          onSubmit={handleSubmit((value) =>
-            onSave({ ...preferences, displayName: value.displayName.trim() }),
-          )}
-        >
-          <Field.Root invalid={!!errors.displayName}>
-            <Field.Label htmlFor="display-name">侧栏名称</Field.Label>
-            <Input
-              id="display-name"
-              {...register('displayName', {
-                required: '请输入侧栏名称。',
-                maxLength: { value: 40, message: '名称最多 40 个字符。' },
-                validate: (value) => !!value.trim() || '请输入侧栏名称。',
-              })}
-            />
-            {errors.displayName && (
-              <Field.Error match role="alert">
-                {errors.displayName.message}
-              </Field.Error>
-            )}
-          </Field.Root>
-          <Button type="submit" size="small" variant="secondary" disabled={pending || !isDirty}>
-            保存名称
-          </Button>
-        </form>
       </section>
-      <div {...stylex.props(styles.links)}>
-        <Button
-          variant="ghost"
-          size="small"
-          nativeButton={false}
-          aria-label="Intro"
-          render={<NavLink to="/intro" />}
-        >
-          使用指南
-        </Button>
-        <Button
-          variant="ghost"
-          size="small"
-          nativeButton={false}
-          render={<NavLink to="/workspace" />}
-        >
-          高级工作区
-        </Button>
-      </div>
     </section>
   );
 }

@@ -128,9 +128,7 @@ export function ChatHeader({ children }: { children?: ReactNode }) {
 }
 
 const routes = [
-  { path: '/conversations', label: '对话历史' },
-  { path: '/workspace', label: '工作区' },
   { path: '/account', label: '账户' },
   { path: '/settings', label: '设置' },
-  { path: '/intro', label: '使用指南' },
+  { path: '/intro', label: '首次使用' },
 ] as const;

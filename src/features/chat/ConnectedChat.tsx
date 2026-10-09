@@ -38,7 +38,6 @@ import { DictationDialog } from '../voice/DictationDialog';
 import { dictationAvailable } from '../voice/recognition';
 import { Chat } from './Chat';
 import { ChatHeader } from './ChatHeader';
-import { ChatHistory } from './ChatHistory';
 import { ComposerContextBar } from './ComposerContextBar';
 import { ConnectionDiagnostics } from './ConnectionDiagnostics';
 import {
@@ -712,27 +711,6 @@ function ClientChat({
             </Tooltip.Trigger>
             <Tooltip.Content>快捷指令与定时任务</Tooltip.Content>
           </Tooltip.Root>
-          <ChatHistory
-            conversations={snapshot.conversations}
-            selected={selected}
-            disabled={busy}
-            onOpen={open}
-            actions={{
-              share: async (id) => {
-                const row = snapshot.conversations.find((item) => item.id === id);
-                if (row) setSharing({ id, title: row.title });
-              },
-              search: (query, signal, progress) =>
-                searchConversations(client, query, signal, progress),
-              rename: client.rename,
-              archive: client.archive,
-              restore: client.restore,
-              delete: client.delete,
-              export: async (id) => {
-                exportConversation(await client.readConversation(id));
-              },
-            }}
-          />
           <Tooltip.Root>
             <Tooltip.Trigger
               render={
