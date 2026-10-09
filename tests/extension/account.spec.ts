@@ -13,6 +13,8 @@ const officialHosts = [
   'https://convex.lody.ai/*',
   'https://api.lody.ai/*',
   'https://*.streams-api-x.loro.dev/*',
+  'https://github.com/wibus-wee/lody-wxt/releases/*',
+  'https://release-assets.githubusercontent.com/*',
 ];
 const manifestSchema = v.looseObject({
   permissions: v.array(v.string()),
@@ -95,7 +97,8 @@ test('packaged official hosts are installed while page access stays optional and
         }
       ).chrome.permissions.getAll(),
     );
-    expect(permissions.origins).toEqual(expect.arrayContaining(officialHosts));
+    const installedOrigins = officialHosts.map((pattern) => `${new URL(pattern).origin}/*`);
+    expect(permissions.origins).toEqual(expect.arrayContaining(installedOrigins));
     expect(permissions.origins).not.toContain('https://*/*');
     const blocked = await page.evaluate(
       () =>

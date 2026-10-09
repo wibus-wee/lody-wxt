@@ -40,12 +40,7 @@ import { Chat } from './Chat';
 import { ChatHeader } from './ChatHeader';
 import { ComposerContextBar } from './ComposerContextBar';
 import { ConnectionDiagnostics } from './ConnectionDiagnostics';
-import {
-  exportConversation,
-  messageAttachments,
-  sameAttachments,
-  searchConversations,
-} from './conversation-actions';
+import { messageAttachments, sameAttachments } from './conversation-actions';
 import { ConversationTurnActions } from './ConversationTurnActions';
 import { DraftAttachments } from './DraftAttachments';
 import { McpPicker } from './McpPicker';

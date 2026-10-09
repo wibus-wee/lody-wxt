@@ -4,6 +4,33 @@ export const model = {
   derivation:
     'Product entrypoints, scoped state stores, generation fences and SDK lifecycle ports.',
   owners: {
+    distribution: {
+      source: [
+        'tools/release/artifacts.mjs',
+        '.github/workflows/release.yml',
+        'src/features/updates/config.json',
+      ],
+      state: 'Verified release artifacts and appcast metadata derived from the same ZIP.',
+      persistence: 'Version-tagged GitHub Release with immutable ZIP URL, length and SHA-256.',
+      lifetime:
+        'The update source becomes visible only with a verified published release; failed builds publish no feed.',
+    },
+    updates: {
+      source: [
+        'src/features/updates/appcast.ts',
+        'src/features/updates/lifecycle.ts',
+        'src/features/updates/use-updates.ts',
+        'src/features/updates/UpdateNotice.tsx',
+        'src/features/updates/UpdateSettingsLink.tsx',
+        'tools/release/artifacts.mjs',
+      ],
+      state:
+        'Installed version, validated stable appcast, last successful check, failures and skipped version.',
+      persistence:
+        'Extension local storage across surfaces and worker restarts; version-pinned release assets.',
+      lifetime:
+        'Six-hour checks omit credentials; failed or invalid feeds retain confirmed metadata and expose failure. Downloads require a user action; installation stays manual.',
+    },
     notifications: {
       source: [
         'src/features/notifications/lifecycle.ts',
@@ -211,6 +238,12 @@ export const model = {
     },
   },
   namespaces: {
+    updates: {
+      disposition: 'journey',
+      owners: ['distribution', 'updates', 'shell'],
+      reason:
+        'Release metadata, browser lifecycle, cross-surface reminders and manual downloads must preserve their version and failure boundaries.',
+    },
     notifications: {
       disposition: 'journey',
       owners: ['notifications', 'account', 'connection', 'shell'],
@@ -309,6 +342,46 @@ export const model = {
     },
   },
   journeys: [
+    {
+      id: 'discover-and-download-update',
+      namespace: 'updates',
+      priority: 'P1',
+      intent:
+        'Discover a stable release, skip and restore reminders, retain confirmed metadata on failure and continue after a newer release and profile restart.',
+      chain: ['distribution', 'updates', 'shell'],
+      cases: [
+        {
+          id: 'packaged-appcast',
+          interactions: ['update-check'],
+          lifecycle: [
+            'check',
+            'discover',
+            'skip',
+            'reload',
+            'manual-check',
+            'failure',
+            'newer-release',
+            'profile-restart',
+          ],
+          states: [
+            'updates:validated',
+            'updates:skipped',
+            'updates:error-visible',
+            'updates:retained',
+          ],
+          obligations: [
+            'trusted-feed-versioned-links',
+            'quiet-reminder-preserves-chat-layout',
+            'skip-persists-across-surfaces-and-reload',
+            'manual-check-restores-reminders',
+            'failed-check-retains-confirmed-release',
+            'invalid-feed-cannot-change-download',
+            'newer-release-resumes-reminders',
+            'profile-restart-retains-update-state',
+          ],
+        },
+      ],
+    },
     {
       id: 'observe-background-session',
       namespace: 'notifications',
@@ -1138,6 +1211,15 @@ export const model = {
     },
   ],
   interactions: [
+    {
+      id: 'update-check',
+      journey: 'discover-and-download-update',
+      start: 'Trusted click on Check updates in the installed settings surface.',
+      end: 'Validated newer version visible in the update status region.',
+      attribution: ['release-feed', 'storage', 'browser-main-thread'],
+      workload:
+        'Packaged extension with a controlled external HTTPS appcast; no real-world latency baseline is implied.',
+    },
     {
       id: 'send-feedback',
       journey: 'send-and-continue',

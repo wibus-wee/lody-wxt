@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing stable tag matching package.json (for example v0.1.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+          submodules: true
+      - name: Validate tag and version
+        run: |
+          node tools/release/cli.mjs check "$RELEASE_TAG"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm release:package
+      - run: pnpm check
+      - run: pnpm test:sdk
+      - run: pnpm test:browser
+      - name: Test the packaged extension
+        run: pnpm exec playwright test
+      - name: Test the download after extraction
+        run: pnpm release:verify
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: dist/release/
+          if-no-files-found: error
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-verification
+          path: |
+            reports/
+            coverage/
+            playwright-report/
+            test-results/
+
+  publish:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-assets
+          path: release-assets
+      - name: Publish verified downloads
+        run: |
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            echo "Release already exists; refusing to overwrite published downloads."
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" \
+            release-assets/lody-chrome.zip \
+            release-assets/INSTALL.md \
+            release-assets/SHA256SUMS \
+            release-assets/build-info.json \
+            release-assets/appcast.json \
+            --verify-tag --latest \
+            --title "Lody $RELEASE_TAG" \
+            --notes-file release-assets/release-notes.md

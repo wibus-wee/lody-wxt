@@ -27,6 +27,8 @@ export default defineConfig({
       'https://convex.lody.ai/*',
       'https://api.lody.ai/*',
       'https://*.streams-api-x.loro.dev/*',
+      'https://github.com/wibus-wee/lody-wxt/releases/*',
+      'https://release-assets.githubusercontent.com/*',
     ],
     optional_permissions: ['history', 'bookmarks', 'notifications'],
     optional_host_permissions: ['https://*/*', 'http://*/*'],

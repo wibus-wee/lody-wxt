@@ -4,6 +4,7 @@
   "pages": [
     "index",
     "getting-started",
+    "releasing",
     "architecture",
     "browser-assistant-spec",
     "browser-assistant-implementation",

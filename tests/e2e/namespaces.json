@@ -1,4 +1,9 @@
 {
+  "updates": {
+    "disposition": "journey",
+    "owners": ["distribution", "updates", "shell"],
+    "reason": "Release metadata, browser lifecycle, cross-surface reminders and manual downloads must preserve their version and failure boundaries."
+  },
   "notifications": {
     "disposition": "journey",
     "owners": ["notifications", "account", "connection", "shell"],

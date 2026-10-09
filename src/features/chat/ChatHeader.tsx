@@ -3,10 +3,11 @@ import type { ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router';
 
 import { Icon } from '../../shared/icons/Icon';
-import { Button, Tooltip } from '../../shared/ui';
+import { Button } from '../../shared/ui';
 import { composer } from '../../shared/ui/composer.stylex';
 import { defaults } from '../preferences/model';
 import { usePreferences } from '../preferences/use-preferences';
+import { UpdateSettingsLink } from '../updates/UpdateSettingsLink';
 
 const styles = stylex.create({
   header: {
@@ -66,6 +67,12 @@ const styles = stylex.create({
   },
 });
 
+const routes = [
+  { path: '/account', label: '账户' },
+  { path: '/settings', label: '设置' },
+  { path: '/intro', label: '首次使用' },
+] as const;
+
 export function ChatHeader({ children }: { children?: ReactNode }) {
   const { preferences } = usePreferences();
   const { pathname } = useLocation();
@@ -87,23 +94,7 @@ export function ChatHeader({ children }: { children?: ReactNode }) {
       </Button>
       <div {...stylex.props(styles.actions)}>
         {children}
-        <Tooltip.Root>
-          <Tooltip.Trigger
-            render={
-              <Button
-                nativeButton={false}
-                variant="ghost"
-                size="small"
-                icon
-                aria-label="Settings"
-                render={<NavLink to="/settings" />}
-              />
-            }
-          >
-            <Icon name="settings" size={18} />
-          </Tooltip.Trigger>
-          <Tooltip.Content>设置</Tooltip.Content>
-        </Tooltip.Root>
+        <UpdateSettingsLink />
       </div>
       {current && <p {...stylex.props(styles.title)}>{current.label}</p>}
       {current && (
@@ -126,9 +117,3 @@ export function ChatHeader({ children }: { children?: ReactNode }) {
     </header>
   );
 }
-
-const routes = [
-  { path: '/account', label: '账户' },
-  { path: '/settings', label: '设置' },
-  { path: '/intro', label: '首次使用' },
-] as const;

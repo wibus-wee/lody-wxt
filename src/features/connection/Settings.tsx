@@ -1,5 +1,4 @@
 import * as stylex from '@stylexjs/stylex';
-import { useEffect } from 'react';
 import { NavLink } from 'react-router';
 import * as v from 'valibot';
 
@@ -11,6 +10,7 @@ import { useAccount } from '../account/useAccount';
 import { NotificationSettings } from '../notifications/NotificationSettings';
 import type { Preferences } from '../preferences/model';
 import { BrowserPrivacySettings } from '../privacy/BrowserPrivacySettings';
+import { UpdateSettings } from '../updates/UpdateNotice';
 import { workspaceScope } from './state';
 
 const styles = stylex.create({
@@ -67,6 +67,7 @@ export function Settings({
       <AccountPage />
       <BrowserPrivacySettings {...(scope ? { scope } : {})} />
       <NotificationSettings key={scope ?? 'signed-out'} />
+      <UpdateSettings />
       <section {...stylex.props(styles.section)} aria-label="外观">
         <h3 {...stylex.props(styles.title)}>外观</h3>
         <Field.Root disabled={pending}>
@@ -100,7 +101,9 @@ export function Settings({
               onCheckedChange={(ambient) => onSave({ ...preferences, ambient })}
             />
           </div>
-          <Field.Description>为侧栏背景添加柔和的动态光效；系统开启“减少动态效果”时会自动停用。</Field.Description>
+          <Field.Description>
+            为侧栏背景添加柔和的动态光效；系统开启“减少动态效果”时会自动停用。
+          </Field.Description>
         </Field.Root>
       </section>
     </section>
