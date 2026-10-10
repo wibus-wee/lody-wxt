@@ -309,12 +309,21 @@ export class RealLodyClient implements LodyClient {
         if (version !== reading || this.connection !== connection) return;
         const byId = new Map(infos?.map((info) => [info.id, info]));
         this.publish({
-          machines: machineIds.map((id) => ({
-            id,
-            name: byId.get(id)?.name?.trim() || null,
-            schedules: (byId.get(id)?.protocolCapabilities?.schedules ?? 0) >= 1,
-            ...(byId.get(id)?.timeZone ? { timeZone: byId.get(id)!.timeZone! } : {}),
-          })),
+          machines: machineIds.flatMap((id) => {
+            const info = byId.get(id);
+            const name = info?.name?.trim();
+            return name
+              ? [
+                  {
+                    id,
+                    name,
+                    status: info?.status ?? 'unknown',
+                    schedules: (info?.protocolCapabilities?.schedules ?? 0) >= 1,
+                    ...(info?.timeZone ? { timeZone: info.timeZone } : {}),
+                  },
+                ]
+              : [];
+          }),
         });
       };
       const unsubscribeMachines = connection.machines.subscribeMachineInfos?.(() => {
@@ -338,8 +347,10 @@ export class RealLodyClient implements LodyClient {
           v.nullable(targetPreferenceSchema),
           JSON.parse(localStorage.getItem(`lody:chat-target:${this.accountKey}`) ?? 'null'),
         );
-        const machineId = saved?.machineId ?? (machineIds.length === 1 ? machineIds[0] : undefined);
-        if (machineId && machineIds.includes(machineId))
+        const selectableIds = this.state.machines.map((machine) => machine.id);
+        const machineId =
+          saved?.machineId ?? (selectableIds.length === 1 ? selectableIds[0] : undefined);
+        if (machineId && selectableIds.includes(machineId))
           await this.selectTarget({
             workspaceId: options.workspaceId,
             machineId,

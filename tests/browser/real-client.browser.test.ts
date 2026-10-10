@@ -1,5 +1,6 @@
 import type {
   MachineCommandPort,
+  MachineInfo,
   SessionMetadata,
   SessionSnapshot,
   WorkspaceMcpServer,
@@ -27,6 +28,8 @@ function fixture(
 ) {
   const rows: SessionMetadata[] = [];
   const metadataListeners = new Set<() => void>();
+  const machineListeners = new Set<() => void>();
+  const machineInfos: MachineInfo[] = [{ id: 'machine', name: 'Test Mac', status: 'online' }];
   const snapshot: SessionSnapshot = { sessionId: '', history: [], queue: [], session: {} };
   let failCreate = failMetadata;
   let creates = 0;
@@ -132,6 +135,13 @@ function fixture(
     runtime,
     mcpCatalog: { list: async () => servers },
     machines: {
+      listMachineInfos: async () => machineInfos,
+      subscribeMachineInfos: (listener: () => void) => {
+        machineListeners.add(listener);
+        return () => {
+          machineListeners.delete(listener);
+        };
+      },
       open: async () => ({
         read: () => machine,
         subscribe: () => () => {},
@@ -162,9 +172,13 @@ function fixture(
       createConnection: async () => connection,
       requireAccess: async () => {},
       directory: {
-        listMachines: async () => [
-          { machineId: 'machine', ownerUserId: 'user', sharedWithTeam: false, updatedAt: 1 },
-        ],
+        listMachines: async () =>
+          machineInfos.map((info) => ({
+            machineId: info.id,
+            ownerUserId: 'user',
+            sharedWithTeam: false,
+            updatedAt: 1,
+          })),
       },
     },
   });
@@ -179,6 +193,10 @@ function fixture(
       for (const listener of metadataListeners) listener();
     },
     metadataListeners,
+    machineInfos,
+    notifyMachines: () => {
+      for (const listener of machineListeners) listener();
+    },
     creates: () => creates,
     closes: () => closes,
   };
@@ -860,4 +878,26 @@ it('reads persisted history before deciding whether an unopened conversation nee
   await state.client.send({ ...firstInput, sessionId: 'existing', operationId: 'follow-up' });
   expect(state.snapshot.history.at(-1)?.inputConfig?.prompt).toBe('Hello');
   await state.client.close();
+});
+
+it('hides unnamed registrations, selects the only named machine and refreshes its presence', async () => {
+  const f = fixture(crypto.randomUUID());
+  f.machineInfos.push({ id: 'unnamed' }, { id: 'blank', name: '   ' });
+  // The directory may retain old registrations alongside the actual machine.
+  const client = f.client;
+  try {
+    await client.connect();
+    expect(client.getSnapshot().machines).toEqual([
+      { id: 'machine', name: 'Test Mac', status: 'online', schedules: false },
+    ]);
+    expect(client.getSnapshot().target?.machineId).toBe('machine');
+    f.machineInfos[0] = { id: 'machine', name: 'Test Mac', status: 'offline' };
+    f.notifyMachines();
+    await expect.poll(() => client.getSnapshot().machines[0]?.status).toBe('offline');
+    f.machineInfos[0] = { id: 'machine', name: '  ' };
+    f.notifyMachines();
+    await expect.poll(() => client.getSnapshot().machines).toEqual([]);
+  } finally {
+    await client.close();
+  }
 });

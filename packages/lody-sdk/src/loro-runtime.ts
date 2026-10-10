@@ -10,6 +10,7 @@ import { SessionRuntime } from './sessions/application/session-runtime.js';
 import { acquireWithin, bounded } from './sessions/infrastructure/lifecycle.js';
 import { LoroSessionRepository } from './sessions/infrastructure/loro-session-repository.js';
 import { MachineFlockDirectory } from './sessions/infrastructure/machine-flock.js';
+import { MachinePresence } from './sessions/infrastructure/machine-presence.js';
 import { WorkspaceMcpCatalog } from './workspaces/infrastructure/workspace-mcp-catalog.js';
 
 export { LoroSessionRepository } from './sessions/infrastructure/loro-session-repository.js';
@@ -91,7 +92,14 @@ export async function createLoroSessionRuntime(options: LoroRuntimeOptions) {
       timeoutMs,
     });
     const runtime = new SessionRuntime(repository, options.commands);
+    const presence = new MachinePresence({
+      workspaceId: options.workspaceId,
+      baseUrl: options.streamsBaseUrl,
+      auth: options.auth,
+      ...(options.now ? { now: options.now } : {}),
+    });
     const machines = new MachineFlockDirectory({
+      presence,
       repo,
       workspaceId: options.workspaceId,
       signal: lifetime,
@@ -102,6 +110,7 @@ export async function createLoroSessionRuntime(options: LoroRuntimeOptions) {
       (closing ??= Promise.resolve().then(async () => {
         lifecycle.abort(new Error('Runtime closed'));
         try {
+          await presence.close();
           await machines.close();
           await runtime.close();
         } finally {
