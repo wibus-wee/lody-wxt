@@ -456,6 +456,7 @@ export class RuntimeBoundary {
     }
     meta.set(['e', 'machine-machine-a'], true);
     meta.set(['m', 'machine-machine-a', 'id'], 'machine-a');
+    meta.set(['m', 'machine-machine-a', 'name'], 'Controlled Mac');
     meta.set(['m', 'machine-machine-a', 'timeZone'], 'Asia/Singapore');
     meta.set(['m', 'machine-machine-a', 'protocolCapabilities'], { schedules: 1 });
     const workspace = new Flock();

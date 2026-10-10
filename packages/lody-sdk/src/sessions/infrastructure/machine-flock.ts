@@ -3,6 +3,7 @@ import * as v from 'valibot';
 
 import type { MachineInfo } from '../domain/machine.js';
 import { acquireWithin, bounded } from './lifecycle.js';
+import type { MachinePresence } from './machine-presence.js';
 import { capabilitySchema, modelCapabilitiesSchema } from './machine-protocol.js';
 
 const machineInfoSchema = v.object({
@@ -47,6 +48,7 @@ export class MachineFlockDirectory {
     private readonly options: {
       repo: LoroRepo;
       workspaceId: string;
+      presence?: Pick<MachinePresence, 'getStatus' | 'subscribe'>;
       timeoutMs?: number;
       signal?: AbortSignal;
     },
@@ -78,19 +80,24 @@ export class MachineFlockDirectory {
       if (meta === undefined) return { id };
       const info = v.parse(machineInfoSchema, meta);
       if (info.id !== id) throw new Error('Machine metadata identity mismatch');
-      return info;
+      return {
+        ...info,
+        ...(this.options.presence ? { status: this.options.presence.getStatus(id) } : {}),
+      };
     });
   };
 
   subscribeMachineInfos = (listener: () => void) => {
     this.signal().throwIfAborted();
     const watch = this.options.repo.watch(listener);
+    const unsubscribePresence = this.options.presence?.subscribe(listener);
     let closed = false;
     const close = async () => {
       if (closed) return;
       closed = true;
       this.handles.delete(close);
       watch.unsubscribe();
+      unsubscribePresence?.();
     };
     this.handles.add(close);
     return () => {

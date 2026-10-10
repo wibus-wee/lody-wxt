@@ -112,7 +112,7 @@ export interface SendInput {
 interface MachineSummary {
   id: string;
   name: string | null;
-  status?: 'online' | 'offline';
+  status?: 'online' | 'offline' | 'unknown';
   schedules?: boolean;
   timeZone?: string;
 }

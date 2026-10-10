@@ -1,7 +1,7 @@
 import * as stylex from '@stylexjs/stylex';
 
 import { Icon } from '../../shared/icons/Icon';
-import { Button, Field, Popover, Select } from '../../shared/ui';
+import { Badge, Button, Field, Popover, Select } from '../../shared/ui';
 import { AgentIcon } from '../../shared/ui/AgentIcon';
 import type { ClientSnapshot } from '../connection/client';
 
@@ -9,7 +9,7 @@ const styles = stylex.create({
   panel: { width: 'min(300px, calc(100vw - 24px))', display: 'grid', gap: 12 },
   trigger: { maxWidth: '100%', minWidth: 0, flexShrink: 1 },
   label: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 },
-  option: { display: 'inline-flex', alignItems: 'center', gap: 6 },
+  option: { display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, maxWidth: '100%' },
   hint: { margin: 0, fontSize: 13 },
 });
 
@@ -33,7 +33,8 @@ export function TargetPicker({
   onDiagnostics?: () => void;
 }) {
   const machineId = snapshot.selectedMachineId ?? snapshot.target?.machineId;
-  const machine = snapshot.machines.find((item) => item.id === machineId);
+  const machines = snapshot.machines.filter((row) => row.name?.trim());
+  const machine = machines.find((item) => item.id === machineId);
   return (
     <Popover.Root open={open} onOpenChange={onOpenChange}>
       <Popover.Trigger
@@ -62,7 +63,7 @@ export function TargetPicker({
               : '选好一次，后续新对话会沿用。'}
           </Popover.Description>
         </Popover.Header>
-        {!snapshot.machines.length ? (
+        {!machines.length ? (
           <p {...stylex.props(styles.hint)}>
             还没有连接的机器。在电脑上打开 Lody，并登录同一工作区。
           </p>
@@ -70,9 +71,9 @@ export function TargetPicker({
           <Field.Root disabled={busy || locked}>
             <Field.Label>运行于</Field.Label>
             <Select.Root
-              items={snapshot.machines.map((row) => ({
+              items={machines.map((row) => ({
                 value: row.id,
-                label: row.name ?? '未命名机器',
+                label: row.name ?? row.id,
               }))}
               value={machineId ?? null}
               onValueChange={(id) => {
@@ -82,13 +83,18 @@ export function TargetPicker({
               <Select.Trigger>
                 <Icon name="machine" size={14} />
                 <Select.Value placeholder="选择机器" />
+                {machine && <MachineStatus status={machine.status} />}
               </Select.Trigger>
               <Select.Content>
-                {snapshot.machines.map((row) => (
-                  <Select.Item key={row.id} value={row.id}>
+                {machines.map((row) => (
+                  <Select.Item
+                    key={row.id}
+                    value={row.id}
+                    endContent={<MachineStatus status={row.status} />}
+                  >
                     <span {...stylex.props(styles.option)}>
                       <Icon name="machine" size={14} />
-                      {row.name ?? '未命名机器'}
+                      <span {...stylex.props(styles.label)}>{row.name}</span>
                     </span>
                   </Select.Item>
                 ))}
@@ -152,5 +158,13 @@ export function TargetPicker({
         )}
       </Popover.Content>
     </Popover.Root>
+  );
+}
+
+function MachineStatus({ status }: { status: ClientSnapshot['machines'][number]['status'] }) {
+  return (
+    <Badge tone={status === 'online' ? 'success' : 'neutral'}>
+      {status === 'online' ? '在线' : status === 'offline' ? '离线' : '状态未知'}
+    </Badge>
   );
 }
