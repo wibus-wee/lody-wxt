@@ -24,7 +24,8 @@ CI keeps separate runs per commit instead of cancelling earlier evidence.
 `ASSURANCE_FAIL_FAST=1` stops later performance repetitions after a real web failure and stops the extension suite after its first failure; failures, skipped coverage and incomplete samples still block acceptance.
 Successful runs retain the complete journey and five-sample requirements.
 UI capture uses the real wall clock for installed extension pages: their RPC deadlines are checked by the service worker, so a historical page clock makes valid requests expire immediately.
-Web captures retain their controlled clock. Failed matrix entries retain their identity, screenshot and trace when available, and still fail the run without producing a completed manifest.
+Web captures retain their controlled clock.
+Failed matrix entries retain their identity, screenshot and trace when available, and still fail the run without producing a completed manifest.
 Earlier failed configuration inspections remain in the [validation logs](./VALIDATION.md).
 Runeicons clone remains explicitly denied; do not bypass that denial.
 Missing real Runeicons-generated icons still block local source builds.
