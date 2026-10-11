@@ -106,7 +106,7 @@ export function DictationDialog({
       setPhase('idle');
       const error = reason instanceof Error ? reason : undefined;
       setError(
-        error?.name === 'NotAllowedError' || error?.name === 'SecurityError'
+        new Set(['NotAllowedError', 'SecurityError']).has(error?.name ?? '')
           ? '麦克风权限未获准。请在浏览器的 Lody 网站权限中允许麦克风，然后重试。'
           : (error?.message ?? '无法开始听写。'),
       );
