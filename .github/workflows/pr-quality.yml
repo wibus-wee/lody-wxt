@@ -5,8 +5,8 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: pr-quality-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: pr-quality-${{ github.event.pull_request.number || github.ref }}-${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+  cancel-in-progress: false
 jobs:
   verify:
     name: PR Quality / verify
@@ -16,6 +16,7 @@ jobs:
       LODY_UI_PINNED: '1'
       ASSURANCE_REPEAT: '5'
       ASSURANCE_BENCHMARK_AFTER_FIRST: '1'
+      ASSURANCE_FAIL_FAST: '1'
       CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       BEFORE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
       AUTONOMY_POLICY_REF: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}

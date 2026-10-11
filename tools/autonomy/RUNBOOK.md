@@ -17,6 +17,9 @@ No command requests or prints secret values.
 The latest authorized system-CLI inspection found a public personal repository, auto-merge enabled, no main protection and empty Actions variables/secrets metadata.
 The owner selected `/opt/homebrew/bin/gh`; its existing login now has workflow scope, without exporting credentials to CI.
 PR #4 includes pushed commit `568c0f4`, fixing SDK build order and bootstrap protected-policy absence; CI run `38111097768` passed typechecking and then rejected unused dependencies/exports.
+CI keeps separate runs per commit instead of cancelling earlier evidence.
+`ASSURANCE_FAIL_FAST=1` stops later performance repetitions after a real web failure and stops the extension suite after its first failure; failures, skipped coverage and incomplete samples still block acceptance.
+Successful runs retain the complete journey and five-sample requirements.
 Those unused items have been removed; [VALIDATION.md](./VALIDATION.md) tracks the next complete CI result.
 The new workflows are on the PR branch, not protected main.
 Earlier integration-permission denials are retained in the [validation logs](./VALIDATION.md), not treated as current system-login denials.
