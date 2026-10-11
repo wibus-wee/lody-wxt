@@ -2,6 +2,8 @@ import type { KnipConfig } from 'knip';
 
 const config: KnipConfig = {
   ignore: ['vendor/**'],
+  // OpenSSL is a system prerequisite for the isolated HTTPS protocol boundary.
+  ignoreBinaries: ['openssl'],
   // The packed SDK fixture resolves runtime dependencies from its isolated consumer directory.
   ignoreIssues: { 'tests/sdk-consumer/consumer.mjs': ['unlisted'] },
   workspaces: {
@@ -15,6 +17,7 @@ const config: KnipConfig = {
         'tests/sdk-consumer/*.{mjs,mts}',
         'scripts/*.mjs',
         'tools/assurance/*.test.mjs',
+        'tools/autonomy/*.mjs',
         'tools/docs/*.mjs',
         'tools/release/*.mjs',
         'tests/e2e/journey-steps/**/*.ts',

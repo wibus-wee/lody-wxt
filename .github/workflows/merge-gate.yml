@@ -1,0 +1,56 @@
+name: Merge Gate Recheck
+# Recovery re-runs the full trusted validator; it never consumes an unsigned cached ACCEPT.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Exact PR Quality run ID; stale heads and changed policy are rejected
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  recheck:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: autonomy
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: refs/heads/main
+          persist-credentials: false
+      - name: Bind controller to protected workflow snapshot
+        env:
+          TRUSTED_WORKFLOW_SHA: ${{ github.workflow_sha }}
+        run: test "$(git rev-parse HEAD)" = "$TRUSTED_WORKFLOW_SHA"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+      - uses: actions/create-github-app-token@v2
+        id: app
+        with:
+          app-id: ${{ vars.AUTONOMY_APP_ID }}
+          private-key: ${{ secrets.AUTONOMY_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-checks: write
+          permission-pull-requests: write
+          permission-contents: write
+          permission-actions: read
+          permission-administration: read
+      - run: node tools/autonomy/cli.mjs accept
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          AUTONOMY_RUN_ID: ${{ inputs.run_id }}
+          AUTONOMY_BOT_LOGIN: ${{ vars.AUTONOMY_BOT_LOGIN }}
+          DOTS_ENDPOINT: ${{ vars.DOTS_ENDPOINT }}
+          DOTS_PUBLIC_KEY: ${{ vars.DOTS_PUBLIC_KEY }}
+          DOTS_TOKEN: ${{ secrets.DOTS_TOKEN }}
+          AUTONOMY_IMAGE_TOKEN: ${{ secrets.AUTONOMY_IMAGE_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: merge-recheck-${{ inputs.run_id }}-${{ github.run_id }}
+          path: reports/autonomy/
+          if-no-files-found: warn

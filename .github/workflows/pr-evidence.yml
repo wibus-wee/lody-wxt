@@ -1,0 +1,128 @@
+name: PR UI Evidence
+on:
+  workflow_run:
+    workflows: [PR Quality]
+    types: [completed]
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+jobs:
+  capture:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LODY_UI_PINNED: '1'
+      SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+      SOURCE_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+    steps:
+      - name: Authenticate source run and protected base
+        id: source
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const { owner, repo } = context.repo;
+            if (run.name !== 'PR Quality' || !['pull_request', 'merge_group'].includes(run.event)) throw new Error('Unexpected source workflow');
+            const candidateSha = run.head_sha;
+            if (!/^[a-f0-9]{40}$/.test(candidateSha)) throw new Error('Invalid candidate SHA');
+            let baseSha;
+            let sourcePr;
+            if (run.event === 'pull_request') {
+              let candidates = run.pull_requests;
+              if (!candidates.length) candidates = await github.paginate(github.rest.repos.listPullRequestsAssociatedWithCommit, { owner, repo, commit_sha: candidateSha, per_page: 100 });
+              const matches = candidates.filter((pr) => pr.head.sha === candidateSha && pr.base.ref === 'main');
+              if (matches.length !== 1) throw new Error('Ambiguous source PR');
+              const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: matches[0].number });
+              if (pr.state !== 'open' || pr.head.sha !== candidateSha || pr.base.ref !== 'main' || pr.base.repo.full_name !== `${owner}/${repo}`) throw new Error('Stale or untrusted source PR');
+              baseSha = pr.base.sha;
+              sourcePr = pr;
+            } else {
+              if (!run.head_branch.startsWith('gh-readonly-queue/main/')) throw new Error('Unexpected queue branch');
+              const { data: ref } = await github.rest.git.getRef({ owner, repo, ref: `heads/${run.head_branch}` });
+              if (ref.object.sha !== candidateSha) throw new Error('Stale queue candidate');
+              const { data: commit } = await github.rest.git.getCommit({ owner, repo, commit_sha: candidateSha });
+              const { data: main } = await github.rest.git.getRef({ owner, repo, ref: 'heads/main' });
+              baseSha = main.object.sha;
+              if (commit.parents[0]?.sha !== baseSha) throw new Error('Queue before source is not the current protected main commit');
+              const associated = await github.paginate(github.rest.repos.listPullRequestsAssociatedWithCommit, { owner, repo, commit_sha: candidateSha, per_page: 100 });
+              const open = associated.filter((pr) => pr.state === 'open' && pr.base.ref === 'main' && pr.base.repo.full_name === `${owner}/${repo}`);
+              if (open.length !== 1) throw new Error('Single PR capture intent required for queue candidate');
+              sourcePr = (await github.rest.pulls.get({ owner, repo, pull_number: open[0].number })).data;
+            }
+            if (!/^[a-f0-9]{40}$/.test(baseSha)) throw new Error('Invalid protected base SHA');
+            const { data: commit } = await github.rest.git.getCommit({ owner, repo, commit_sha: candidateSha });
+            const { data } = await github.rest.actions.listWorkflowRunArtifacts({ owner, repo, run_id: run.id, per_page: 100 });
+            const name = `autonomy-evidence-${candidateSha}-${run.run_attempt}`;
+            const artifacts = data.artifacts.filter((artifact) => artifact.name === name && !artifact.expired);
+            if (artifacts.length !== 1) throw new Error('Exact source artifact required');
+            const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: sourcePr.number, per_page: 100 });
+            if (!files.length || files.length > 3000) throw new Error('Missing or truncated capture diff');
+            require('node:fs').writeFileSync(`${process.env.RUNNER_TEMP}/pr-ui-intent.json`, JSON.stringify({ body: sourcePr.body ?? '', files: files.flatMap((file) => [file.filename, file.previous_filename].filter(Boolean)) }));
+            core.setOutput('candidate', candidateSha);
+            core.setOutput('candidate-tree', commit.tree.sha);
+            core.setOutput('base', baseSha);
+            core.setOutput('artifact', artifacts[0].id);
+            core.setOutput('artifact-name', name);
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.source.outputs.base }}
+          fetch-depth: 1
+          submodules: recursive
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+      - name: Classify UI impact from protected source
+        id: impact
+        run: node tools/autonomy/capture-impact.mjs "$RUNNER_TEMP/pr-ui-intent.json"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_SHA: ${{ steps.source.outputs.candidate }}
+      - name: Install protected dependencies and build base
+        if: steps.impact.outputs.needed == 'true'
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+          pnpm build
+          pnpm build:web
+          node tools/autonomy/capture-ui.mjs --record-build "$GITHUB_WORKSPACE" "$BASE_SHA"
+        env:
+          BASE_SHA: ${{ steps.source.outputs.base }}
+      - name: Download candidate bytes into isolated artifact directory
+        if: steps.impact.outputs.needed == 'true'
+        uses: actions/download-artifact@v5
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ env.SOURCE_RUN_ID }}
+          artifact-ids: ${{ steps.source.outputs.artifact }}
+          path: ${{ runner.temp }}/candidate-artifact
+          merge-multiple: true
+      - name: Capture with protected controller and fixtures
+        if: steps.impact.outputs.needed == 'true'
+        env:
+          BASE_SHA: ${{ steps.source.outputs.base }}
+          CANDIDATE_SHA: ${{ steps.source.outputs.candidate }}
+          CANDIDATE_TREE_SHA: ${{ steps.source.outputs.candidate-tree }}
+          SOURCE_ARTIFACT_ID: ${{ steps.source.outputs.artifact }}
+        run: >-
+          node --import tsx tools/autonomy/capture-ui.mjs
+          --before "$GITHUB_WORKSPACE" --before-sha "$BASE_SHA"
+          --candidate "$RUNNER_TEMP/candidate-artifact" --candidate-sha "$CANDIDATE_SHA"
+          --candidate-tree-sha "$CANDIDATE_TREE_SHA"
+          --source-run-id "$SOURCE_RUN_ID" --source-run-attempt "$SOURCE_RUN_ATTEMPT"
+          --source-artifact-id "$SOURCE_ARTIFACT_ID"
+          --intent-file "$RUNNER_TEMP/pr-ui-intent.json"
+          --capture-run-id "$GITHUB_RUN_ID" --capture-run-attempt "$GITHUB_RUN_ATTEMPT"
+          --output reports/autonomy/screenshots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: autonomy-ui-${{ steps.source.outputs.candidate }}-${{ env.SOURCE_RUN_ID }}-${{ env.SOURCE_RUN_ATTEMPT }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          path: |
+            reports/
+            COVERAGE.md
+          retention-days: 30

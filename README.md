@@ -88,6 +88,12 @@ The E2E runner owns port 4173; stop `dev:web` before running it.
 Web component unit tests are prohibited; browser journeys verify UI behavior.
 Vitest only tests storage/state infrastructure in a real browser.
 
+## Contributing with automated verification
+
+The [autonomous maintenance guide](./tools/autonomy/README.md) explains how a PR moves through tests, independent review, protected merging and release checks.
+It includes a workflow diagram, contributor steps and the current rollout blockers.
+The implementation is present in this branch; live unattended operation still needs external setup and real end-to-end verification.
+
 ## Project map
 
 Lody is built with WXT and Vite 8, with an independent TypeScript SDK.

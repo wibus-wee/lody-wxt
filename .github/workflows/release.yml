@@ -1,95 +1,145 @@
 name: Release
-
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing stable tag matching package.json (for example v0.1.0)
+        description: Existing stable tag matching package.json
         required: true
         type: string
-
 permissions:
   contents: read
-
 concurrency:
   group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
-
 jobs:
   package:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
+    outputs:
+      commit: ${{ steps.source.outputs.commit }}
+      asset_name: ${{ steps.source.outputs.asset_name }}
     env:
       RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+      LODY_UI_PINNED: '1'
     steps:
       - uses: actions/checkout@v5
         with:
           ref: ${{ inputs.tag || github.ref }}
           fetch-depth: 0
-          submodules: true
-      - name: Validate tag and version
-        run: |
-          node tools/release/cli.mjs check "$RELEASE_TAG"
-          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          submodules: recursive
+          persist-credentials: false
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:
           node-version: 26
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - name: Validate tagged source
+        id: source
+        run: |
+          source_commit=$(node tools/autonomy/release-plan.mjs source "$RELEASE_TAG")
+          echo "commit=$source_commit" >> "$GITHUB_OUTPUT"
+          echo "asset_name=release-assets-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+      - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm release:package
+      - run: node --test tools/autonomy/*.test.mjs
+      - name: Prepare tagged UI and icons using the pinned build interface
+        run: |
+          pnpm build:sdk
+          pnpm ui:update
+          pnpm exec wxt prepare
       - run: pnpm check
       - run: pnpm test:sdk
+      - run: pnpm test:sdk:package
       - run: pnpm test:browser
-      - name: Test the packaged extension
-        run: pnpm exec playwright test
-      - name: Test the download after extraction
+      - name: Build tagged extension and run extension tests
+        run: pnpm test:extension
+      - name: Package tagged source without remote submodule updates
+        run: pnpm release:package
+      - name: Reject source or submodule drift during build
+        run: node tools/autonomy/release-plan.mjs source "$RELEASE_TAG"
+      - name: Verify checksum provenance
+        env:
+          SOURCE_COMMIT: ${{ steps.source.outputs.commit }}
+          GH_REPO: ${{ github.repository }}
+        run: node tools/autonomy/release-plan.mjs verify "$RELEASE_TAG" dist/release "$SOURCE_COMMIT"
+      - name: Test downloaded layout after extraction
         run: pnpm release:verify
       - uses: actions/upload-artifact@v4
         with:
-          name: release-assets
+          name: ${{ steps.source.outputs.asset_name }}
           path: dist/release/
           if-no-files-found: error
       - name: Upload verification evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: release-verification
+          name: release-verification-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             reports/
             coverage/
             playwright-report/
             test-results/
-
   publish:
     needs: package
+    environment: release-publication
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
+      actions: read
+      id-token: write
+      attestations: write
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+      SOURCE_COMMIT: ${{ needs.package.outputs.commit }}
     steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+      - name: Require configured independent publication approval
+        run: node tools/autonomy/release-plan.mjs approval release-publication
+      - name: Bind verified package source to unchanged tag on main history
+        run: node tools/autonomy/release-plan.mjs binding "$RELEASE_TAG" "$SOURCE_COMMIT"
       - uses: actions/download-artifact@v4
         with:
-          name: release-assets
+          name: ${{ needs.package.outputs.asset_name }}
           path: release-assets
-      - name: Publish verified downloads
+      - name: Verify artifact checksum, ZIP safety and tagged provenance using trusted tools
+        run: node tools/autonomy/release-plan.mjs verify "$RELEASE_TAG" release-assets "$SOURCE_COMMIT"
+      - name: Attest the verified release assets
+        id: attest
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: |
+            release-assets/lody-chrome.zip
+            release-assets/INSTALL.md
+            release-assets/SHA256SUMS
+            release-assets/build-info.json
+            release-assets/appcast.json
+      - name: Verify signed subjects and exact workflow identity before publication
+        env:
+          ATTESTATION_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
         run: |
-          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
-            echo "Release already exists; refusing to overwrite published downloads."
-            exit 1
-          fi
-          gh release create "$RELEASE_TAG" \
-            release-assets/lody-chrome.zip \
-            release-assets/INSTALL.md \
-            release-assets/SHA256SUMS \
-            release-assets/build-info.json \
-            release-assets/appcast.json \
-            --verify-tag --latest \
-            --title "Lody $RELEASE_TAG" \
-            --notes-file release-assets/release-notes.md
+          test -n "$ATTESTATION_BUNDLE"
+          mkdir -p reports/release-attestation
+          node tools/autonomy/release-plan.mjs attestations "$RELEASE_TAG" release-assets "$ATTESTATION_BUNDLE" > reports/release-attestation/verification.json
+      - name: Resume draft or verify existing immutable downloads
+        run: node tools/autonomy/release-plan.mjs publish "$RELEASE_TAG" release-assets "$SOURCE_COMMIT"
+      - name: Retain attestation bundle and verification evidence
+        if: always() && steps.attest.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-attestation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ steps.attest.outputs.bundle-path }}
+            reports/release-attestation/
+          if-no-files-found: error

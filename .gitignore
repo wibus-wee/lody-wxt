@@ -10,6 +10,13 @@ coverage/
 reports/
 test-results/
 playwright-report/
+# UI evidence is uploaded to GitHub attachments and CI artifacts, never committed.
+**/screenshots/
+**/__screenshots__/
+**/__image_snapshots__/
+tests/e2e/captures/*
+!tests/e2e/captures/*.json
+!tests/e2e/captures/README.md
 .vitest/
 src/shared/icons/generated.ts
 .env
