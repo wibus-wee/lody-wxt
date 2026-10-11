@@ -70,6 +70,12 @@ The long capture lifecycle has a bounded 60-second overall deadline, preserves p
 The extension input is the original CI artifact, not a local rebuild; the new status style still requires a fresh candidate build and rendered verification.
 Draft #6's shortcut-loading waits are included in the same CI repair so authorized shared entries cannot be omitted by an early snapshot.
 Local check again passed the tooling suites and stopped at the missing real generated-icon imports ([log](../../reports/autonomy/current-ci-repair-check.log)); full source execution remains unavailable locally.
+Run [38124944460](https://github.com/wibus-wee/lody-wxt/actions/runs/38124944460) at `d5ed425` passed the complete workflow: 27 web scenarios, four repeated performance scenarios in each of four additional repetitions, 16 extension tests, 38/38 model cases, all builds and React Doctor.
+The following run at `8bcc636` passed web journeys but timed out in packaged capture, so the earlier success is not treated as proof of stability.
+The checked-in coverage snapshot is now that run's unmodified report: 34/38 verified under source hash `18c54b24ca20`; failed/missing outcomes remain visible.
+A three-repeat local capture run reproduced a disabled Send button after filling the composer before restored history was ready; five runs passed and one failed with a retained navigation/operation trace.
+The test now waits for restored configuration, original question and completed response before entering the continuation, then asserts its value and exact same-session delivery.
+After that synchronization change, all six HTTP/HTTPS repetitions passed against the unchanged `d5ed425` CI-built extension ([log](../../reports/autonomy/capture-ready-repeat.log)); this is test validation against authenticated build bytes, not a local source rebuild or a current-head CI pass.
 
 No protected-capture pilot, adversarial acceptance result, release publication or incident recovery is claimed.
 The observed manual CLI image upload validates native GitHub publication and the public download, not the deployed CI publisher.

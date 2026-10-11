@@ -25,6 +25,8 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
       headless: true,
       args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
     });
+    context.setDefaultTimeout(10_000);
+    context.setDefaultNavigationTimeout(15_000);
     const evidence = origin.startsWith('https:')
       ? new JourneyEvidence('capture-and-send-context', 'packaged-selection', 'extension')
       : null;
@@ -332,22 +334,37 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
       await expect(
         panel.getByText('网页分析完成：这是一个协作项目。', { exact: true }),
       ).toBeVisible();
-      await panel.reload();
-      await panel.getByRole('textbox', { name: '消息', exact: true }).fill('Continue the analysis');
-      await panel.getByRole('button', { name: '发送消息', exact: true }).click();
-      await expect(panel.getByRole('article', { name: '你的消息', exact: true })).toHaveCount(2);
-      expect(cloud.submittedTurn(sessionId).inputConfig).toMatchObject({
-        prompt: 'Continue the analysis',
-        mcpServerIds: ['research-stdio'],
-        inputBlocks: [{ type: 'text', text: 'Continue the analysis' }],
+      await test.step('restore the selected conversation and submit a continuation', async () => {
+        await panel.reload({ waitUntil: 'domcontentloaded' });
+        await expect(panel.getByRole('button', { name: '运行配置', exact: true })).toContainText(
+          'Controlled model',
+        );
+        await expect(panel.getByRole('article', { name: '你的消息', exact: true })).toContainText(
+          'Explain these references',
+        );
+        await expect(
+          panel.getByText('网页分析完成：这是一个协作项目。', { exact: true }),
+        ).toBeVisible();
+        const prompt = panel.getByRole('textbox', { name: '消息', exact: true });
+        await prompt.fill('Continue the analysis');
+        await expect(prompt).toHaveValue('Continue the analysis');
+        await panel.getByRole('button', { name: '发送消息', exact: true }).click();
+        await expect(panel.getByRole('article', { name: '你的消息', exact: true })).toHaveCount(2);
+        expect(cloud.submittedTurn(sessionId).inputConfig).toMatchObject({
+          prompt: 'Continue the analysis',
+          mcpServerIds: ['research-stdio'],
+          inputBlocks: [{ type: 'text', text: 'Continue the analysis' }],
+        });
       });
     } finally {
       const trace =
         evidence && process.env.ASSURANCE_RUN_DIRECTORY
           ? `${process.env.ASSURANCE_RUN_DIRECTORY}/packaged-capture.trace.zip`
           : testInfo.outputPath('capture.trace.zip');
-      await context.tracing.stop({ path: trace });
-      await testInfo.attach('capture-trace', { path: trace, contentType: 'application/zip' });
+      await test.step('retain the capture trace', async () => {
+        await context.tracing.stop({ path: trace });
+        await testInfo.attach('capture-trace', { path: trace, contentType: 'application/zip' });
+      });
       if (evidence && process.env.ASSURANCE_RUN_DIRECTORY) {
         await evidence.write(
           testInfo.status === 'passed' ? 'passed' : 'failed',
