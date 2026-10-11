@@ -7,6 +7,8 @@ import { promisify } from 'node:util';
 
 import { chromium, expect, test } from '@playwright/test';
 
+import { configureCaptureClock } from '../../tools/autonomy/capture-ui.mjs';
+
 test('packaged account SDK sends every HTTP request through its worker to an HTTPS backend without CORS headers', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'lody-network-'));
   await promisify(execFile)('openssl', [
@@ -116,6 +118,7 @@ test('packaged account SDK sends every HTTP request through its worker to an HTT
         ownership.push(request.serviceWorker() === worker);
     });
     const page = await context.newPage();
+    await configureCaptureClock(page, 'extension');
     await page.goto(`chrome-extension://${id}/options.html#/account`);
     await page.getByRole('button', { name: '登录 Lody', exact: true }).click();
     await expect(page.getByText('Worker tester', { exact: false })).toBeVisible();
