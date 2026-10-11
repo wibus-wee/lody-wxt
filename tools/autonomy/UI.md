@@ -100,8 +100,8 @@ Inputs include the capture controller, manifest validator, snapshot guard, proto
 `verifyTrustedCapture(manifest, expected)` requires that independently computed hash and all authenticated capture-context fields before publication.
 `validateUiEvidence` requires `trustedCapture` with those same fields, checks its controller against the base SHA and trees against authenticated build trees, then verifies build receipts and publishes images.
 Missing capture context, contributor fixture hashes, replayed run attempts or source-run captures fail closed.
-Dots independent signed acceptance must additionally require `uiCaptureVerified` and `sourceInputsVerified`.
-A fixture change cannot authorize its own screenshot evidence; it needs independent protected or signed external capture.
+The connected assistant review must additionally require `uiCaptureVerified` and `sourceInputsVerified`.
+A fixture change cannot authorize its own screenshot evidence; it needs independent protected capture and independent review.
 
 ## Source and build consistency
 
@@ -120,7 +120,7 @@ The trusted capture runner compares candidate artifact bytes with the inventory 
 It verifies the protected before source and build bytes, and repeats checks after capture.
 Missing receipts, changed or injected assets and symlinks fail closed.
 Hashed copies of `before-build.json` and `candidate-build.json` are retained in the screenshot artifact.
-Receipts establish consistency within the pipeline, while protected workflow authentication and signed independent acceptance establish the execution trust boundary.
+Receipts establish consistency within the pipeline, while protected workflow authentication and independent assistant review establish the execution trust boundary.
 
 ## Publication and PR body
 

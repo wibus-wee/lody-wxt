@@ -1,15 +1,13 @@
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
-import { generateKeyPairSync, sign } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { requestDecision, validateDecision } from './acceptance.mjs';
-import { canonical, digest, parsePolicy, safePath } from './common.mjs';
+import { validateReview } from './acceptance.mjs';
+import { digest, parsePolicy, safePath } from './common.mjs';
 import { validateContract } from './contract.mjs';
 import { verifyEvidence } from './evidence.mjs';
 import { classifyImpact } from './impact.mjs';
-import { mergeGate, publishAcceptance } from './merge-gate.mjs';
 
 const policy = parsePolicy(
   readFileSync(new URL('../../.github/autonomous-maintenance-policy.yml', import.meta.url), 'utf8'),
@@ -43,7 +41,6 @@ const impact = classifyImpact(
   model,
   new Map([['src/delivery.ts', new Set(['web/main.tsx', 'src/entrypoints/sidepanel/main.tsx'])]]),
 );
-const { privateKey, publicKey } = generateKeyPairSync('ed25519');
 function decisionFixture() {
   const context = {
     repository: policy.repository,
@@ -100,16 +97,12 @@ function decisionFixture() {
   return {
     context,
     decision,
-    envelope: () => ({
-      decision,
-      signature: sign(null, Buffer.from(canonical(decision)), privateKey).toString('base64'),
-    }),
   };
 }
-test('honest fix requires model cases and signed independent regression-detecting evidence', () => {
+test('honest fix requires model cases and independent regression-detecting evidence', () => {
   assert.deepEqual(validateContract(body(change), impact, model), change);
   const fixture = decisionFixture();
-  assert.equal(validateDecision(fixture.envelope(), fixture.context, publicKey).decision, 'ACCEPT');
+  assert.equal(validateReview(fixture.decision, fixture.context).decision, 'ACCEPT');
 });
 test('docs-only change needs actual tooling links and explanation, no invented browser E2E', () => {
   const docs = classifyImpact(['docs/maintenance.md'], policy, model);
@@ -152,10 +145,7 @@ test('protected governance, execution hooks and renamed protected files cannot s
   const fixture = decisionFixture();
   fixture.context.impact = { ...impact, risk: 'protected' };
   fixture.decision.contextHash = digest(fixture.context);
-  assert.throws(
-    () => validateDecision(fixture.envelope(), fixture.context, publicKey),
-    /external approval/,
-  );
+  assert.throws(() => validateReview(fixture.decision, fixture.context), /external approval/);
 });
 test('fake visibility E2E and fixtures returning unconditional success are rejected', () => {
   for (const field of [
@@ -168,52 +158,16 @@ test('fake visibility E2E and fixtures returning unconditional success are rejec
   ]) {
     const fixture = decisionFixture();
     fixture.decision.adequacy[field] = false;
-    assert.throws(
-      () => validateDecision(fixture.envelope(), fixture.context, publicKey),
-      /adequacy/,
-    );
+    assert.throws(() => validateReview(fixture.decision, fixture.context), /adequacy/);
   }
   const fixture = decisionFixture();
   fixture.decision.probes[0].regression = 'passed';
-  assert.throws(
-    () => validateDecision(fixture.envelope(), fixture.context, publicKey),
-    /regression-detecting/,
-  );
+  assert.throws(() => validateReview(fixture.decision, fixture.context), /regression-detecting/);
 });
-test('unsigned or replayed ACCEPT and new pushes invalidate authority', () => {
+test('review records reject changed head or evidence and do not authenticate a reviewer', () => {
   const fixture = decisionFixture();
-  assert.throws(
-    () =>
-      validateDecision(
-        { decision: fixture.decision, signature: 'invalid' },
-        fixture.context,
-        publicKey,
-      ),
-    /signature/,
-  );
-  const envelope = fixture.envelope();
   fixture.context.headSha = base;
-  assert.throws(() => validateDecision(envelope, fixture.context, publicKey), /headSha mismatch/);
-});
-test('Dots outage uses bounded retries and never invents an ACCEPT', async () => {
-  let attempts = 0;
-  await assert.rejects(
-    requestDecision(
-      {},
-      {
-        endpoint: 'https://dots.example.test/accept',
-        token: 'fixture',
-        publicKey,
-        policy: { maxRetries: 2, retryDelaySeconds: 0 },
-        fetchImpl: async () => {
-          attempts++;
-          return { ok: false, status: 503 };
-        },
-      },
-    ),
-    /unavailable/,
-  );
-  assert.equal(attempts, 3);
+  assert.throws(() => validateReview(fixture.decision, fixture.context), /headSha mismatch/);
 });
 function evidenceFixture() {
   const directory = 'reports/assurance/1234-abcd';
@@ -317,266 +271,6 @@ test('artifact traversal is rejected', () => {
   ])
     assert.throws(() => safePath(path));
 });
-function gateFixture() {
-  const { context, decision } = decisionFixture();
-  const pinnedPolicy = { ...policy, acceptanceAppId: 91, mergeStrategy: 'merge-queue' };
-  return {
-    pr: {
-      state: 'open',
-      draft: false,
-      head: { sha },
-      base: { ref: 'main', sha: base, repo: { full_name: policy.repository } },
-      mergeable: true,
-      mergeable_state: 'clean',
-    },
-    context,
-    decision,
-    policy: pinnedPolicy,
-    appId: 91,
-    checks: policy.requiredChecks.map((name, id) => ({
-      id,
-      name,
-      head_sha: sha,
-      app: { id: name === 'Autonomy / acceptance' ? 91 : policy.ciAppId },
-      status: 'completed',
-      conclusion: 'success',
-    })),
-    protection: {
-      required_status_checks: {
-        strict: true,
-        checks: policy.requiredChecks.map((name) => ({
-          context: name,
-          app_id: name === 'Autonomy / acceptance' ? 91 : policy.ciAppId,
-        })),
-      },
-      enforce_admins: { enabled: true },
-      required_linear_history: { enabled: true },
-      allow_force_pushes: { enabled: false },
-      allow_deletions: { enabled: false },
-    },
-    rulesets: [
-      {
-        enforcement: 'active',
-        rules: [
-          { type: 'merge_queue', parameters: { max_entries_to_build: 1, max_entries_to_merge: 1 } },
-        ],
-      },
-    ],
-  };
-}
-test('personal protected auto-merge accepts current PR checks without a queue', () => {
-  const fixture = gateFixture();
-  fixture.policy.mergeStrategy = 'protected-auto-merge';
-  fixture.rulesets = [];
-  assert.deepEqual(mergeGate(fixture), { eligible: true, findings: [] });
-  for (const [code, mutate] of [
-    [
-      'CHECK_NOT_SUCCESS:',
-      (f) => {
-        f.checks = [];
-      },
-    ],
-    [
-      'UNPROTECTED_CHECK:',
-      (f) => {
-        f.protection.required_status_checks.checks = [];
-      },
-    ],
-    [
-      'BRANCH_PROTECTION_REQUIRED',
-      (f) => {
-        f.protection.required_status_checks.strict = false;
-      },
-    ],
-    [
-      'HEAD_OR_BASE_CHANGED',
-      (f) => {
-        f.pr.base.sha = sha;
-      },
-    ],
-    [
-      'MERGEABILITY_UNVERIFIED',
-      (f) => {
-        f.pr.mergeable_state = 'behind';
-        f.proposedAcceptance = true;
-      },
-    ],
-    [
-      'UNEXPECTED_MERGE_QUEUE',
-      (f) => {
-        f.rulesets = gateFixture().rulesets;
-      },
-    ],
-    [
-      'INTEGRATION_HEAD_NOT_ALLOWED',
-      (f) => {
-        f.context.headSha = base;
-        f.decision.headSha = base;
-        for (const check of f.checks) check.head_sha = base;
-      },
-    ],
-    [
-      'UNKNOWN_MERGE_STRATEGY',
-      (f) => {
-        delete f.policy.mergeStrategy;
-      },
-    ],
-    [
-      'UNKNOWN_MERGE_STRATEGY',
-      (f) => {
-        f.policy.mergeStrategy = 'auto';
-      },
-    ],
-    [
-      'MERGE_RULES_UNVERIFIED',
-      (f) => {
-        delete f.rulesets;
-      },
-    ],
-  ]) {
-    const changed = structuredClone(fixture);
-    mutate(changed);
-    const result = mergeGate(changed);
-    assert.equal(result.eligible, false, code);
-    assert.ok(
-      result.findings.some((finding) => finding.startsWith(code)),
-      code,
-    );
-  }
-});
-
-test('queue strategy requires a queue and accepts integration checks only at the exact SHA', () => {
-  const fixture = gateFixture();
-  fixture.rulesets = [];
-  assert.ok(mergeGate(fixture).findings.includes('MERGE_QUEUE_REQUIRED'));
-  fixture.rulesets = gateFixture().rulesets;
-  fixture.context.headSha = 'd'.repeat(40);
-  fixture.decision.headSha = fixture.context.headSha;
-  fixture.pr.mergeable_state = 'behind';
-  for (const check of fixture.checks) check.head_sha = fixture.context.headSha;
-  assert.equal(mergeGate(fixture).eligible, true);
-});
-
-test('normal accepted fix can request protected merge; queue synthetic SHA must have its own checks', () => {
-  const fixture = gateFixture();
-  assert.equal(mergeGate(fixture).eligible, true);
-  fixture.context.headSha = 'd'.repeat(40);
-  fixture.decision.headSha = fixture.context.headSha;
-  assert.equal(mergeGate(fixture).eligible, false);
-});
-test('missing protection, wrong App, changed head/base or policy blocks unattended merge', () => {
-  for (const mutate of [
-    (f) => {
-      f.protection = null;
-    },
-    (f) => {
-      f.appId = 1;
-    },
-    (f) => {
-      f.pr.head.sha = base;
-    },
-    (f) => {
-      f.pr.base.sha = sha;
-    },
-    (f) => {
-      f.decision.policyVersion = hash;
-    },
-    (f) => {
-      f.context.impact = {
-        ...impact,
-        risk: 'protected',
-        protectedFiles: ['tools/assurance/model.mjs'],
-      };
-    },
-  ]) {
-    const fixture = gateFixture();
-    mutate(fixture);
-    assert.equal(mergeGate(fixture).eligible, false);
-  }
-});
-
-test('queue batches and missing queue limits fail closed', () => {
-  for (const parameters of [
-    undefined,
-    {},
-    { max_entries_to_build: 2, max_entries_to_merge: 1 },
-    { max_entries_to_build: 1, max_entries_to_merge: 2 },
-  ]) {
-    const fixture = gateFixture();
-    fixture.rulesets[0].rules[0].parameters = parameters;
-    assert.equal(mergeGate(fixture).eligible, false);
-  }
-});
-test('expired acceptance, edited intent and unknown mergeability fail closed', () => {
-  for (const mutate of [
-    (f) => {
-      f.decision.expiresAt = new Date(0).toISOString();
-    },
-    (f) => {
-      f.pr.body = 'edited';
-    },
-    (f) => {
-      f.pr.mergeable = null;
-    },
-  ]) {
-    const fixture = gateFixture();
-    mutate(fixture);
-    assert.equal(mergeGate(fixture).eligible, false);
-  }
-});
-
-test('publication never writes success on blocked protection, stale final body or replaced queue', async () => {
-  for (const scenario of ['protection', 'body', 'queue', 'success', 'self-blocked']) {
-    const f = gateFixture();
-    const check = {
-      id: 10,
-      name: 'Autonomy / acceptance',
-      app: { id: 91 },
-      head_sha: sha,
-      status: 'in_progress',
-    };
-    const writes = [];
-    let reads = 0;
-    const github = {
-      async api(path, options) {
-        if (options) {
-          writes.push(options.body);
-          return {};
-        }
-        if (path.startsWith('/git/ref'))
-          return { object: { sha: scenario === 'queue' ? base : sha } };
-        reads++;
-        return { ...f.pr, ...(scenario === 'body' && reads === 2 ? { body: 'edited' } : {}) };
-      },
-    };
-    if (scenario === 'protection') f.protection = null;
-    if (scenario === 'self-blocked') f.pr.mergeable_state = 'blocked';
-    const execute = () =>
-      publishAcceptance({
-        ...f,
-        github,
-        number: 4,
-        check,
-        run: {
-          id: 42,
-          run_attempt: 1,
-          event: 'merge_group',
-          head_branch: 'gh-readonly-queue/main/pr-4',
-        },
-        summary: 'verified',
-      });
-    if (scenario === 'success' || scenario === 'self-blocked') {
-      await execute();
-      assert.equal(writes.length, 1);
-      assert.equal(writes[0].conclusion, 'success');
-      assert.equal(JSON.parse(writes[0].output.text).pr, 4);
-    } else {
-      await assert.rejects(execute);
-      assert.equal(writes.length, 0, scenario);
-    }
-  }
-});
-
 function performanceFixture() {
   const fixture = decisionFixture();
   const environment = {
@@ -639,10 +333,10 @@ function performanceFixture() {
   fixture.decision.contextHash = digest(fixture.context);
   return fixture;
 }
-test('perf ACCEPT requires signed review and actual comparable observed baseline evidence', () => {
+test('perf ACCEPT requires review and actual comparable observed baseline evidence', () => {
   const fixture = performanceFixture();
   assert.equal(validateContract(body(fixture.context.change), impact, model).type, 'perf');
-  assert.equal(validateDecision(fixture.envelope(), fixture.context, publicKey).decision, 'ACCEPT');
+  assert.equal(validateReview(fixture.decision, fixture.context).decision, 'ACCEPT');
   for (const mutate of [
     (f) => {
       f.decision.adequacy.performanceReviewed = false;
@@ -702,7 +396,7 @@ test('perf ACCEPT requires signed review and actual comparable observed baseline
     mutate(f);
     f.context.performanceBaseline.documentHash = digest(f.context.performanceBaseline.document);
     f.decision.contextHash = digest(f.context);
-    assert.throws(() => validateDecision(f.envelope(), f.context, publicKey));
+    assert.throws(() => validateReview(f.decision, f.context));
   }
 });
 test('perf contract rejects infinite, fractional, string and insufficient sample declarations', () => {
@@ -721,8 +415,7 @@ test('perf contract rejects infinite, fractional, string and insufficient sample
   assert.throws(() => validateContract(overflowingJson, impact, model), /representative samples/);
 });
 
-test('signed decision expiry cannot extend near-expired source evidence and revocation inherits its deadline', async () => {
-  const { acceptanceMetadata, revocationReason } = await import('./invalidate.mjs');
+test('review expiry cannot exceed authenticated evidence freshness', () => {
   const now = Date.parse('2026-06-01T12:00:00Z');
   const deadline = now + 60000;
   const fixture = decisionFixture();
@@ -730,52 +423,98 @@ test('signed decision expiry cannot extend near-expired source evidence and revo
   fixture.decision.issuedAt = new Date(now - 1000).toISOString();
   fixture.decision.expiresAt = new Date(deadline).toISOString();
   fixture.decision.contextHash = digest(fixture.context);
-  const validated = validateDecision(fixture.envelope(), fixture.context, publicKey, now);
-  assert.equal(validated.expiresAt, fixture.context.evidenceExpiresAt);
-  const metadata = acceptanceMetadata(fixture.context, validated, {
-    id: 42,
-    run_attempt: 1,
-    event: 'pull_request',
-  });
-  assert.equal(metadata.expiresAt, fixture.context.evidenceExpiresAt);
-  const configuredPolicy = { ...policy, acceptanceAppId: 91 };
-  const check = {
-    name: 'Autonomy / acceptance',
-    app: { id: 91 },
-    conclusion: 'success',
-    head_sha: fixture.context.headSha,
-  };
-  const pr = {
-    number: fixture.context.pr,
-    state: 'open',
-    draft: false,
-    head: { sha: fixture.context.prHeadSha },
-    base: {
-      ref: policy.baseBranch,
-      sha: fixture.context.baseSha,
-      repo: { full_name: policy.repository },
-    },
-    body: '',
-  };
-  assert.equal(revocationReason(check, metadata, pr, configuredPolicy, now), null);
   assert.equal(
-    revocationReason(check, metadata, pr, configuredPolicy, deadline),
-    'Acceptance expired',
+    validateReview(fixture.decision, fixture.context, now).expiresAt,
+    fixture.context.evidenceExpiresAt,
   );
-  for (const expires of [deadline + 1, now + 3600000, now + 23 * 3600000]) {
-    fixture.decision.expiresAt = new Date(expires).toISOString();
-    assert.throws(
-      () => validateDecision(fixture.envelope(), fixture.context, publicKey, now),
-      /evidence freshness deadline/,
-    );
-  }
-  fixture.decision.expiresAt = new Date(deadline).toISOString();
-  for (const expiresAt of [undefined, 'invalid', new Date(now).toISOString()]) {
-    fixture.context.evidenceExpiresAt = expiresAt;
-    fixture.decision.contextHash = digest(fixture.context);
-    assert.throws(
-      () => validateDecision(fixture.envelope(), fixture.context, publicKey, now),
-      /evidence freshness deadline/,
-    );
+  fixture.decision.expiresAt = new Date(deadline + 1).toISOString();
+  assert.throws(() => validateReview(fixture.decision, fixture.context, now), /freshness deadline/);
+});
+
+test('connected merge checklist binds fresh review, exact head/base, protected CI and policy', async () => {
+  const { mergeGate } = await import('./merge-gate.mjs');
+  const { context, decision: review } = decisionFixture();
+  context.body = 'Reviewed description';
+  review.contextHash = digest(context);
+  const input = {
+    context,
+    review,
+    policy,
+    pr: {
+      state: 'open',
+      draft: false,
+      body: context.body,
+      head: { sha },
+      base: { sha: base, ref: 'main', repo: { full_name: policy.repository } },
+      mergeable: true,
+      mergeable_state: 'clean',
+    },
+    checks: [
+      {
+        id: 1,
+        name: policy.ciJob,
+        head_sha: sha,
+        app: { id: policy.ciAppId },
+        status: 'completed',
+        conclusion: 'success',
+      },
+    ],
+    protection: {
+      required_status_checks: {
+        strict: true,
+        checks: [{ context: policy.ciJob, app_id: policy.ciAppId }],
+      },
+      enforce_admins: { enabled: true },
+      required_linear_history: { enabled: true },
+      allow_force_pushes: { enabled: false },
+      allow_deletions: { enabled: false },
+    },
+    rulesets: [],
+  };
+  assert.deepEqual(mergeGate(input), { eligible: true, findings: [] });
+  for (const mutate of [
+    (x) => {
+      x.pr.head.sha = base;
+    },
+    (x) => {
+      x.pr.base.sha = sha;
+    },
+    (x) => {
+      x.pr.body = 'Changed';
+    },
+    (x) => {
+      x.pr.mergeable = null;
+    },
+    (x) => {
+      x.review.expiresAt = new Date(0).toISOString();
+    },
+    (x) => {
+      x.review.adequacy.authoritativeOutcomes = false;
+    },
+    (x) => {
+      x.policy.version = 'different';
+    },
+    (x) => {
+      x.protection = null;
+    },
+    (x) => {
+      x.checks[0].app.id = 1;
+    },
+    (x) => {
+      x.checks[0].head_sha = base;
+    },
+    (x) => {
+      x.checks[0].conclusion = 'failure';
+    },
+    (x) => {
+      x.checks.push({ ...x.checks[0], id: 2, status: 'in_progress', conclusion: null });
+    },
+    (x) => {
+      x.context.impact.risk = 'protected';
+    },
+  ]) {
+    const x = structuredClone(input);
+    mutate(x);
+    assert.equal(mergeGate(x).eligible, false);
   }
 });

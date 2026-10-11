@@ -39,7 +39,7 @@
 
 ## UI evidence
 
-<!-- Describe the screens and states that changed. The bot uploads actual screenshots as GitHub attachments and embeds them here. Never commit screenshot images to Git. -->
+<!-- Describe the screens and states that changed. Provide real before/after captures bound to the exact commits. The connected assistant checks the images and their provenance. Never commit screenshot images to Git. -->
 
 <!-- autonomous-ui-evidence:start -->
 
