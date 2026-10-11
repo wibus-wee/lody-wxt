@@ -61,6 +61,16 @@ The local retirement check passed 112 autonomy, five assurance-tool and three re
 The attempted browser assurance and packaged extension build are also blocked by the unavailable pinned Runeicons checkout; no revised browser or coverage pass is claimed.
 Fresh CI must establish results for the revised model.
 
+CI run [38122249433](https://github.com/wibus-wee/lody-wxt/actions/runs/38122249433), at `f023575`, passed check/SDK/package/browser infrastructure and recorded 18 passing web scenarios, one touch-scroll failure and eight skipped scenarios; extension execution recorded 12 passes, one HTTP-capture timeout and three not run.
+Its generated `COVERAGE.md` was copied unchanged from the authenticated artifact: 26/38 model cases verified under source hash `067ab9a970b5`, with failures and missing evidence retained.
+That observation does not certify later source edits.
+Native-touch diagnostics against the unmodified CI-built extension verified both scroll directions; the new frame-paced native touch helper also passed against that extension and a minimal headless-shell fixture.
+Initial local capture reproduction passed both origins; repeated foreground audits exposed insufficient contrast in the waiting status, which now uses the existing primary text token.
+The long capture lifecycle has a bounded 60-second overall deadline, preserves per-assertion limits and foregrounds the panel for visual/axe checks.
+The extension input is the original CI artifact, not a local rebuild; the new status style still requires a fresh candidate build and rendered verification.
+Draft #6's shortcut-loading waits are included in the same CI repair so authorized shared entries cannot be omitted by an early snapshot.
+Local check again passed the tooling suites and stopped at the missing real generated-icon imports ([log](../../reports/autonomy/current-ci-repair-check.log)); full source execution remains unavailable locally.
+
 No protected-capture pilot, adversarial acceptance result, release publication or incident recovery is claimed.
 The observed manual CLI image upload validates native GitHub publication and the public download, not the deployed CI publisher.
 [RUNBOOK](./RUNBOOK.md) owns configuration and recovery; [GOVERNANCE](./GOVERNANCE.md) and [UI](./UI.md) retain freshness and native-fidelity limits.

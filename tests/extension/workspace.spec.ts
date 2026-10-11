@@ -83,6 +83,7 @@ test('built MV3 popup and options synchronize durable preferences through the se
     expect(backgroundState).toMatchObject({ mood: 'outline', ambient: true });
     await options.reload();
     await expect(ambient).toBeChecked();
+    await popup.bringToFront();
     const violations = (
       await new AxeBuilder({ page: popup }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()
     ).violations;

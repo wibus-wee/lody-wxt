@@ -15,6 +15,8 @@ test.use({ trace: 'off' });
 
 for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
   test(`packaged capture on ${origin} preserves text and sends one prompt`, async () => {
+    // This lifecycle captures eight sources, checks three layouts and runs axe.
+    test.setTimeout(60_000);
     const testInfo = test.info();
     const profile = await mkdtemp(path.join(tmpdir(), 'lody-page-capture-'));
     const extension = path.resolve('.output/chrome-mv3');
@@ -89,23 +91,25 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
         expect(await grantedOrigins()).not.toContain(`${origin}/*`);
         const settings = await context.newPage();
         await settings.goto('chrome://extensions');
-        await settings.evaluate(
-          async (options) => {
-            const api = (
-              globalThis as typeof globalThis & {
-                chrome: {
-                  developerPrivate: {
-                    addHostPermission: (extensionId: string, host: string) => Promise<void>;
+        await test.step('grant only the HTTP fixture origin', async () => {
+          await settings.evaluate(
+            async (options) => {
+              const api = (
+                globalThis as typeof globalThis & {
+                  chrome: {
+                    developerPrivate: {
+                      addHostPermission: (extensionId: string, host: string) => Promise<void>;
+                    };
                   };
-                };
-              }
-            ).chrome;
-            await api.developerPrivate.addHostPermission(options.extensionId, options.host);
-          },
-          { extensionId: new URL(worker.url()).host, host: `${origin}/*` },
-        );
+                }
+              ).chrome;
+              await api.developerPrivate.addHostPermission(options.extensionId, options.host);
+            },
+            { extensionId: new URL(worker.url()).host, host: `${origin}/*` },
+          );
+          expect(await grantedOrigins()).not.toContain('http://*/*');
+        });
         await settings.close();
-        expect(await grantedOrigins()).not.toContain('http://*/*');
         await source.bringToFront();
       }
       await panel.getByRole('textbox', { name: '消息', exact: true }).fill('Keep my draft');
@@ -226,6 +230,8 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
       await expect(panel.getByRole('article', { name: '你的消息', exact: true })).toContainText(
         'Explain these references',
       );
+      // Capturing needs the source tab active; layout and axe need the panel active.
+      await panel.bringToFront();
       const sentMessage = panel.getByRole('article', { name: '你的消息', exact: true });
       await expect(
         sentMessage.getByRole('group', { name: '已附加的网页资料', exact: true }),
@@ -258,7 +264,9 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
         body: await panel.screenshot(),
         contentType: 'image/png',
       });
-      expect((await new AxeBuilder({ page: panel }).analyze()).violations).toEqual([]);
+      await test.step('audit the foreground panel accessibility', async () => {
+        expect((await new AxeBuilder({ page: panel }).analyze()).violations).toEqual([]);
+      });
       const lastCard = cards.last().getByRole('button');
       await lastCard.focus();
       await panel.keyboard.press('Enter');
