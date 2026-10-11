@@ -18,6 +18,17 @@ Do not interpret missing events or unobserved CI completion as successful accept
 - Keep the existing strict GitHub protection, required PR Quality identity, code-owner approval and no-force-push controls. `pnpm autonomy:preflight` only inspects them. A denied API means unknown configuration.
 - Existing release-promotion/publication controls and release credentials are untouched. A release proposal is not an ordinary runtime PR and must follow [RELEASE.md](./RELEASE.md).
 
+## Preserved runtime and evidence fixes
+
+Node-only initialization sets `package-manager-cache: false`; jobs that explicitly cache pnpm install it first.
+CI keeps separate runs per commit instead of cancelling earlier evidence.
+`ASSURANCE_FAIL_FAST=1` stops later performance repetitions after a real web failure and stops the extension suite after its first failure; failures, skipped coverage and incomplete samples still block acceptance.
+Successful runs retain the complete journey and five-sample requirements.
+UI capture uses the real wall clock for installed extension pages because their RPC deadlines are checked by the service worker.
+Web captures retain their controlled clock.
+Failed matrix entries retain their identity, screenshot and trace when available, and still fail the run without producing a completed manifest.
+Runeicons clone remains explicitly denied; do not bypass that denial or replace missing generated icons.
+
 ## Each review
 
 Read the PR template and actual complete diff; labels and claimed scope cannot waive affected journeys. Check renames, implicit state owners and production entrypoints.

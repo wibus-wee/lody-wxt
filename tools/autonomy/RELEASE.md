@@ -125,7 +125,7 @@ Run the project checks and extension suite as required by AGENTS.md; a missing s
 
 ## Protected release intent and orchestration boundary
 
-The current policy marks `package.json`, lockfiles, release manifests/configuration, `.github/`, `tools/autonomy/` and the other build/governance files as protected. `validateDecision` refuses normal autonomous ACCEPT for elevated or protected changes, and `mergeGate` refuses protected merges.
+The current policy marks `package.json`, lockfiles, release manifests/configuration, `.github/`, `tools/autonomy/` and the other build/governance files as protected. `validateReview` refuses normal autonomous ACCEPT for elevated or protected changes, and `mergeGate` refuses protected merges.
 Release-please batches a proposal; it does not authorize a version bump, merge, tag or publication.
 The initial manifest is bookkeeping, not approval to publish the existing version.
 

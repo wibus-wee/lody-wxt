@@ -202,6 +202,13 @@ export function validateCapturePlans(
 }
 export const capturePlanHash = (plans, options) =>
   contentHash(canonical(validateCapturePlans(plans, options)));
+export async function configureCaptureClock(page, surface) {
+  // Extension RPC deadlines are checked by a real-time service worker. Keep
+  // the page on that same wall clock instead of moving it into the past.
+  if (surface === 'extension') return;
+  if (surface !== 'web') throw new Error('Unsupported capture clock surface');
+  await page.clock.install({ time: new Date('2026-06-01T12:00:00Z') });
+}
 export async function executeCaptureActions(page, plan, expect, urlFor) {
   for (const step of plan.actions) {
     if (step.action === 'navigate') {
@@ -610,6 +617,8 @@ export async function captureUI({
               const temporary = await mkdtemp(path.join(tmpdir(), 'lody-capture-'));
               let accountBoundary;
               let context;
+              let page;
+              const name = `${role}-${plan.surface}-${plan.entry ?? 'app'}-${plan.scenario}-${viewport.width}x${viewport.height}-${theme}`;
               try {
                 const settings = {
                   viewport,
@@ -658,6 +667,7 @@ export async function captureUI({
                 await new RuntimeBoundary({ modeOption: 'modeId' }).install(context);
                 await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
                 const setup = await context.newPage();
+                page = setup;
                 setup.setDefaultTimeout(10000);
                 const optionsUrl = plan.surface === 'extension' ? `${origin}/options.html` : origin;
                 await setup.goto(`${optionsUrl}/#/account`.replace('.html/#', '.html#'));
@@ -669,9 +679,9 @@ export async function captureUI({
                   .click();
                 await setup.keyboard.press('Escape');
                 await expect(setup.locator('main')).toHaveAttribute('data-theme', theme);
-                const page = plan.surface === 'extension' ? await context.newPage() : setup;
+                page = plan.surface === 'extension' ? await context.newPage() : setup;
                 page.setDefaultTimeout(10000);
-                await page.clock.install({ time: new Date('2026-06-01T12:00:00Z') });
+                await configureCaptureClock(page, plan.surface);
                 const urlFor = (route) => `${origin}/${entry}${route.slice(1)}`;
                 await page.goto(urlFor(plan.route));
                 await executeCaptureActions(page, plan, expect, urlFor);
@@ -693,7 +703,6 @@ export async function captureUI({
                     );
                 }
                 await page.evaluate(() => document.fonts.ready);
-                const name = `${role}-${plan.surface}-${plan.entry ?? 'app'}-${plan.scenario}-${viewport.width}x${viewport.height}-${theme}`;
                 const bytes = await page.screenshot({
                   path: path.join(output, `${name}.png`),
                   animations: 'disabled',
@@ -712,6 +721,33 @@ export async function captureUI({
                   contentHash: contentHash(bytes),
                 });
                 await context.tracing.stop({ path: path.join(output, `${name}.trace.zip`) });
+              } catch (error) {
+                const failure = {
+                  role,
+                  sha,
+                  surface: plan.surface,
+                  entry: plan.entry,
+                  scenario: plan.scenario,
+                  viewport,
+                  theme,
+                };
+                await writeFile(
+                  path.join(output, `${name}.failure.json`),
+                  `${JSON.stringify(failure, null, 2)}\n`,
+                ).catch((diagnosticError) =>
+                  console.error('Failure context unavailable:', diagnosticError),
+                );
+                await page
+                  ?.screenshot({ path: path.join(output, `${name}.failure.png`), timeout: 5000 })
+                  .catch((diagnosticError) =>
+                    console.error('Failure screenshot unavailable:', diagnosticError),
+                  );
+                await context?.tracing
+                  .stop({ path: path.join(output, `${name}.failure.trace.zip`) })
+                  .catch((diagnosticError) =>
+                    console.error('Failure trace unavailable:', diagnosticError),
+                  );
+                throw error;
               } finally {
                 await context?.close();
                 if (accountBoundary)

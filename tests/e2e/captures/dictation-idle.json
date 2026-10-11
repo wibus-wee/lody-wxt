@@ -1,0 +1,29 @@
+[
+  {
+    "surface": "web",
+    "route": "/#/",
+    "scenario": "dictation-idle-language",
+    "state": "Dictation language control visible before microphone consent",
+    "account": "signed-in",
+    "covers": ["src/features/voice/DictationDialog.tsx"],
+    "actions": [
+      { "action": "click", "role": "button", "name": "语音输入" },
+      { "action": "assertVisible", "role": "dialog", "name": "语音输入" },
+      { "action": "assertVisible", "role": "combobox", "name": "识别语言" }
+    ]
+  },
+  {
+    "surface": "extension",
+    "entry": "sidepanel",
+    "route": "/#/",
+    "scenario": "dictation-idle-language",
+    "state": "Dictation language control visible before microphone consent",
+    "account": "signed-in",
+    "covers": ["src/features/voice/DictationDialog.tsx"],
+    "actions": [
+      { "action": "click", "role": "button", "name": "语音输入" },
+      { "action": "assertVisible", "role": "dialog", "name": "语音输入" },
+      { "action": "assertVisible", "role": "combobox", "name": "识别语言" }
+    ]
+  }
+]

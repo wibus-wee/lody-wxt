@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import AxeBuilder from '@axe-core/playwright';
 import { Then, When } from '@cucumber/cucumber';
 import type { Page } from '@playwright/test';
-import { expect } from '@playwright/test';
 
+import { journeyExpect as expect } from '../../../tools/assurance/expect';
 import { armInteraction } from '../../../tools/assurance/interaction';
 import { longCommand } from '../../fixtures/assistant-work';
 import { RuntimeBoundary } from '../support/runtime-boundary';
