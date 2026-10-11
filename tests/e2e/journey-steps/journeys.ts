@@ -530,13 +530,13 @@ register('keep a question while changing theme and ambient policy', async (world
   });
   await trigger.click();
   world.evidence.interactions.push(await applied());
-  await world.page.getByRole('switch', { name: '氛围效果', exact: true }).click();
+  await world.page.getByRole('switch', { name: '背景动态效果', exact: true }).click();
   world.assertions = () =>
     world.evidence.check('preferences-propagate', async () => {
       await expect(world.otherPage!.locator('main')).toHaveAttribute('data-theme', 'dark');
       await expect(world.otherPage!.locator('main')).toHaveAttribute('data-mood', 'outline');
       await expect(
-        world.otherPage!.getByRole('switch', { name: '氛围效果', exact: true }),
+        world.otherPage!.getByRole('switch', { name: '背景动态效果', exact: true }),
       ).toBeChecked();
     });
 });
