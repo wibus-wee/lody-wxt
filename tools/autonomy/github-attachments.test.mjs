@@ -92,6 +92,59 @@ test('gh uploads verified PNGs as PR attachments, preserving author content and 
   await assert.rejects(access(dirname(calls[0][6])), { code: 'ENOENT' });
 });
 
+test('GitHub CDN redirects verify bytes without credentials while keeping the durable PR URL', async () => {
+  const { options, remote } = fixture(1);
+  const host = 'github-production-user-asset-6210df.s3.amazonaws.com';
+  options.policy.screenshot.allowedImageHosts.push(host);
+  const requests = [];
+  options.fetchImpl = async (url, settings) => {
+    requests.push(url.href);
+    assert.equal(settings.redirect, 'manual');
+    assert.equal(settings.credentials, 'omit');
+    assert.equal(settings.headers, undefined);
+    return url.hostname === 'github.com'
+      ? new Response(null, {
+          status: 302,
+          headers: { location: `https://${host}/fixture.png?signature=fixture` },
+        })
+      : new Response(bytes);
+  };
+  const [receipt] = await publishGitHubAttachments(options);
+  assert.equal(requests.length, 2);
+  assert.ok(receipt.url.startsWith('https://github.com/user-attachments/assets/'));
+  assert.ok(remote.body.includes(receipt.url));
+  assert.ok(!remote.body.includes('signature='));
+});
+
+test('repository/foreign redirects and redirect loops cannot authorize screenshot publication', async () => {
+  for (const location of [
+    'https://github.com/owner/repo/raw/main/image.png',
+    'https://raw.githubusercontent.com/owner/repo/main/image.png',
+    'https://attacker.example/image.png',
+    'http://github.com/user-attachments/assets/insecure',
+  ]) {
+    const { options } = fixture(1);
+    let requests = 0;
+    options.fetchImpl = async () => {
+      requests++;
+      return new Response(null, { status: 302, headers: { location } });
+    };
+    await assert.rejects(publishGitHubAttachments(options), /redirect host or path not allowed/);
+    assert.equal(requests, 1);
+  }
+  const { options } = fixture(1);
+  let requests = 0;
+  options.fetchImpl = async () => {
+    requests++;
+    return new Response(null, {
+      status: 302,
+      headers: { location: 'https://github.com/user-attachments/assets/loop' },
+    });
+  };
+  await assert.rejects(publishGitHubAttachments(options), /redirect limit/);
+  assert.equal(requests, 4);
+});
+
 test('merge-queue candidate identity is distinct from the current PR source head', async () => {
   const { options, calls } = fixture();
   options.headSha = 'd'.repeat(40);

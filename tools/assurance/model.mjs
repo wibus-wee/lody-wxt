@@ -103,7 +103,7 @@ export const model = {
       state: 'Text, attached page contexts, selected conversation and per-turn run configuration.',
       persistence: 'localStorage draft scoped by client.accountKey and conversation or new.',
       lifetime:
-        'Route hiding retains the mounted chat; selecting history switches draft; confirmed send clears it.',
+        'The selected conversation is retained in account-scoped sessionStorage; drafts remain scoped to that conversation or a new chat across reload; confirmed send clears the submitted draft.',
     },
     chatScroll: {
       source: ['src/features/chat/Chat.tsx', 'src/features/chat/use-transcript-scroll.ts'],
@@ -234,7 +234,7 @@ export const model = {
         'Popup/options/sidepanel/web surfaces, hash route and extension lifecycle registration.',
       persistence: 'Manifest and browser-installed side panel behavior.',
       lifetime:
-        'Popup delegates; sidepanel hosts quick chat; options hosts settings; advanced routes mount separate runtimes.',
+        'Popup delegates to the sidepanel; web and sidepanel retain mounted chat while account, settings or introduction is open; options hosts settings; conversation-management routes are unmounted.',
     },
   },
   namespaces: {
@@ -251,10 +251,10 @@ export const model = {
         'Closed-panel observation, terminal validation, deduplication and account isolation cross worker and browser permission lifetimes.',
     },
     sharing: {
-      disposition: 'journey',
+      disposition: 'unmounted-adapter',
       owners: ['sharing', 'connection', 'documents'],
       reason:
-        'Explicit public disclosure, delivery recovery and revocation cross different credential/data-plane boundaries.',
+        'ShareDialog and its publication adapters have no reachable mounted disclosure action; protocol checks do not establish a product sharing journey.',
     },
     privacy: {
       disposition: 'journey',
@@ -280,8 +280,8 @@ export const model = {
     },
     workspace: {
       disposition: 'journey',
-      owners: ['advanced', 'machine', 'documents'],
-      reason: 'Advanced commands, metadata management and destructive operations.',
+      owners: ['account', 'quickDraft', 'capture', 'documents', 'machine'],
+      reason: 'Mounted compact conversation actions edit, regenerate and fork retained history.',
     },
     pageContext: {
       disposition: 'journey',
@@ -416,41 +416,6 @@ export const model = {
             'navigation-bound-to-tab',
             'stale-foreground-cannot-cross-scope',
             'permission-and-account-isolation',
-          ],
-        },
-      ],
-    },
-    {
-      id: 'publish-recover-revoke',
-      namespace: 'sharing',
-      priority: 'P0',
-      intent:
-        'Review frozen public content, recover an interrupted upload without recapturing, then verify publication and revocation at authority.',
-      chain: ['sharing', 'connection', 'documents'],
-      cases: [
-        {
-          id: 'frozen-deployment',
-          lifecycle: [
-            'capture',
-            'preview',
-            'begin',
-            'upload-failure',
-            'reload',
-            'same-deployment-resume',
-            'published-query',
-            'revoke-query',
-          ],
-          states: [
-            'sharing:explicitly-confirmed',
-            'sharing:durable-deployment',
-            'documents:public-access-revoked',
-          ],
-          obligations: [
-            'frozen-preview-before-publication',
-            'workspace-credentials-excluded-from-public-data',
-            'same-bytes-secrets-and-request-on-resume',
-            'publication-confirmed-by-authority',
-            'revocation-confirmed-by-authority',
           ],
         },
       ],
@@ -732,7 +697,7 @@ export const model = {
       namespace: 'quickChat',
       priority: 'P0',
       intent:
-        'Choose a real target/configuration, send a first turn, observe a response, navigate away and continue through history.',
+        'Choose a real target/configuration, send a first turn, observe a response, visit settings and return to continue the same mounted conversation.',
       chain: [
         'account',
         'connection',
@@ -759,8 +724,8 @@ export const model = {
         },
         {
           id: 'configured',
-          interactions: ['send-feedback', 'first-response', 'history-open'],
-          lifecycle: ['create', 'send', 'stream', 'route-hide', 'history-open', 'continue'],
+          interactions: ['send-feedback', 'first-response'],
+          lifecycle: ['create', 'send', 'stream', 'route-hide', 'return', 'continue'],
           states: [
             'connection:capabilities-ready',
             'quickDraft:session-scoped',
@@ -832,7 +797,7 @@ export const model = {
           obligations: [
             'one-surface-claims-delivery',
             'other-surface-blocked',
-            'both-surfaces-observe-one-turn',
+            'authoritative-refresh-without-duplicate-send',
           ],
         },
         {
@@ -1030,56 +995,12 @@ export const model = {
       ],
     },
     {
-      id: 'manage-durable-conversation',
-      namespace: 'workspace',
-      priority: 'P1',
-      intent:
-        'Find a real conversation, rename/pin/archive it, reload, restore it and verify history continuity.',
-      chain: ['account', 'advanced', 'quickDraft', 'documents', 'shell'],
-      cases: [
-        {
-          id: 'quick-sidebar',
-          lifecycle: [
-            'draft',
-            'fulltext-search',
-            'rename',
-            'archive',
-            'reload',
-            'restore',
-            'export',
-          ],
-          states: [
-            'quickDraft:retained',
-            'documents:metadata-confirmed',
-            'documents:history-exported',
-          ],
-          obligations: [
-            'fulltext-finds-body-without-switching-session',
-            'sidebar-rename-and-archive-observed',
-            'sidebar-restores-same-history-after-reload',
-            'export-contains-original-history',
-            'diagnostic-export-excludes-content-and-credentials',
-          ],
-        },
-        {
-          id: 'archive-restore',
-          lifecycle: ['search', 'metadata-write', 'archive', 'reload', 'restore'],
-          states: ['documents:archived', 'advanced:history-retained'],
-          obligations: [
-            'metadata-survives-reload',
-            'archive-filter-is-consistent',
-            'restored-history-unchanged',
-          ],
-        },
-      ],
-    },
-    {
       id: 'edit-fork-and-delete',
       namespace: 'workspace',
       priority: 'P0',
       intent:
-        'Edit an owned turn, fork a completed response, preserve source history and delete only the intended fork after confirmation.',
-      chain: ['account', 'advanced', 'quickDraft', 'capture', 'documents', 'machine'],
+        'Edit an owned turn, regenerate it and fork a completed response while preserving source history and attached context across reload.',
+      chain: ['account', 'quickDraft', 'capture', 'documents', 'machine'],
       cases: [
         {
           id: 'quick-message-actions',
@@ -1090,52 +1011,6 @@ export const model = {
             'regenerate-reuses-edited-question-and-context',
             'fork-leaves-source-unchanged',
             'fork-restores-copied-context-after-reload',
-          ],
-        },
-        {
-          id: 'confirmed',
-          lifecycle: ['edit', 'fork', 'confirm-delete', 'reload'],
-          states: ['documents:source-retained', 'machine:fork-deleted'],
-          obligations: [
-            'edit-targets-owned-turn',
-            'fork-keeps-source-context',
-            'delete-target-only',
-            'deletion-persists-after-reload',
-          ],
-        },
-        {
-          id: 'delete-unconfirmed',
-          lifecycle: ['confirm-delete', 'failure', 'reload', 'reconcile'],
-          states: ['machine:delete-unconfirmed', 'advanced:error-visible'],
-          obligations: [
-            'delete-failure-visible',
-            'surviving-history-usable',
-            'reload-does-not-invent-deletion',
-          ],
-        },
-      ],
-    },
-    {
-      id: 'queue-steer-and-recover',
-      namespace: 'workspace',
-      priority: 'P0',
-      intent:
-        'Queue a reply while a turn is active, steer the exact active turn, lose confirmation, reload and recover without a second dispatch.',
-      chain: ['advanced', 'documents', 'machine'],
-      cases: [
-        {
-          id: 'ambiguous-guide',
-          lifecycle: ['queue', 'guide', 'failure', 'reload', 'reconcile'],
-          states: [
-            'machine:active-turn',
-            'advanced:journal-retained',
-            'documents:request-confirmed',
-          ],
-          obligations: [
-            'queue-not-dispatched-immediately',
-            'steer-targets-active-turn',
-            'journal-survives-reload',
-            'recovery-does-not-redispatch',
           ],
         },
       ],
@@ -1167,7 +1042,7 @@ export const model = {
       namespace: 'extension',
       priority: 'P0',
       intent:
-        'Authorize through worker transport, persist work, restart the extension/profile and resume trusted state; cancellation cannot become success.',
+        'Authorize through worker transport, preserve an unsent account-scoped NEW draft across extension/profile restart, recover shared background runtime and active-panel subscriptions after worker restart, and keep logout durable; cancellation cannot become success.',
       chain: ['shell', 'transport', 'account', 'connection', 'quickDraft', 'quickDelivery'],
       cases: [
         {
@@ -1235,14 +1110,6 @@ export const model = {
       end: 'Non-empty assistant response in the selected conversation viewport.',
       attribution: ['transport', 'document-sync', 'remote-agent', 'browser-main-thread'],
       workload: 'controlled remote reply; external agent time must be reported separately',
-    },
-    {
-      id: 'history-open',
-      journey: 'send-and-continue',
-      start: 'Trusted click on an existing conversation in history.',
-      end: 'Selected conversation history visible with its expected user turn.',
-      attribution: ['document-sync', 'browser-main-thread'],
-      workload: 'warm existing conversation with authored fixture history',
     },
     {
       id: 'recovery-confirmed',

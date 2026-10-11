@@ -9,7 +9,7 @@ import { armInteraction } from '../../../tools/assurance/interaction';
 import { longCommand } from '../../fixtures/assistant-work';
 import { RuntimeBoundary } from '../support/runtime-boundary';
 import type { JourneyWorld } from './world';
-import { ready, reopen, restored, submittedSession } from './world';
+import { ready, restored, selectFixtureConversation, submittedSession } from './world';
 
 const completedWorkLabel = /^(已完成工作|已工作 )/;
 
@@ -34,7 +34,7 @@ async function scope(page: Page) {
 }
 async function sendExisting(world: JourneyWorld) {
   await ready(world);
-  await reopen(world.page);
+  await selectFixtureConversation(world.page);
   await composer(world.page).fill(world.draft);
   await sendButton(world.page).click();
   await expect(userTurn(world.page, world.draft)).toHaveCount(1);
@@ -203,21 +203,12 @@ register('choose permission configuration and send my first question', async (wo
     );
   };
 });
-register('retain my session through settings and continue it from history', async (world) => {
+register('retain my session through settings and continue the same mounted chat', async (world) => {
   await world.page.getByRole('button', { name: 'Settings', exact: true }).click();
   await world.page.getByRole('button', { name: '返回对话', exact: true }).click();
   await world.evidence.check('route-preserves-session', () =>
     expect(userTurn(world.page, world.draft)).toHaveCount(1),
   );
-  await world.page.getByRole('button', { name: '新建会话', exact: true }).click();
-  await world.page.getByRole('button', { name: '会话列表', exact: true }).click();
-  const trigger = world.page.getByRole('button', { name: world.draft, exact: true });
-  const opened = await armInteraction(world.page, trigger, 'history-open', {
-    selector: 'article[aria-label="你的消息"]',
-    text: world.draft,
-  });
-  await trigger.click();
-  world.evidence.interactions.push(await opened());
   await composer(world.page).fill('Continue this exact conversation');
   await sendButton(world.page).click();
   world.assertions = () =>
@@ -338,7 +329,7 @@ register('visit settings and retry reading without replacing the corrupt record'
 register('start streaming while a separate surface logs out this device', async (world) => {
   await ready(world);
   await composer(world.page).fill(world.draft);
-  await reopen(world.page);
+  await selectFixtureConversation(world.page);
   await composer(world.page).fill('A turn before logout');
   await sendButton(world.page).click();
   await expect(userTurn(world.page, 'A turn before logout')).toHaveCount(1);
@@ -460,61 +451,6 @@ register(
       });
   },
 );
-register('find a conversation, rename and pin it, then archive it', async (world) => {
-  await ready(world);
-  await world.page.goto('http://127.0.0.1:4173/#/workspace');
-  await world.page.getByRole('button', { name: 'Historical conversation', exact: true }).click();
-  await world.page
-    .getByRole('textbox', { name: 'Title', exact: true })
-    .fill('Renamed durable conversation');
-  await world.page.getByRole('button', { name: 'Rename', exact: true }).click();
-  await expect(
-    world.page.getByRole('heading', { name: 'Renamed durable conversation' }),
-  ).toBeVisible();
-  await world.page.getByRole('button', { name: 'Pin', exact: true }).click();
-  await expect(world.page.getByRole('button', { name: 'Unpin', exact: true })).toBeVisible();
-  await world.page.getByRole('button', { name: 'Archive', exact: true }).click();
-  world.assertions = () =>
-    world.evidence.check('archive-filter-is-consistent', async () => {
-      await expect(
-        world.page
-          .getByRole('navigation', { name: 'Conversation list' })
-          .getByRole('button', { name: 'Renamed durable conversation', exact: true }),
-      ).toHaveCount(0);
-      await world.page.getByRole('switch', { name: 'Archived conversations' }).click();
-      await expect(
-        world.page.getByRole('button', { name: 'Renamed durable conversation', exact: true }),
-      ).toBeVisible();
-    });
-});
-register(
-  'reload the archived conversation, restore it and continue from its original history',
-  async (world) => {
-    await world.page.reload();
-    await world.page.getByRole('switch', { name: 'Archived conversations' }).click();
-    await world.page
-      .getByRole('button', { name: 'Renamed durable conversation', exact: true })
-      .click();
-    await world.evidence.check('metadata-survives-reload', async () => {
-      await expect(world.page.getByRole('button', { name: 'Unpin', exact: true })).toBeVisible();
-      await expect(world.page.getByRole('button', { name: 'Restore', exact: true })).toBeEnabled();
-    });
-    await world.page.getByRole('button', { name: 'Restore', exact: true }).click();
-    await world.page.getByRole('switch', { name: 'Archived conversations' }).click();
-    world.assertions = () =>
-      world.evidence.check('restored-history-unchanged', async () => {
-        await expect(
-          world.page.getByRole('button', { name: 'Renamed durable conversation', exact: true }),
-        ).toBeVisible();
-        await expect(
-          world.page.getByRole('article', { name: 'Conversation history' }),
-        ).toContainText('Previously asked question');
-        await expect(
-          world.page.getByRole('article', { name: 'Conversation history' }),
-        ).toContainText('Answer restored from real Loro snapshot');
-      });
-  },
-);
 register('keep a question while changing theme and ambient policy', async (world) => {
   await ready(world);
   await composer(world.page).fill(world.draft);
@@ -574,7 +510,7 @@ register('read a long streamed turn and inspect its grouped command details', as
   world.cloud = new RuntimeBoundary({ workHistory: { finished: false } });
   await world.cloud.install(world.context);
   await ready(world);
-  await reopen(world.page);
+  await selectFixtureConversation(world.page);
   await composer(world.page).fill(world.draft);
   world.assertions = async () => {
     await world.evidence.check('commentary-tool-order', async () => {
@@ -624,7 +560,6 @@ register(
     });
     await world.page.reload();
     await restored(world.page);
-    await reopen(world.page);
     world.assertions = () =>
       world.evidence.check('reload-keeps-complete-answer', async () => {
         await expect(
@@ -641,57 +576,6 @@ register(
   },
 );
 
-register('confirm deletion of a conversation while the machine write is denied', async (world) => {
-  await ready(world);
-  await world.page.goto('http://127.0.0.1:4173/#/workspace');
-  await world.page.getByRole('button', { name: 'Historical conversation', exact: true }).click();
-  await world.page.getByRole('textbox', { name: 'Message', exact: true }).fill(world.draft);
-  world.cloud.denyMachineWrites = true;
-  await world.page.getByRole('button', { name: 'Delete conversation', exact: true }).click();
-  await world.page.getByRole('button', { name: 'Confirm deletion', exact: true }).click();
-  world.assertions = async () => {
-    await world.evidence.check('delete-failure-visible', async () => {
-      await expect(world.page.getByRole('alert')).toContainText('Deletion was not confirmed.', {
-        timeout: 35_000,
-      });
-      expect(
-        world.cloud.deniedMachineWrites.some(
-          (payload) => payload.includes('deleteSession') && payload.includes('history-a'),
-        ),
-      ).toBe(true);
-    });
-    await world.evidence.check('surviving-history-usable', async () => {
-      await expect(world.page.getByRole('article', { name: 'Conversation history' })).toContainText(
-        'Answer restored from real Loro snapshot',
-      );
-      await expect(world.page.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue(
-        world.draft,
-      );
-      await expect(world.page.getByRole('button', { name: 'Send', exact: true })).toBeEnabled();
-    });
-  };
-});
-register(
-  'reload and reconcile surviving history without inventing remote deletion',
-  async (world) => {
-    await world.page.reload();
-    await world.page.getByRole('button', { name: 'Historical conversation', exact: true }).click();
-    await world.page
-      .getByRole('button', { name: 'Check delivery and refresh history', exact: true })
-      .click();
-    world.assertions = () =>
-      world.evidence.check('reload-does-not-invent-deletion', async () => {
-        await expect(
-          world.page.getByRole('article', { name: 'Conversation history' }),
-        ).toContainText('Answer restored from real Loro snapshot');
-        await expect(world.page.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue(
-          world.draft,
-        );
-        expect(world.cloud.document('history-a').getList('history').length).toBe(2);
-      });
-  },
-);
-
 register(
   'inspect partial command work, keep a next question and stop the real active turn',
   async (world) => {
@@ -699,7 +583,7 @@ register(
     world.cloud = new RuntimeBoundary({ workHistory: { finished: false } });
     await world.cloud.install(world.context);
     await ready(world);
-    await reopen(world.page);
+    await selectFixtureConversation(world.page);
     await composer(world.page).fill(world.draft);
     await world.evidence.check('live-work-inspected', async () => {
       await reply(world.page).getByRole('button', { name: '12 条命令', exact: true }).click();
@@ -737,7 +621,6 @@ register(
   async (world) => {
     await world.page.reload();
     await restored(world.page);
-    await reopen(world.page);
     await world.evidence.check('reload-keeps-stopped-work', async () => {
       await expect(reply(world.page)).toContainText('已停止 · 内容已保留');
       await expect(composer(world.page)).toHaveValue(world.draft);

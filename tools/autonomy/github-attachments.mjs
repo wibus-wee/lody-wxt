@@ -49,17 +49,31 @@ async function assertCurrent(github, pr, headSha, baseSha) {
   );
 }
 
-async function verifyImage(url, capture, policy, fetchImpl) {
-  const destination = new URL(url);
+export async function verifyGitHubAttachment(url, capture, policy, fetchImpl = fetch) {
+  let destination = new URL(url);
   assert.ok(
     isGitHubAttachment(destination) &&
       policy.screenshot.allowedImageHosts.includes(destination.hostname),
     'Screenshot must use a durable GitHub attachment, never a repository image',
   );
-  const response = await fetchImpl(destination, {
-    redirect: 'error',
-    signal: AbortSignal.timeout(30000),
-  });
+  const signal = AbortSignal.timeout(30000);
+  let response;
+  for (let redirects = 0; ; redirects++) {
+    response = await fetchImpl(destination, { redirect: 'manual', credentials: 'omit', signal });
+    if (![301, 302, 303, 307, 308].includes(response.status)) break;
+    await response.body?.cancel();
+    const location = response.headers.get('location');
+    assert.ok(redirects < 3 && location, 'GitHub attachment redirect limit or location invalid');
+    const next = new URL(location, destination);
+    const trusted = new URL(next);
+    // CDN signatures are transient download parameters; the PR keeps the durable original URL.
+    trusted.search = '';
+    assert.ok(
+      isGitHubAttachment(trusted) && policy.screenshot.allowedImageHosts.includes(next.hostname),
+      'GitHub attachment redirect host or path not allowed',
+    );
+    destination = next;
+  }
   assert.ok(response.ok, 'GitHub attachment is not viewable');
   const chunks = [];
   let length = 0;
@@ -198,7 +212,7 @@ export async function publishGitHubAttachments({
         const finish = restored.indexOf(')', begin + prefix.length);
         assert.ok(finish >= 0, 'Uploaded screenshot reference is malformed');
         const url = restored.slice(begin + prefix.length, finish);
-        await verifyImage(url, capture, policy, fetchImpl);
+        await verifyGitHubAttachment(url, capture, policy, fetchImpl);
         restored = `${restored.slice(0, begin)}${prefix}${path})${restored.slice(finish + 1)}`;
         batchReceipts.push({ path: capture.path, url, contentHash: capture.contentHash, label });
       }

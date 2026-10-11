@@ -113,8 +113,22 @@ test('packaged notifications observe verified terminal events with the panel clo
     await panel.goto(`chrome-extension://${new URL(worker.url()).host}/sidepanel.html`);
     await signIn(panel);
     await panel.getByRole('button', { name: 'Workspace', exact: true }).click();
-    await panel.getByRole('button', { name: '会话列表', exact: true }).click();
-    await panel.getByRole('button', { name: 'Historical conversation', exact: true }).click();
+    // Fixture setup only: mount an existing conversation without crediting a history journey.
+    await panel.evaluate(() => {
+      const scope = JSON.stringify([
+        JSON.stringify(['https://backend.lody.ai', 'lody-cli', 'user-a', 'workspace-a']),
+        'https://convex.lody.ai',
+      ]);
+      sessionStorage.setItem(`lody:chat-selection:${scope}`, 'history-a');
+    });
+    await panel.reload();
+    await expect(panel.getByRole('article', { name: '你的消息', exact: true })).toContainText(
+      'Previously asked question',
+    );
+    await test.info().attach('tracking-selection-baseline', {
+      body: 'Per-surface sessionStorage selection is explicitly seeded as fixture setup before enabling notifications. Tracking, verified terminal observation and subsequent notification navigation use production behavior. Opening history receives no user journey credit.',
+      contentType: 'text/plain',
+    });
     await expect.poll(async () => (await state(worker)).tracked['history-a']).toBeGreaterThan(0);
     await panel.getByRole('button', { name: 'Settings', exact: true }).click();
     await panel.getByRole('switch', { name: '会话完成或需要处理时通知我', exact: true }).click();

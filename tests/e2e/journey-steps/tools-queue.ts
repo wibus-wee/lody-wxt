@@ -2,7 +2,7 @@ import { When } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
 
 import type { JourneyWorld } from './world';
-import { ready, reopen, restored } from './world';
+import { ready, restored, selectFixtureConversation } from './world';
 
 const skillName = /Page research/;
 
@@ -10,7 +10,7 @@ When(
   'I select a real skill and connectors before explicitly sending',
   async function (this: JourneyWorld) {
     await ready(this);
-    await reopen(this.page);
+    await selectFixtureConversation(this.page);
     this.sessionId = 'history-a';
     await this.page.getByRole('textbox', { name: '消息', exact: true }).fill(this.draft);
     await this.page.getByRole('button', { name: '选择工具' }).click();
@@ -67,7 +67,6 @@ When(
     });
     await this.page.reload();
     await restored(this.page);
-    await reopen(this.page);
     this.assertions = () =>
       this.evidence.check('reload-retains-queue-without-extra-turn', async () => {
         await this.page
