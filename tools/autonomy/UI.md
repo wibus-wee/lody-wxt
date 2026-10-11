@@ -126,7 +126,9 @@ Receipts establish consistency within the pipeline, while protected workflow aut
 
 Publication credentials, runtime `gh pr edit --attach --body-file` support, bounded batches, read-back/download verification and partial-upload recovery are specified once in [RUNBOOK: Evidence and images](./RUNBOOK.md#evidence-and-images).
 Artifacts alone are not inline publication; images must remain outside Git.
-The direct uploader still needs a real remote pilot.
+A manual native CLI upload and public byte-hash check completed on [PR #6](https://github.com/wibus-wee/lody-wxt/pull/6); coordinated protected capture/publication still needs a real pilot.
+Attachment downloads follow at most three HTTPS redirects to protected allowlisted attachment hosts, omit credentials and retain the durable original URL in the PR.
+Transient CDN query signatures are used only while downloading; repository-image redirects remain rejected.
 
 `validateScreenshotManifest` checks pairing and metadata.
 Its strict options include `headSha`, `baseSha`, `body`, `impact`, `policy`, `readArtifact`, `publishedAssets` and optional `requiredSurfaces`.
