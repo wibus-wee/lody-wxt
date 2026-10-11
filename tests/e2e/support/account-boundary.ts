@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 
 import type { BrowserContext, Page, Route } from '@playwright/test';
-import { expect } from '@playwright/test';
+
+import { journeyExpect as expect } from '../../../tools/assurance/expect';
 export const authOrigin = 'https://backend.lody.ai';
 const testToken = 'controlled-browser-token';
 

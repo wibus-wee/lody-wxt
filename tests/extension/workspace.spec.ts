@@ -14,6 +14,7 @@ test('built MV3 popup and options synchronize durable preferences through the se
     context = await chromium.launchPersistentContext(profile, {
       channel: 'chromium',
       headless: true,
+      reducedMotion: 'reduce',
       args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
     });
     const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
