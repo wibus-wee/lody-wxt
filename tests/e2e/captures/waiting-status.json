@@ -1,0 +1,49 @@
+[
+  {
+    "surface": "web",
+    "route": "/#/",
+    "scenario": "waiting-status-contrast",
+    "state": "Submitted question with the waiting-for-assistant status visible before a remote reply",
+    "account": "signed-in",
+    "covers": ["src/shared/ui/ActivityStatus.tsx"],
+    "actions": [
+      {
+        "action": "fill",
+        "role": "textbox",
+        "name": "消息",
+        "value": "Review the captured references"
+      },
+      { "action": "click", "role": "button", "name": "发送消息" },
+      {
+        "action": "assertText",
+        "role": "region",
+        "name": "消息记录",
+        "value": "Review the captured references"
+      }
+    ]
+  },
+  {
+    "surface": "extension",
+    "entry": "sidepanel",
+    "route": "/#/",
+    "scenario": "waiting-status-contrast",
+    "state": "Submitted question with the waiting-for-assistant status visible before a remote reply",
+    "account": "signed-in",
+    "covers": ["src/shared/ui/ActivityStatus.tsx"],
+    "actions": [
+      {
+        "action": "fill",
+        "role": "textbox",
+        "name": "消息",
+        "value": "Review the captured references"
+      },
+      { "action": "click", "role": "button", "name": "发送消息" },
+      {
+        "action": "assertText",
+        "role": "region",
+        "name": "消息记录",
+        "value": "Review the captured references"
+      }
+    ]
+  }
+]
