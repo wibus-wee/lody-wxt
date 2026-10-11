@@ -33,7 +33,6 @@ test('suspected credential diff escalates before external review or screenshot p
   t.mock.method(GitHub.prototype, 'api', async (path, options) => {
     if (options) {
       writes.push({ path, body: options.body });
-      if (path === '/check-runs') return { id: 101, app: { id: policy.acceptanceAppId } };
       return {};
     }
     if (path === '/actions/runs/42')
@@ -57,25 +56,24 @@ test('suspected credential diff escalates before external review or screenshot p
     if (path.startsWith('/git/commits/')) return { tree: { sha: head } };
     throw new Error(`Unexpected request: ${path}`);
   });
-  await orchestrate({
+  const outcome = await orchestrate({
     GITHUB_REPOSITORY: policy.repository,
     GH_TOKEN: 'fixture',
     AUTONOMY_RUN_ID: '42',
-    AUTONOMY_BOT_LOGIN: 'fixture-bot',
   });
   assert.equal(external.mock.callCount(), 0);
   assert.equal(process.exitCode, 1);
-  const emitted = JSON.stringify(writes);
+  assert.deepEqual(writes, []);
+  const emitted = JSON.stringify(outcome);
   assert.ok(!emitted.includes(credential));
   assert.ok(!emitted.includes('const token'));
   assert.ok(emitted.includes('ESCALATE'));
   assert.ok(emitted.includes('GITHUB_TOKEN'));
   assert.ok(emitted.includes('fingerprint'));
-  assert.ok(writes.some((write) => write.body.conclusion === 'failure'));
   assert.ok(!writes.some((write) => write.body.conclusion === 'success'));
 });
 
-test('stale candidate CI definition blocks evidence, Dots and publication with an actionable rebase', async (t) => {
+test('stale candidate CI definition blocks evidence, Remote writes with an actionable rebase', async (t) => {
   const rawPolicy = await readFile(
     new URL('../../.github/autonomous-maintenance-policy.yml', import.meta.url),
     'utf8',
@@ -90,7 +88,7 @@ test('stale candidate CI definition blocks evidence, Dots and publication with a
     process.exitCode = exitCode;
   });
   const external = t.mock.method(globalThis, 'fetch', () => {
-    throw new Error('Dots and publication must not run for stale CI definitions');
+    throw new Error('Remote writes must not run for stale CI definitions');
   });
   const artifacts = t.mock.method(GitHub.prototype, 'artifact', async () => {
     throw new Error('Evidence must not be consumed before workflow authentication');
@@ -110,7 +108,6 @@ test('stale candidate CI definition blocks evidence, Dots and publication with a
   t.mock.method(GitHub.prototype, 'api', async (path, options) => {
     if (options) {
       writes.push({ path, body: options.body });
-      if (path === '/check-runs') return { id: 101, app: { id: policy.acceptanceAppId } };
       return {};
     }
     if (path === '/actions/runs/42')
@@ -134,11 +131,10 @@ test('stale candidate CI definition blocks evidence, Dots and publication with a
     if (path.startsWith('/git/commits/')) return { tree: { sha: head } };
     throw new Error(`Unexpected API: ${path}`);
   });
-  await orchestrate({
+  const outcome = await orchestrate({
     GITHUB_REPOSITORY: policy.repository,
     GH_TOKEN: 'fixture',
     AUTONOMY_RUN_ID: '42',
-    AUTONOMY_BOT_LOGIN: 'fixture-bot',
   });
   assert.equal(process.exitCode, 1);
   assert.equal(external.mock.callCount(), 0);
@@ -150,10 +146,10 @@ test('stale candidate CI definition blocks evidence, Dots and publication with a
       { path: policy.ciWorkflow, ref: base },
     ],
   );
-  assert.ok(writes.some(({ body }) => body.conclusion === 'failure'));
+  assert.deepEqual(writes, []);
   assert.ok(!writes.some(({ body }) => body.conclusion === 'success'));
   assert.ok(!writes.some(({ path }) => path === '/pulls/4'));
-  assert.match(JSON.stringify(writes), /rebase onto current main and rerun PR Quality/);
+  assert.match(JSON.stringify(outcome), /rebase onto current main and rerun PR Quality/);
   assert.ok(!JSON.stringify(writes).includes('name: stale contributor workflow'));
   assert.ok(!JSON.stringify(writes).includes('name: current protected workflow'));
 });

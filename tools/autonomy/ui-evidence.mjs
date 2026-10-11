@@ -1,13 +1,9 @@
 import assert from 'node:assert/strict';
+import { Buffer } from 'node:buffer';
 
 import { capturePlanHash, validateCapturePlans } from './capture-ui.mjs';
 import { boundedJSON, digest, hashPattern, safePath, shaPattern } from './common.mjs';
-import { publishGitHubAttachments } from './github-attachments.mjs';
-import {
-  updateUiEvidence,
-  validateScreenshotManifest,
-  verifyTrustedCapture,
-} from './screenshot-manifest.mjs';
+import { validateScreenshotManifest, verifyTrustedCapture } from './screenshot-manifest.mjs';
 
 const directory = 'reports/autonomy/screenshots';
 export function verifyUiBuildReceipts(manifest, { readArtifact, headSha, baseSha, sourceTrees }) {
@@ -51,12 +47,9 @@ export function verifyUiBuildReceipts(manifest, { readArtifact, headSha, baseSha
 
 export async function validateUiEvidence({
   readArtifact,
-  github,
-  pr,
   headSha,
   baseSha,
   policy,
-  env,
   requiredSurfaces,
   runUrl,
   sourceTrees,
@@ -64,8 +57,6 @@ export async function validateUiEvidence({
   capturePlans,
   changedPaths,
   requiredPaths,
-  fetchImpl = fetch,
-  runCommand,
 }) {
   const manifest = boundedJSON(readArtifact(`${directory}/manifest.json`).toString('utf8'));
   const plans = validateCapturePlans(capturePlans, {
@@ -147,47 +138,19 @@ export async function validateUiEvidence({
         assert.ok(entries.has(`${plan.entry}.html`), 'Declared installed extension entry missing');
       builds[role].extensionInventoryHash = digest(receipt.extensionFiles);
     }
-  const publishedAssets = await publishGitHubAttachments({
-    captures: manifest.captures,
-    readArtifact: (path) => readArtifact(`${directory}/${path}`),
-    github,
-    pr,
-    headSha,
-    baseSha,
-    policy,
-    token: env.AUTONOMY_IMAGE_TOKEN,
-    fetchImpl,
-    runCommand,
-  });
-  for (const capture of manifest.captures)
-    capture.url = publishedAssets.find((asset) => asset.path === capture.path).url;
-  const options = {
-    headSha,
-    baseSha,
-    requiredSurfaces,
-    runUrl,
-    policy,
-    impact: { ui: true },
-    publishedAssets,
-    readArtifact: (path) => readArtifact(`${directory}/${path}`),
-  };
-  const update = updateUiEvidence(pr.body ?? '', manifest, options);
-  const fresh = await github.api(`/pulls/${pr.number}`);
-  assert.equal(fresh.head.sha, pr.head.sha, 'Head changed during screenshot publication');
-  assert.equal(fresh.base.sha, baseSha, 'Base changed during screenshot publication');
-  assert.equal(
-    fresh.body,
-    pr.body,
-    'PR body changed concurrently; retry without overwriting author content',
-  );
-  if (update.changed)
-    await github.api(`/pulls/${pr.number}`, { method: 'PATCH', body: { body: update.body } });
-  pr.body = update.body;
-  validateScreenshotManifest(manifest, { ...options, body: pr.body });
+  for (const capture of manifest.captures) {
+    const bytes = readArtifact(`${directory}/${safePath(capture.path)}`);
+    assert.equal(digest(bytes), capture.contentHash, 'Screenshot bytes differ from manifest');
+    assert.ok(
+      bytes.length >= 8 &&
+        bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])),
+      'Expected real PNG screenshot',
+    );
+  }
   return {
     applicable: true,
     manifest,
-    publishedAssets,
+    publication: 'pending-assistant-review',
     builds,
     trustedCapture,
     capturePlans: plans,

@@ -1,0 +1,49 @@
+name: PR Review Context
+on:
+  workflow_run:
+    workflows: [PR Quality, PR UI Evidence]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Exact completed PR Quality run
+        type: string
+        required: true
+      capture_run_id:
+        description: Matching PR UI Evidence run when applicable
+        type: string
+        required: false
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+concurrency:
+  group: review-context-${{ github.event.workflow_run.head_branch || inputs.run_id }}
+  cancel-in-progress: false
+jobs:
+  context:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.event == 'pull_request' || github.event.workflow_run.event == 'merge_group' || github.event.workflow_run.name == 'PR UI Evidence')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          package-manager-cache: false
+      # No candidate checkout, dependency hooks, repository writes or external reviewer service.
+      - name: Prepare authenticated evidence for the assistant
+        run: node tools/autonomy/cli.mjs review
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTONOMY_RUN_ID: ${{ inputs.run_id || (github.event.workflow_run.name == 'PR Quality' && github.event.workflow_run.id) || '' }}
+          AUTONOMY_CAPTURE_RUN_ID: ${{ inputs.capture_run_id || (github.event.workflow_run.name == 'PR UI Evidence' && github.event.workflow_run.id) || '' }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: review-context-${{ inputs.run_id || github.event.workflow_run.id }}-${{ github.run_attempt }}
+          path: reports/autonomy/
+          if-no-files-found: error

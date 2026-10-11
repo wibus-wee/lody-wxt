@@ -1,43 +1,33 @@
-# Autonomous repository maintenance
+# Assistant-maintained pull requests
 
-Automation combines real application evidence, signed independent Dots review and deterministic policy checks before requesting a protected merge.
-Separate workflows approve immutable releases and monitor the installed download.
-**Unattended operation is not installed or verified.**
-See the [validation record](./VALIDATION.md) for observed results and blockers.
+Dots means the connected personal assistant, not a separately hosted reviewer API.
+The assistant watches PR changes, inspects code, real test results and screenshots, and merges only the exact reviewed revision after all requirements pass.
+No additional signing service or acceptance GitHub App is needed.
 
-```mermaid
-flowchart TD
-    PR[Open a PR] --> TEST[Real application checks]
-    TEST -->|Fail| PR
-    TEST -->|Pass| REVIEW[Independent signed acceptance]
-    REVIEW -->|Revise| PR
-    REVIEW -->|Elevated risk| HUMAN[External protected review]
-    REVIEW -->|Accept| MERGE[Protected merge]
-    MERGE --> RELEASE[Separate immutable release approval]
-    RELEASE --> MONITOR[Installed-download monitor]
-    MONITOR -->|Incident| PR
-```
+1. Describe the user-visible outcome and failure/recovery behavior in the [PR template](../../.github/PULL_REQUEST_TEMPLATE.md).
+2. PR Quality runs real browser and packaged-extension journeys and publishes immutable evidence for its exact head and attempt.
+   Failures and skipped coverage remain visible.
+3. PR UI Evidence captures applicable before/candidate screens.
+   The assistant must view the actual images and verify the source commit, plans, raw bytes and affected states; an artifact link alone is not acceptance.
+4. PR Review Context authenticates evidence using read-only GitHub access and produces a PENDING packet.
+   It does not call a model service, post acceptance, approve a PR or merge.
+5. The assistant independently reviews the packet and raw evidence, publishes verified screenshots through its existing authorized GitHub connection when needed, and rechecks the latest head, base, description, policy and required checks immediately before requesting a protected merge.
 
-1. Describe the outcome, change type, affected areas and model journeys in the [PR template](../../.github/PULL_REQUEST_TEMPLATE.md).
-2. Update real browser/extension journeys for behavior changes using the [assurance model](../assurance/README.md).
-3. For UI changes, link a [capture plan](./UI.md); trusted capture produces current-SHA before/candidate images and the publisher embeds GitHub attachments in the PR body.
-   Keep PNGs in ignored reports and CI artifacts, never Git.
-4. Fix failed checks or independent review findings; unavailable services, stale evidence and missing validators block acceptance.
+A green context-preparation job proves only that evidence was assembled.
+It is not an acceptance check.
+The event subscription belongs to the assistant and must be configured separately; deploying these files does not install it.
+New commits invalidate old reviews.
+Missing evidence, unknown protection, failed checks and unresolved findings block merging.
+Protected workflow/policy changes require approval outside the change.
+Release publication remains a separate transaction.
 
-Plain Markdown changes need genuine documentation checks and an explanation of why browser/UI evidence is inapplicable.
-Actual diff classification determines obligations; labels cannot waive them.
-Contributors write Markdown, not JSON dumps, in the primary PR flow.
-See [example bodies and adversarial pilots](./examples/README.md).
+- [Operations and migration](./RUNBOOK.md)
+- [Review authority and freshness](./GOVERNANCE.md)
+- [UI evidence](./UI.md)
+- [Regression probes](./PROBES.md)
+- [Release controls](./RELEASE.md)
+- [Verification design](./VERIFICATION-DESIGN.md)
+- [Historical validation and current limits](./VALIDATION.md)
 
-| Task                                                          | Guide                                           |
-| ------------------------------------------------------------- | ----------------------------------------------- |
-| Install services, credentials, protection or recover failures | [RUNBOOK](./RUNBOOK.md)                         |
-| Understand merge authority and freshness limits               | [Governance](./GOVERNANCE.md)                   |
-| Declare capture plans and consume screenshot interfaces       | [UI evidence](./UI.md)                          |
-| Run controlled behavioral regressions                         | [Probes](./PROBES.md)                           |
-| Operate tags, publication and incidents                       | [Releases](./RELEASE.md)                        |
-| Understand evidence design                                    | [Verification design](./VERIFICATION-DESIGN.md) |
-
-Start installation with `pnpm autonomy:preflight`.
-The personal-repository default is protected auto-merge; Merge Queue is optional for eligible repositories.
-Neither green tooling tests nor enabled repository auto-merge proves live enforcement.
+Use `pnpm autonomy:preflight` for read-only repository configuration inspection.
+Do not infer full unattended operation from passing tooling fixtures or repository auto-merge being enabled.

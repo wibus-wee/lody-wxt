@@ -1,27 +1,30 @@
-# Trusted acceptance deployment requirements
+# Connected assistant review
 
-The `autonomy` environment MUST store the App private key and Dots/image secrets as environment secrets, with custom deployment branch rules permitting only the branch `main` (no tags or other branches).
-Do not also install these credentials as repository or organization secrets available to candidate workflows.
-The App installation must be limited to this repository and necessary permissions.
-YAML ref guards alone cannot secure a branch that can modify its own workflow.
+The repository supplies evidence.
+The assistant supplies independent judgment and uses its existing authorized GitHub connection to act.
+There is no reviewer HTTP endpoint, private signing key, dedicated acceptance App or synthetic acceptance check.
+A JSON review record, artifact, label, PR description or contributor comment cannot authorize a merge.
+`validateReview` checks record consistency only; `mergeGate` is a read-only checklist, not an execution or authentication boundary.
 
-Acceptance and revocation check out protected main and require its commit to equal the workflow source SHA before provisioning the App token.
-Main advancing before checkout fails closed; rerun from the current snapshot.
+PR jobs have read-only tokens and no release or repository-write secrets.
+Context preparation reads the protected workflow snapshot and does not install or run candidate dependencies.
+Candidate fixtures and reports are untrusted data.
+The assistant inspects the actual production entrypoints, assertions, failure paths and independent fail-before/pass-after or mutation evidence.
+UI changes need actual before/candidate images for the affected states, not generic screenshots or links that were never opened.
 
-The current policy uses `mergeStrategy: protected-auto-merge`, supported on personal repositories.
-It requires strict source-head checks, an up-to-date base, exact PR/source candidate identity and no active queue.
-If policy explicitly selects `merge-queue`, the active main queue rule MUST set both `max_entries_to_build` and `max_entries_to_merge` to 1 and revalidate the integration SHA.
-Unknown or missing strategies fail closed.
-Acceptance rejects ambiguous/multiple PR associations and publishes success only after all deterministic checks pass.
+Before merging, re-fetch the open non-draft PR, exact source and base SHAs, body, current policy, unresolved review findings and all required checks with their GitHub identities.
+Require up-to-date integration, complete applicable evidence, no unresolved blockers and approval for protected/elevated scope.
+Use GitHub's protected merge operation with the exact expected head; never force-push a merge, bypass branch rules or manufacture passing check results.
+New head/base/body/policy invalidates the review.
+Evidence may not outlive the policy age limit.
+An assistant review must not be converted into unattended queued auto-merge that can execute later without fresh verification.
 
-App-owned acceptance check output records expiry, PR/body/base/head/policy identity and the verified signed decision context hash.
-The revoker accepts metadata only from checks owned by the pinned App; it never consumes author-provided metadata or writes success.
-It revokes on PR edits/synchronization/closure/draft changes, main pushes, and scheduled expiry sweeps.
-Existing green checks without metadata are revoked.
+The default policy retains strict protected source-head checks; configured merge queues require their own exact integration checks.
+There is a non-atomic interval between reads and a merge request.
+The expected-head guard protects the source revision, while GitHub's strict checks protect base integration.
+Do not claim zero-window atomic review of every metadata field.
+Unknown rules or inaccessible protection metadata is a blocker, not proof that rules are absent.
 
-GitHub checks have no native expiry and Actions event/schedule delivery is asynchronous.
-Five-minute cron is not a maximum delay: scheduler delays, outages, missing credentials or API errors can leave an expired green check visible until a successful sweep.
-PR edits and publication are not atomic with GitHub queue merging.
-Strict zero-window freshness requires a platform merge-time enforcement mechanism; this implementation cannot guarantee it.
-A successful queue check may merge before revocation executes.
-Keep unattended merges disabled where that guarantee is required.
+The owner must explicitly approve any necessary GitHub security-setting migration.
+Editing repository policy does not install or remove remote branch rules.
+Release promotion, publication approvals and immutable asset verification are unchanged by PR review.

@@ -4,13 +4,11 @@
   "baseBranch": "main",
   "mergeStrategy": "protected-auto-merge",
   "requiredChecks": [
-    "PR Quality / verify",
-    "Autonomy / acceptance"
+    "PR Quality / verify"
   ],
   "ciWorkflow": ".github/workflows/pr-quality.yml",
   "ciJob": "PR Quality / verify",
   "ciAppId": 15368,
-  "acceptanceAppId": null,
   "strictP0": true,
   "maxEvidenceAgeHours": 24,
   "maxReviewCycles": 3,
@@ -88,5 +86,6 @@
     "retryLimit": 2,
     "cooldownHours": 24,
     "closeOnlyInstalledVerified": true
-  }
+  },
+  "reviewer": "connected-assistant"
 }

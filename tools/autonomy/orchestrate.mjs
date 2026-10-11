@@ -4,7 +4,6 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import process from 'node:process';
 
 import { model } from '../assurance/model.mjs';
-import { requestDecision } from './acceptance.mjs';
 import { readArchive } from './archive.mjs';
 import { capturePlanHash, computeTrustedFixtureHash, validateCapturePlans } from './capture-ui.mjs';
 import { boundedJSON, digest, parsePolicy, shaPattern } from './common.mjs';
@@ -13,14 +12,9 @@ import { verifyEvidence } from './evidence.mjs';
 import { GitHub } from './github.mjs';
 import { classifyImpact } from './impact.mjs';
 import { loadImpactGraph } from './impact-graph.mjs';
-import { publishAcceptance } from './merge-gate.mjs';
 import { createReviewPacket, renderReviewPacket } from './review-packet.mjs';
 import { scanDiffSecrets } from './secrets.mjs';
-import { markUiStale } from './ui-evidence.mjs';
 
-const whitespace = /\s+/g;
-const contextsMarker = /<!-- contexts:([a-f0-9,]+) -->/;
-const marker = '<!-- autonomous-acceptance:v1 -->';
 const captureWorkflow = '.github/workflows/pr-evidence.yml';
 const captureArtifactName = /^autonomy-ui-([a-f0-9]{40})-([1-9]\d*)-([1-9]\d*)-([1-9]\d*)$/;
 
@@ -185,10 +179,9 @@ export async function orchestrate(env = process.env) {
   assert.ok(['pull_request', 'merge_group'].includes(run.event));
   assert.ok(shaPattern.test(run.head_sha));
   const associatedPr = await resolveRunPullRequest(github, run, policy);
-  await evaluate(associatedPr.number);
+  return evaluate(associatedPr.number);
 
   async function evaluate(number) {
-    let check;
     let context;
     let result;
     const headSha = run.head_sha;
@@ -213,32 +206,7 @@ export async function orchestrate(env = process.env) {
           'Queue candidate omits current head',
         );
       }
-      const checkData = {
-        name: 'Autonomy / acceptance',
-        head_sha: headSha,
-        status: 'in_progress',
-        external_id: `${runId}:${run.run_attempt}:${number}:${policy.version}`,
-        output: {
-          title: 'Independent acceptance in progress',
-          summary: 'Validating intent, provenance, actual artifacts and protected policy.',
-        },
-      };
-      check = await github.api('/check-runs', { method: 'POST', body: checkData });
-      assert.equal(
-        check.app.id,
-        policy.acceptanceAppId,
-        'Acceptance App identity is not pinned in trusted policy',
-      );
-      if (run.status !== 'completed') {
-        const body = markUiStale(pr.body ?? '', headSha);
-        if (body !== pr.body) {
-          const current = await github.api(`/pulls/${number}`);
-          assert.equal(current.head.sha, pr.head.sha);
-          assert.equal(current.body, pr.body, 'PR body changed concurrently');
-          await github.api(`/pulls/${number}`, { method: 'PATCH', body: { body } });
-        }
-        return;
-      }
+      assert.equal(run.status, 'completed', 'Awaiting completed PR Quality');
       const [files, jobs, artifacts, commit, currentPolicy, baseCommit] = await Promise.all([
         github.pages(`/pulls/${number}/files`),
         github.pages(`/actions/runs/${runId}/attempts/${run.run_attempt}/jobs`, 'jobs'),
@@ -332,20 +300,7 @@ export async function orchestrate(env = process.env) {
       let ui = { applicable: false, reason: impact.reason };
       if (impact.ui) {
         const { capturePlans, planOptions } = validateImpactCapturePlans(change, impact);
-        if (!captureRun) {
-          await github.api(`/check-runs/${check.id}`, {
-            method: 'PATCH',
-            body: {
-              status: 'in_progress',
-              output: {
-                title: 'Awaiting trusted UI capture',
-                summary:
-                  'PR UI Evidence completion will re-evaluate this exact PR Quality run; candidate screenshots are not accepted.',
-              },
-            },
-          });
-          return;
-        }
+        assert.ok(captureRun, 'Awaiting trusted PR UI Evidence capture');
         const sourceTrees = { before: baseCommit.tree.sha, candidate: commit.tree.sha };
         const trustedCapture = await authenticateCapture(github, {
           captureRun,
@@ -376,12 +331,9 @@ export async function orchestrate(env = process.env) {
         const { validateUiEvidence } = await import('./ui-evidence.mjs');
         ui = await validateUiEvidence({
           readArtifact: readCaptureArtifact,
-          github,
-          pr,
           headSha,
           baseSha: pr.base.sha,
           policy,
-          env,
           ...planOptions,
           capturePlans,
           runUrl: captureRun.html_url,
@@ -393,9 +345,6 @@ export async function orchestrate(env = process.env) {
         change.type === 'perf'
           ? boundedJSON(await readFile('tools/assurance/baseline.json', 'utf8'))
           : undefined;
-      // Published captions must not introduce or change human-authored intent fields.
-      const publishedIntent = await resolveIntent(pr.body, (file) => github.content(file, headSha));
-      assert.equal(digest(publishedIntent), digest(change), 'UI publication changed the PR intent');
       context = {
         repository: policy.repository,
         pr: number,
@@ -429,31 +378,15 @@ export async function orchestrate(env = process.env) {
         run: { id: runId, attempt: run.run_attempt, artifactId: artifact.id, url: run.html_url },
         instructionsVersion: 1,
       };
-      const comments = await github.pages(`/issues/${number}/comments`);
-      const previous = comments.find(
-        (item) => item.user?.login === env.AUTONOMY_BOT_LOGIN && item.body.startsWith(marker),
-      );
-      const history = previous?.body.match(contextsMarker)?.[1].split(',') ?? [];
-      const contextHash = digest(context);
-      assert.ok(
-        history.includes(contextHash) || history.length < policy.maxReviewCycles,
-        'Review cycle limit reached; escalate to maintainer',
-      );
-      const answer = await requestDecision(context, {
-        endpoint: env.DOTS_ENDPOINT,
-        token: env.DOTS_TOKEN,
-        publicKey: env.DOTS_PUBLIC_KEY,
-        policy,
-      });
-      result = answer.decision;
+      // PENDING is deliberate: deterministic evidence checks do not perform semantic review.
+      // The assistant reads this context and original artifacts through its existing connection.
+      result = { decision: 'PENDING', blockingFindings: [], uncertainties: [] };
       await mkdir('reports/autonomy', { recursive: true });
-      await writeFile(
-        `reports/autonomy/decision-${number}.json`,
-        JSON.stringify(answer.envelope, null, 2),
-      );
-      // Diagnostic only: retain the signed decision and original evidence/attempts.
-      // This packet does not replace any authorization or freshness gate below.
       const reviewPacket = createReviewPacket({ ...context, decision: result });
+      await writeFile(
+        `reports/autonomy/context-${number}.json`,
+        `${JSON.stringify(context, null, 2)}\n`,
+      );
       await writeFile(
         `reports/autonomy/review-packet-${number}.json`,
         `${JSON.stringify(reviewPacket, null, 2)}\n`,
@@ -462,7 +395,7 @@ export async function orchestrate(env = process.env) {
         `reports/autonomy/review-packet-${number}.md`,
         renderReviewPacket(reviewPacket),
       );
-      // Re-read immediately before publishing authority. A new head/base revokes this result.
+      // Re-read before returning the packet. A changed snapshot requires a new review.
       const fresh = await github.api(`/pulls/${number}`);
       assert.equal(fresh.head.sha, context.prHeadSha, 'Head changed during acceptance');
       assert.equal(fresh.base.sha, context.baseSha, 'Base changed during acceptance');
@@ -477,60 +410,10 @@ export async function orchestrate(env = process.env) {
         ).version,
         policy.version,
       );
-      await feedback(number, result, [...new Set([...history, contextHash])], previous);
-      if (result.decision !== 'ACCEPT') {
-        await github.api(`/check-runs/${check.id}`, {
-          method: 'PATCH',
-          body: {
-            status: 'completed',
-            conclusion: 'failure',
-            output: { title: result.decision, summary: report(result) },
-          },
-        });
-        return;
-      }
-      const [protection, ruleSummaries, checks] = await Promise.all([
-        github.api(`/branches/${encodeURIComponent(policy.baseBranch)}/protection`),
-        github.api(`/rules/branches/${encodeURIComponent(policy.baseBranch)}`),
-        github.pages(`/commits/${headSha}/check-runs`, 'check_runs'),
-      ]);
-      const rulesets = [{ enforcement: 'active', rules: ruleSummaries }];
-      await publishAcceptance({
-        github,
-        number,
-        check,
-        context,
-        decision: result,
-        policy,
-        run,
-        protection,
-        rulesets,
-        checks,
-        summary: report(result),
-      });
-      if (run.event === 'pull_request')
-        execFileSync(
-          'gh',
-          [
-            'pr',
-            'merge',
-            String(number),
-            '--repo',
-            policy.repository,
-            '--auto',
-            '--squash',
-            '--match-head-commit',
-            context.prHeadSha,
-            '--subject',
-            `${change.type}${change.breaking ? '!' : ''}: ${change.summary.replace(whitespace, ' ').slice(0, 120)}`,
-            '--body',
-            `${change.release_note}${change.breaking ? `\n\nBREAKING CHANGE: ${change.user_impact}` : ''}`,
-          ],
-          { stdio: 'pipe', timeout: 30000, env },
-        );
+      return { context, reviewPacket };
     } catch (error) {
       const failure =
-        result?.decision !== 'ACCEPT' && result
+        result?.decision === 'ESCALATE'
           ? result
           : {
               decision: 'REVISE',
@@ -539,40 +422,13 @@ export async function orchestrate(env = process.env) {
               ],
               uncertainties: [],
             };
-      if (check)
-        await github.api(`/check-runs/${check.id}`, {
-          method: 'PATCH',
-          body: {
-            status: 'completed',
-            conclusion: 'failure',
-            output: { title: failure.decision, summary: report(failure) },
-          },
-        });
-      await feedback(number, failure, context ? [digest(context)] : []);
-      process.exitCode = 1;
-    }
-  }
-  function report(decision) {
-    return `${decision.decision}\n\n${decision.blockingFindings.map((item) => `- ${item.code} (${item.location}): ${item.reason}`).join('\n')}\n\nPush a revision or rerun the trusted acceptance workflow after resolving configuration/evidence failures.`.slice(
-      0,
-      60000,
-    );
-  }
-  async function feedback(number, decision, contexts, existing) {
-    assert.ok(env.AUTONOMY_BOT_LOGIN, 'Trusted bot login missing');
-    const comments = existing ? [] : await github.pages(`/issues/${number}/comments`);
-    const previous =
-      existing ??
-      comments.find(
-        (item) => item.user?.login === env.AUTONOMY_BOT_LOGIN && item.body.startsWith(marker),
+      await mkdir('reports/autonomy', { recursive: true });
+      await writeFile(
+        `reports/autonomy/blocked-${number}.json`,
+        `${JSON.stringify(failure, null, 2)}\n`,
       );
-    const prior = previous?.body.match(contextsMarker)?.[1].split(',') ?? [];
-    const history = [...new Set([...prior, ...contexts])].slice(0, policy.maxReviewCycles);
-    const body = `${marker}\n${report(decision)}\n\n<!-- contexts:${history.join(',')} -->`;
-    if (previous?.body === body) return;
-    await github.api(previous ? `/issues/comments/${previous.id}` : `/issues/${number}/comments`, {
-      method: previous ? 'PATCH' : 'POST',
-      body: { body },
-    });
+      process.exitCode = 1;
+      return { blocked: failure };
+    }
   }
 }

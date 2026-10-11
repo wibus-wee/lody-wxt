@@ -519,11 +519,18 @@ test('UI orchestration preserves required surfaces and authenticated workflow li
   assert.equal(uploads, 0, 'Changed plans and omitted coverage must fail before publication');
   const verified = await validateUiEvidence(options);
   assert.equal(verified.builds.candidate.treeSha, sourceTrees.candidate);
-  assert.equal(updates.length, 1);
-  assert.ok(updates[0].startsWith('Author content'));
-  assert.ok(updates[0].includes(options.runUrl));
-  assert.ok(updates[0].includes('surface: web'));
-  assert.ok(updates[0].includes(headSha));
+  assert.equal(updates.length, 0);
+  assert.equal(uploads, 0);
+  assert.equal(remoteBody, pr.body);
+  assert.equal(verified.publication, 'pending-assistant-review');
+  await assert.rejects(
+    validateUiEvidence({
+      ...options,
+      readArtifact: (path) =>
+        path.endsWith('.png') ? Buffer.from('tampered') : options.readArtifact(path),
+    }),
+    /Screenshot bytes/,
+  );
 });
 
 test('separate capture authentication binds protected fixtures, workflow, source artifact and attempts', async () => {

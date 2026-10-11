@@ -37,10 +37,10 @@ if (command === 'evidence') {
       'Protected policy is not deployed; this bootstrap requires independent maintainer review';
   }
   await writeFile(output, `${JSON.stringify(evidence, null, 2)}\n`);
-} else if (command === 'accept') {
+} else if (command === 'review') {
   const { orchestrate } = await import('./orchestrate.mjs');
   await orchestrate();
 } else if (command === 'preflight') {
   const { preflight } = await import('./preflight.mjs');
   await preflight();
-} else throw new Error('Usage: node tools/autonomy/cli.mjs evidence|accept|preflight');
+} else throw new Error('Usage: node tools/autonomy/cli.mjs evidence|review|preflight');
