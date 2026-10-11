@@ -5,6 +5,8 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: 'tests/extension',
   workers: 1,
+  // Match journey confirmation budgets for Streams reconnect and rendering.
+  expect: { timeout: 15_000 },
   reporter: [
     ['list'],
     [

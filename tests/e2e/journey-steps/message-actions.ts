@@ -3,8 +3,8 @@ import { createRequire } from 'node:module';
 
 import AxeBuilder from '@axe-core/playwright';
 import { When } from '@cucumber/cucumber';
-import { expect } from '@playwright/test';
 
+import { journeyExpect as expect } from '../../../tools/assurance/expect';
 import type { JourneyWorld } from './world';
 import { ready, restored, selectFixtureConversation } from './world';
 
@@ -75,7 +75,7 @@ When(
     await expect(assistant).toContainText('网页分析完成', { timeout: 15000 });
     await assistant.getByRole('button', { name: '消息操作', exact: true }).click();
     await this.page.getByRole('menuitem', { name: '重新生成', exact: true }).click();
-    await expect(assistant).toHaveCount(0);
+    await expect(assistant).toHaveCount(0, { timeout: 15000 });
     await this.evidence.check('regenerate-reuses-edited-question-and-context', async () => {
       const submitted = this.cloud.submittedTurn('history-a');
       expect(this.cloud.editRequests).toHaveLength(2);

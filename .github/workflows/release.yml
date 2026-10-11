@@ -105,6 +105,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 26
+          package-manager-cache: false
       - name: Require configured independent publication approval
         run: node tools/autonomy/release-plan.mjs approval release-publication
       - name: Bind verified package source to unchanged tag on main history

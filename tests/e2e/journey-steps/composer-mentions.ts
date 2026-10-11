@@ -1,8 +1,8 @@
 import AxeBuilder from '@axe-core/playwright';
 import { When } from '@cucumber/cucumber';
 import type { Locator, Page } from '@playwright/test';
-import { expect } from '@playwright/test';
 
+import { journeyExpect as expect } from '../../../tools/assurance/expect';
 import type { JourneyWorld } from './world';
 import { ready, restored, submittedSession } from './world';
 

@@ -35,6 +35,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 26
+          package-manager-cache: false
       - name: Resolve real latest stable published release
         id: select
         working-directory: controller
@@ -122,6 +123,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 26
+          package-manager-cache: false
       - name: Deduplicate incident or close after verified recovery
         env:
           GH_TOKEN: ${{ github.token }}

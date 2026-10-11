@@ -14,18 +14,23 @@ Its report is `reports/autonomy/preflight.json`.
 A denied variables/secrets API means configuration is **unknown**, not proof that secrets are absent.
 No command requests or prints secret values.
 
-The latest authorized system-CLI inspection found a public personal repository, auto-merge enabled, no main protection and empty Actions variables/secrets metadata.
-The owner selected `/opt/homebrew/bin/gh`; its existing login now has workflow scope, without exporting credentials to CI.
-PR #4 includes pushed commit `568c0f4`, fixing SDK build order and bootstrap protected-policy absence; CI run `38111097768` passed typechecking and then rejected unused dependencies/exports.
+The bootstrap was merged as PR #4 at `7a39a5b`; the workflows now exist on `main`.
+The PR source passed complete product CI before merge.
+Initial main activation exposed automatic pnpm caching in `actions/setup-node@v5` for Node-only jobs and disabled repository permission for Actions to create PRs.
+Node-only initialization must set `package-manager-cache: false`; jobs that explicitly cache pnpm install it first.
+The owner-authorized system CLI enabled Actions PR creation while retaining default workflow permissions as `read`.
+The release proposal job then created PR #7; this is a proposal, not publication.
 CI keeps separate runs per commit instead of cancelling earlier evidence.
 `ASSURANCE_FAIL_FAST=1` stops later performance repetitions after a real web failure and stops the extension suite after its first failure; failures, skipped coverage and incomplete samples still block acceptance.
 Successful runs retain the complete journey and five-sample requirements.
-Those unused items have been removed; [VALIDATION.md](./VALIDATION.md) tracks the next complete CI result.
-The new workflows are on the PR branch, not protected main.
-Earlier integration-permission denials are retained in the [validation logs](./VALIDATION.md), not treated as current system-login denials.
+UI capture uses the real wall clock for installed extension pages: their RPC deadlines are checked by the service worker, so a historical page clock makes valid requests expire immediately.
+Web captures retain their controlled clock.
+Failed matrix entries retain their identity, screenshot and trace when available, and still fail the run without producing a completed manifest.
+Earlier failed configuration inspections remain in the [validation logs](./VALIDATION.md).
 Runeicons clone remains explicitly denied; do not bypass that denial.
-Missing real Runeicons-generated icons still block local typechecking and browser builds.
-Acceptance App/Dots configuration and dedicated CI credentials remain absent.
+Missing real Runeicons-generated icons still block local source builds.
+Direct system-CLI metadata reads confirmed that repository variables, autonomy environment variables and autonomy environment secrets are empty.
+Acceptance App/Dots configuration and dedicated CI credentials still need provisioning; missing credentials must not become a successful acceptance check.
 
 The current policy selects `mergeStrategy: protected-auto-merge` for this personal repository.
 Auto-merge is supported on personal repositories and does not require an organization migration.
@@ -43,8 +48,8 @@ Three environments were created and read back through the authorized system logi
 
 `v*` is only the deployment selector; the release controller separately enforces the stable version grammar.
 Settings evidence is `reports/autonomy/system-gh-environments.json`.
-The new workflows remain on PR #4; only the original Quality (manual dispatch) and Release workflows are on main.
-Do not require checks that are not deployed and running.
+The bootstrap workflows are deployed on main; the Node initialization repair still needs maintainer review and merge.
+Do not require acceptance checks until their App identity and independent service are deployed and producing genuine results.
 No App identity, Dots service or dedicated CI credential has been invented, and the local keychain token has not been installed as a CI secret.
 
 ## Trust and required checks

@@ -1,6 +1,6 @@
 import { When } from '@cucumber/cucumber';
-import { expect } from '@playwright/test';
 
+import { journeyExpect as expect } from '../../../tools/assurance/expect';
 import type { JourneyWorld } from './world';
 import { ready, restored, submittedSession } from './world';
 
@@ -76,11 +76,23 @@ When(
 When(
   'I open dictation and the browser recognition boundary declines access',
   async function (this: JourneyWorld) {
-    // Controlled browser service boundary, not an assertion about a real microphone or cloud STT quality.
+    // Controlled microphone/recognition service boundaries, not real hardware or cloud STT.
     await this.context.addInitScript({
       content: `
       (() => {
         let starts = 0;
+        let microphoneRequests = 0;
+        let tracksStopped = 0;
+        Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
+          configurable: true,
+          value: async () => {
+            document.documentElement.dataset.microphoneRequests = String(++microphoneRequests);
+            if (microphoneRequests === 1) throw new DOMException('Controlled denial', 'NotAllowedError');
+            return { getTracks: () => [{ stop() {
+              document.documentElement.dataset.tracksStopped = String(++tracksStopped);
+            } }] };
+          },
+        });
         class ControlledRecognition {
           lang = ''; continuous = false; interimResults = false;
           onstart = null; onend = null; onerror = null; onresult = null;
@@ -103,13 +115,16 @@ When(
     await ready(this);
     await this.page.getByRole('textbox', { name: '消息', exact: true }).fill(this.draft);
     await this.page.getByRole('button', { name: '语音输入', exact: true }).click();
-    await this.evidence.check('opening-does-not-start-microphone', async () =>
-      expect(await this.page.locator('html').getAttribute('data-recognition-starts')).toBeNull(),
-    );
+    await this.evidence.check('opening-does-not-start-microphone', async () => {
+      expect(await this.page.locator('html').getAttribute('data-recognition-starts')).toBeNull();
+      expect(await this.page.locator('html').getAttribute('data-microphone-requests')).toBeNull();
+    });
     await this.page.getByRole('button', { name: '开始听写', exact: true }).click();
     this.assertions = () =>
-      this.evidence.check('recognition-denial-preserves-draft', async () => {
-        await expect(this.page.getByRole('alert')).toContainText('未获授权');
+      this.evidence.check('microphone-denial-preserves-draft', async () => {
+        await expect(this.page.getByRole('alert')).toContainText('麦克风权限未获准');
+        await expect(this.page.locator('html')).toHaveAttribute('data-microphone-requests', '1');
+        expect(await this.page.locator('html').getAttribute('data-recognition-starts')).toBeNull();
         await expect(
           this.page.getByRole('textbox', { name: '消息', exact: true, includeHidden: true }),
         ).toHaveValue(this.draft);
@@ -120,7 +135,18 @@ When(
   'I retry the controlled recognizer and review text before insertion',
   async function (this: JourneyWorld) {
     await this.page.getByRole('button', { name: '开始听写', exact: true }).click();
+    await this.evidence.check('recognition-denial-preserves-draft', async () => {
+      await expect(this.page.getByRole('alert')).toContainText('语音识别请求');
+      await expect(this.page.locator('html')).toHaveAttribute('data-tracks-stopped', '1');
+      await expect(
+        this.page.getByRole('textbox', { name: '消息', exact: true, includeHidden: true }),
+      ).toHaveValue(this.draft);
+    });
+    await this.page.getByRole('button', { name: '开始听写', exact: true }).click();
     await expect(this.page.getByRole('textbox', { name: '听写文字' })).toHaveValue('识别出的文字');
+    await expect(this.page.locator('html')).toHaveAttribute('data-microphone-requests', '3');
+    await expect(this.page.locator('html')).toHaveAttribute('data-recognition-starts', '2');
+    await expect(this.page.locator('html')).toHaveAttribute('data-tracks-stopped', '2');
     await this.page.getByRole('textbox', { name: '听写文字' }).fill('经我确认的文字');
     await this.evidence.check('final-text-editable-before-insert', () =>
       expect(

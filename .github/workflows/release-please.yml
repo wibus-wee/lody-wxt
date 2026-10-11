@@ -40,6 +40,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 26
+          package-manager-cache: false
       - id: plan
         run: node tools/autonomy/release-plan.mjs plan
   tag:
@@ -65,6 +66,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 26
+          package-manager-cache: false
       - name: Require configured independent environment approval
         run: node tools/autonomy/release-plan.mjs approval release-promotion
       - name: Tag the approved merged manifest version and dispatch packaging
