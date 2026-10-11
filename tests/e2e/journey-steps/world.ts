@@ -10,9 +10,10 @@ import {
   World,
 } from '@cucumber/cucumber';
 import type { Browser, BrowserContext, Page } from '@playwright/test';
-import { chromium, expect } from '@playwright/test';
+import { chromium } from '@playwright/test';
 
 import { JourneyEvidence } from '../../../tools/assurance/evidence';
+import { journeyExpect as expect } from '../../../tools/assurance/expect';
 import { AccountBoundary, signIn } from '../support/account-boundary';
 import { RuntimeBoundary } from '../support/runtime-boundary';
 

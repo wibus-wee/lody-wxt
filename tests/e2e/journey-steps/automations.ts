@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 
 import AxeBuilder from '@axe-core/playwright';
 import { When } from '@cucumber/cucumber';
-import { expect } from '@playwright/test';
 import * as v from 'valibot';
 
+import { journeyExpect as expect } from '../../../tools/assurance/expect';
 import type { JourneyWorld } from './world';
 import { ready, restored } from './world';
 

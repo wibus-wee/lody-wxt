@@ -3,8 +3,8 @@ import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 
 import { When } from '@cucumber/cucumber';
-import { expect } from '@playwright/test';
 
+import { journeyExpect as expect } from '../../../tools/assurance/expect';
 import type { JourneyWorld } from './world';
 import { ready, restored, submittedSession } from './world';
 

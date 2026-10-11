@@ -4,8 +4,8 @@ import { createRequire } from 'node:module';
 import AxeBuilder from '@axe-core/playwright';
 import { When } from '@cucumber/cucumber';
 import type { Page } from '@playwright/test';
-import { expect } from '@playwright/test';
 
+import { journeyExpect as expect } from '../../../tools/assurance/expect';
 import type { JourneyWorld } from './world';
 import { ready, restored, selectFixtureConversation } from './world';
 
