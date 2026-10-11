@@ -22,9 +22,11 @@ const languages = [
 
 function defaultLanguage() {
   const preferred = navigator.language.toLowerCase();
-  return languages.find((language) => language.value.toLowerCase() === preferred)?.value
-    ?? languages.find((language) => language.value.slice(0, 2) === preferred.slice(0, 2))?.value
-    ?? 'zh-CN';
+  return (
+    languages.find((language) => language.value.toLowerCase() === preferred)?.value ??
+    languages.find((language) => language.value.slice(0, 2) === preferred.slice(0, 2))?.value ??
+    'zh-CN'
+  );
 }
 
 const styles = stylex.create({
@@ -106,7 +108,7 @@ export function DictationDialog({
       setError(
         error?.name === 'NotAllowedError' || error?.name === 'SecurityError'
           ? '麦克风权限未获准。请在浏览器的 Lody 网站权限中允许麦克风，然后重试。'
-          : error?.message ?? '无法开始听写。',
+          : (error?.message ?? '无法开始听写。'),
       );
     }
   }
@@ -126,7 +128,12 @@ export function DictationDialog({
         <div {...stylex.props(styles.body)}>
           <Field.Root disabled={busy}>
             <Field.Label>识别语言</Field.Label>
-            <Select.Root value={language} onValueChange={(value) => setLanguage(value)}>
+            <Select.Root
+              value={language}
+              onValueChange={(value) => {
+                if (value !== null) setLanguage(value);
+              }}
+            >
               <Select.Trigger aria-label="识别语言">
                 <Select.Value />
               </Select.Trigger>

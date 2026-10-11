@@ -460,6 +460,7 @@ export const model = {
           states: ['dictation:denial-visible', 'dictation:reviewed', 'quickDraft:not-sent'],
           obligations: [
             'opening-does-not-start-microphone',
+            'microphone-denial-preserves-draft',
             'recognition-denial-preserves-draft',
             'final-text-editable-before-insert',
             'insertion-does-not-send',
