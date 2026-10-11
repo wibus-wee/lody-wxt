@@ -1,4 +1,5 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import process from 'node:process';
 
 import { safePath } from './common.mjs';
@@ -17,6 +18,7 @@ if (command === 'evidence') {
   const ref =
     process.env.AUTONOMY_POLICY_REF ?? event.pull_request?.base.sha ?? event.merge_group?.base_sha;
   const policy = protectedEvidencePolicy(ref);
+  await mkdir(dirname(output), { recursive: true });
   const evidence = await createEvidence({
     repo: process.env.GITHUB_REPOSITORY,
     pr: event.pull_request?.number ?? Number(process.env.AUTONOMY_PR_NUMBER ?? 0),
@@ -30,10 +32,10 @@ if (command === 'evidence') {
   });
   if (!policy) {
     evidence.acceptanceEligible = false;
-    evidence.reason =
+    evidence.bootstrap = true;
+    evidence.reason ??=
       'Protected policy is not deployed; this bootstrap requires independent maintainer review';
   }
-  await mkdir('reports/autonomy', { recursive: true });
   await writeFile(output, `${JSON.stringify(evidence, null, 2)}\n`);
 } else if (command === 'accept') {
   const { orchestrate } = await import('./orchestrate.mjs');

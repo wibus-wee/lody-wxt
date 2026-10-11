@@ -48,23 +48,6 @@ Every scenario must finish with a real visible-state assertion.
 For an added control or route, an optional `before` object declares the actual old `route`, `state`, initial `account` and typed `actions`; it does not require the new control to exist in the old build.
 Without `before`, both revisions execute the same plan.
 Each manifest image records its actual role-specific route and state, while the shared scenario identifies the comparison.
-For example, the linked data file contains an array of plans like the following; add corresponding entries for each affected surface.
-This is file configuration, not PR-body authoring:
-
-```json
-{
-  "surface": "extension",
-  "entry": "options",
-  "route": "/#/settings",
-  "scenario": "appearance-controls",
-  "state": "Appearance controls remain available after real account authorization",
-  "account": "signed-in",
-  "covers": ["src/features/preferences/model.ts"],
-  "actions": [{ "action": "assertVisible", "role": "combobox", "name": "主题" }]
-}
-```
-
-Paths and obligations must describe the actual PR; this example is not evidence for unrelated changes.
 `validateCapturePlans(plans, { requiredSurfaces, changedPaths, requiredPaths })` validates the data contract.
 `capturePlanHash` computes its canonical content hash.
 `validateUiEvidence` requires the independently supplied `capturePlans`, matches the captured plan hash to current intent, and checks every planned route, state, surface, extension entry, theme, viewport and before/candidate role.
@@ -97,7 +80,7 @@ A failed control, unsupported route, missing package, changed entrypoint or inco
 
 The real lifecycle entrypoint remains `cucumber.mjs`; screenshots do not replace assurance journeys.
 Infrastructure tests validate plans, source identities and packaged-byte integrity without launching a browser.
-Actual browser execution has not been verified in this session because the product build is blocked by the unavailable glyph source.
+Actual browser execution is not established; see the current build blockers in [VALIDATION](./VALIDATION.md).
 Native OS permission dialogs, unsupported/nonproduct surfaces and arbitrary custom fixtures remain outside this plan grammar and require separate independent evidence.
 
 ## Manifest and fixture binding
@@ -141,25 +124,10 @@ Receipts establish consistency within the pipeline, while protected workflow aut
 
 ## Publication and PR body
 
-GitHub Actions artifacts are retained run evidence, not durable inline image URLs.
-The protected adapter verifies image hashes and publishes the exact bytes directly with `gh pr edit --attach` and `--body-file`.
-The CLI rewrites local image references in the body file into GitHub attachment URLs.
-Repeat `--attach` for each file, with at most 50 attachments per command; larger manifests require bounded batches preserving author content and previously published images.
-Feature-check `gh pr edit --help` for `--attach` at runtime and fail closed if unsupported.
-The [official manual](https://cli.github.com/manual/gh_pr_edit) documents the flag; v2.102.0 is the latest release at the time of this change.
-Attachment commands use `AUTONOMY_IMAGE_TOKEN` as their `GH_TOKEN`, separately from the pinned acceptance App token.
-Use a fine-grained PAT restricted to this repository with PR edit permissions; the [official attachment client](https://raw.githubusercontent.com/cli/cli/trunk/internal/attachments/client.go) rejects `ghs_` installation tokens.
-This secret belongs only in the protected-main `autonomy` environment and must never reach candidate execution.
-The direct adapter stages PNGs and `--body-file` content under `os.tmpdir()`, batches at most 50 repeated `--attach` flags per command, and removes temporary files afterward.
-Its attachment subprocess environment supplies only the separate `AUTONOMY_IMAGE_TOKEN` as `GH_TOKEN`, never the acceptance App token; missing `--attach` support and `ghs_` tokens are refused.
-For each batch, it checks the bound SHA, current head, base and body before and after publication, reads back the PR body, and verifies the exact local-reference rewrites.
-It independently downloads and hashes the attachments to bind authenticated `{ path, url, contentHash }` receipts to the verified capture.
-Partial uploads fail closed without automatic retries; temporary-file cleanup does not undo remote uploads.
-The acceptance App then patches the final bounded evidence section and alone posts `Autonomy / acceptance`.
-The preferred URL is `https://github.com/user-attachments/assets/<attachment-id>`; allowlisted legacy GitHub attachment hosts are also accepted.
-Repository `blob`/`raw` URLs, custom image hosts, and committed PNGs cannot satisfy this contract.
-No external HTTP image publisher or endpoint is required.
-The direct uploader has not been verified against a remote PR; CLI support, credential permissions, body rewriting and byte integrity need a real pilot before claiming publication is installed.
+Publication credentials, runtime `gh pr edit --attach --body-file` support, bounded batches, read-back/download verification and partial-upload recovery are specified once in [RUNBOOK: Evidence and images](./RUNBOOK.md#evidence-and-images).
+Artifacts alone are not inline publication; images must remain outside Git.
+The direct uploader still needs a real remote pilot.
+
 `validateScreenshotManifest` checks pairing and metadata.
 Its strict options include `headSha`, `baseSha`, `body`, `impact`, `policy`, `readArtifact`, `publishedAssets` and optional `requiredSurfaces`.
 Each PNG must match actual artifact bytes and exactly one trusted upload receipt.

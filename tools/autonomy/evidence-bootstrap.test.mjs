@@ -27,6 +27,34 @@ function repository(t) {
   return { directory, git, baseSha };
 }
 
+function emitEvidence(directory, baseSha, headSha, status = 'success') {
+  const eventPath = join(directory, 'reports/event.json');
+  mkdirSync(join(directory, 'reports'), { recursive: true });
+  writeFileSync(
+    eventPath,
+    JSON.stringify({ pull_request: { number: 4, head: { sha: headSha }, base: { sha: baseSha } } }),
+  );
+  execFileSync(
+    process.execPath,
+    [fileURLToPath(new URL('./cli.mjs', import.meta.url)), 'evidence'],
+    {
+      cwd: directory,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        GITHUB_EVENT_PATH: eventPath,
+        GITHUB_REPOSITORY: 'owner/repo',
+        GITHUB_RUN_ID: '42',
+        GITHUB_RUN_ATTEMPT: '1',
+        GITHUB_EVENT_NAME: 'pull_request',
+        AUTONOMY_POLICY_REF: baseSha,
+        AUTONOMY_CI_RESULT: status,
+      },
+    },
+  );
+  return JSON.parse(readFileSync(join(directory, 'reports/autonomy/evidence.json'), 'utf8'));
+}
+
 test('first bootstrap emits diagnostic evidence without accepting candidate policy as protected', (t) => {
   const { directory, git, baseSha } = repository(t);
   writeFileSync(join(directory, policyPath), policyText);
@@ -45,38 +73,26 @@ test('first bootstrap emits diagnostic evidence without accepting candidate poli
     JSON.stringify({ modelHash: 'a'.repeat(64), sourceHash: 'b'.repeat(64) }),
   );
   writeFileSync(join(directory, reportDirectory, 'audit.json'), JSON.stringify({ cases: [] }));
-  const eventPath = join(directory, 'reports/event.json');
-  writeFileSync(
-    eventPath,
-    JSON.stringify({ pull_request: { number: 4, head: { sha: headSha }, base: { sha: baseSha } } }),
-  );
-  execFileSync(
-    process.execPath,
-    [fileURLToPath(new URL('./cli.mjs', import.meta.url)), 'evidence'],
-    {
-      cwd: directory,
-      env: {
-        ...process.env,
-        GITHUB_EVENT_PATH: eventPath,
-        GITHUB_REPOSITORY: 'owner/repo',
-        GITHUB_RUN_ID: '42',
-        GITHUB_RUN_ATTEMPT: '1',
-        GITHUB_EVENT_NAME: 'pull_request',
-        AUTONOMY_POLICY_REF: baseSha,
-        AUTONOMY_CI_RESULT: 'success',
-      },
-    },
-  );
-  const evidence = JSON.parse(
-    readFileSync(join(directory, 'reports/autonomy/evidence.json'), 'utf8'),
-  );
+  const evidence = emitEvidence(directory, baseSha, headSha);
   assert.equal(evidence.headSha, headSha);
   assert.equal(evidence.policyVersion, null);
   assert.equal(evidence.acceptanceEligible, false);
   assert.throws(
     () => verifyEvidence(evidence, {}, () => undefined),
-    /Bootstrap diagnostics cannot authorize acceptance/,
+    /Diagnostic evidence cannot authorize acceptance/,
   );
+});
+
+test('early CI failures retain failed diagnostics, while success without journey reports is rejected', (t) => {
+  const { directory, baseSha } = repository(t);
+  const evidence = emitEvidence(directory, baseSha, baseSha, 'failure');
+  assert.equal(evidence.status, 'failed');
+  assert.equal(evidence.acceptanceEligible, false);
+  assert.equal(evidence.bootstrap, true);
+  assert.equal('journeys' in evidence, false);
+  assert.match(evidence.reason, /Earlier checks failed/);
+  assert.throws(() => verifyEvidence(evidence, {}, () => undefined), /cannot authorize acceptance/);
+  assert.throws(() => emitEvidence(directory, baseSha, baseSha), /ENOENT/);
 });
 
 test('protected policy hashing preserves exact bytes and ignores a changed candidate copy', (t) => {

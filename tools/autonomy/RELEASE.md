@@ -115,12 +115,9 @@ PR approval/merge policy is also external; this pipeline does not bypass it or c
 An environment reviewer approves the exact promotion commit or the publication run after reviewing its source and packaged-install evidence; a release-please PR, conventional commit or green unit test is not itself that approval.
 The promotion job's explicit dispatch does not require a separate release token.
 
-Coordinated interface outside this file ownership: the main owner supplied `LODY_UI_PINNED=1` support in `scripts/sync-ui.mjs`.
-The release workflow now uses that flag with the existing preparation, extension-test and release-package scripts, eliminating duplicated WXT build orchestration while preserving normal development tracking of `main`.
-The pinned hook rejects an uninitialized or moved Lody submodule; before/after source checks independently guard both recorded gitlinks.
-Older tags without this interface cannot be assumed to package successfully; source drift still fails publication.
-The initialized Runeicons checkout and supported browser runtime remain required for full verification.
-No unowned scripts were edited by the release owner.
+The pinned build interface is `LODY_UI_PINNED=1` in `scripts/sync-ui.mjs`; normal development still tracks Lody main.
+Older tags without this interface cannot be assumed to package successfully.
+See [RUNBOOK](./RUNBOOK.md) for current environment state and [VALIDATION](./VALIDATION.md) for build blockers.
 
 Standalone tooling tests: `node --test tools/autonomy/release-plan.test.mjs tools/autonomy/monitor.test.mjs`.
 They cover malformed tags, checksum/provenance corruption, asset inventory mismatch, an upload accepted before its response is lost, safe rerun completion and immutable reruns, incident deduplication and rejected stale browser evidence.
@@ -142,10 +139,9 @@ Interface blocker reported to the main orchestration owner: `contract.mjs` curre
 Package changes count as runtime changes, so a generated release-please PR cannot satisfy the normal chore/docs contract, while using feat/fix would require invented product journeys.
 This release implementation does not fabricate that evidence, override the contract, or claim such PRs can auto-merge.
 Keep release PRs on the independent protected review path until the main owner provides an explicit trusted release-intent/approval interface.
-No policy, contract, acceptance or merge-gate files were edited here.
 
 Dependency/runtime prerequisites include Node 26, pnpm from the trusted package manifest, Python 3 for bounded ZIP inspection, zip/unzip for existing packaging, recorded submodule access and Playwright Chromium.
-No external environment, token, branch/tag protection or immutable-release setting was verified or changed by this implementation.
+Environment creation is recorded in [VALIDATION](./VALIDATION.md); main/tag protection, signing and publication readiness remain unverified.
 SHA-256/provenance checks validate the approved package inventory.
 The attestation authenticates the protected publisher workflow and the verified subject bytes; it does not independently prove that tagged candidate code was harmless, that the build was hermetic/reproducible, or that dependency/test reports cannot lie.
 The tagged source executes in the separate read-only hosted build job before any privileged publication; the protected source review, immutable tag controls and required publication approval remain part of the trust boundary.

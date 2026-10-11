@@ -50,17 +50,8 @@ export async function createEvidence({
   output,
 }) {
   assert.ok(shaPattern.test(headSha));
-  assert.equal(assertCleanSnapshot(), headSha, 'Working tree is not the tested candidate');
-  assert.equal(
-    execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
-    headSha,
-    'Evidence checkout differs from candidate',
-  );
-  const latest = JSON.parse(await readFile('reports/assurance/latest.json', 'utf8'));
-  assert.ok(assuranceDirectory.test(latest.directory));
-  const run = JSON.parse(await readFile(`${latest.directory}/run.json`, 'utf8'));
-  const audit = JSON.parse(await readFile(`${latest.directory}/audit.json`, 'utf8'));
-  return {
+  assert.equal(assertCleanSnapshot(), headSha, 'Evidence checkout differs from candidate');
+  const identity = {
     schemaVersion: 1,
     repo,
     pr,
@@ -70,6 +61,26 @@ export async function createEvidence({
     event,
     treeSha: execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { encoding: 'utf8' }).trim(),
     policyVersion,
+    status,
+    createdAt: new Date().toISOString(),
+  };
+  let latest;
+  try {
+    latest = JSON.parse(await readFile('reports/assurance/latest.json', 'utf8'));
+  } catch (error) {
+    if (error.code !== 'ENOENT' || status !== 'failed') throw error;
+    return {
+      ...identity,
+      acceptanceEligible: false,
+      reason: 'Earlier checks failed before assurance produced a run report',
+      files: await collectFiles('reports', output),
+    };
+  }
+  assert.ok(assuranceDirectory.test(latest.directory));
+  const run = JSON.parse(await readFile(`${latest.directory}/run.json`, 'utf8'));
+  const audit = JSON.parse(await readFile(`${latest.directory}/audit.json`, 'utf8'));
+  return {
+    ...identity,
     modelHash: run.modelHash,
     sourceHash: run.sourceHash,
     testCommand: 'pnpm test:assurance',
@@ -77,8 +88,6 @@ export async function createEvidence({
     journeys: audit.cases.filter((item) => item.status === 'verified').map((item) => item.key),
     assuranceDirectory: latest.directory,
     files: await collectFiles('reports', output),
-    status,
-    createdAt: new Date().toISOString(),
   };
 }
 export function verifyEvidence(
@@ -89,7 +98,7 @@ export function verifyEvidence(
   assert.notEqual(
     manifest.acceptanceEligible,
     false,
-    'Bootstrap diagnostics cannot authorize acceptance',
+    'Diagnostic evidence cannot authorize acceptance',
   );
   assert.equal(manifest.schemaVersion, 1);
   assert.equal(manifest.repo, repo);

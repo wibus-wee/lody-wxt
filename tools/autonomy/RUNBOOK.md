@@ -14,27 +14,15 @@ Its report is `reports/autonomy/preflight.json`.
 A denied variables/secrets API means configuration is **unknown**, not proof that secrets are absent.
 No command requests or prints secret values.
 
-On 2026-10-10 the repository API reported a private repository, `main`, admin capability and `allow_auto_merge: false`.
-Protection/rulesets requests returned 403, including “Upgrade to GitHub Pro or make this repository public to enable this feature.”
-The current credential also could not inspect Actions variables/secrets; the environment list was empty.
-No protection, App, secret, tag, release, auto-merge setting or remote fixture PR was installed by this implementation.
-Verify Merge Queue eligibility independently; the repository plan and ownership must support it.
-At that inspection the merge gate still unconditionally required a queue; the personal-repository update below replaces that assumption with an explicit protected auto-merge strategy.
-
-After the owner made the repository public, a fresh inspection confirmed `visibility: public` and account-level administrator capability.
-Branch-protection reads and requests to enable auto-merge or create the `autonomy` environment returned HTTP 403, `Resource not accessible by integration`.
-Read-back confirmed auto-merge remained disabled and the environment list remained empty.
-The public/private plan restriction is no longer the observed administration blocker; the connected credential lacks the required repository-administration and environment-management access.
-Do not try another credential route to bypass a denied operation; repair the connection authorization before retrying.
-Variables, secrets metadata and Actions management settings also remain inaccessible, so their configuration is unknown.
-Only the pre-existing Quality and Release workflows were observed on GitHub; the new automation is still local.
-The before/after records are `reports/autonomy/public-configuration-before.json` and `reports/autonomy/public-configuration-after.json`.
-
-The owner then explicitly selected the system GitHub CLI login for administration.
-`/opt/homebrew/bin/gh` authenticated through the existing local keychain; no token was printed, copied or exported to CI.
-This fixed the credential-source mismatch: system CLI reads confirmed the public personal repository, auto-merge already enabled, accessible administration APIs, empty Actions variables/secrets and no main protection.
-The previous integration's 403 is historical, not a remaining denial for the newly authorized system login.
-The full inspection is `reports/autonomy/system-gh-configuration.json`.
+The latest authorized system-CLI inspection found a public personal repository, auto-merge enabled, no main protection and empty Actions variables/secrets metadata.
+The owner selected `/opt/homebrew/bin/gh`; its existing login now has workflow scope, without exporting credentials to CI.
+PR #4 includes pushed commit `568c0f4`, fixing SDK build order and bootstrap protected-policy absence; CI run `38111097768` passed typechecking and then rejected unused dependencies/exports.
+Those unused items have been removed; [VALIDATION.md](./VALIDATION.md) tracks the next complete CI result.
+The new workflows are on the PR branch, not protected main.
+Earlier integration-permission denials are retained in the [validation logs](./VALIDATION.md), not treated as current system-login denials.
+Runeicons clone remains explicitly denied; do not bypass that denial.
+Missing real Runeicons-generated icons still block local typechecking and browser builds.
+Acceptance App/Dots configuration and dedicated CI credentials remain absent.
 
 The current policy selects `mergeStrategy: protected-auto-merge` for this personal repository.
 Auto-merge is supported on personal repositories and does not require an organization migration.
@@ -52,7 +40,7 @@ Three environments were created and read back through the authorized system logi
 
 `v*` is only the deployment selector; the release controller separately enforces the stable version grammar.
 Settings evidence is `reports/autonomy/system-gh-environments.json`.
-The new workflows remain local; only the original Quality (manual dispatch) and Release workflows are on main.
+The new workflows remain on PR #4; only the original Quality (manual dispatch) and Release workflows are on main.
 Do not require checks that are not deployed and running.
 No App identity, Dots service or dedicated CI credential has been invented, and the local keychain token has not been installed as a CI secret.
 
@@ -216,21 +204,31 @@ Local Node fixtures cannot demonstrate remote GitHub enforcement or prove Dots c
 No remote fixture PRs or successful full merge→publish→installed-monitor cycle are claimed here.
 The lack of those external executions is an outstanding acceptance milestone, not a green-CI exception.
 
-## Freshness boundary
+## Freshness and contract references
 
-The success publication path validates the proposed check in memory, enforces a single-PR integration group, and re-reads PR/head/base/body/queue identities before the one terminal success write. `acceptance-revoke.yml` revokes prior success on PR edits, synchronization, closure/draft conversion, base changes, acceptance completion and scheduled sweeps.
-It never authorizes acceptance.
+[Governance](./GOVERNANCE.md) owns the asynchronous revocation and merge-time race limits.
+No zero-window expiry guarantee is claimed.
+[Verification design](./VERIFICATION-DESIGN.md) explains authoritative outcomes and retained failed attempts.
 
-GitHub checks have no native expiration and these reads, writes and queue merging are not atomic.
-Revocation is asynchronous; a five-minute cron is not a maximum execution delay.
-Scheduling outages, missing credentials or API failures can leave stale success visible, and a merge can race a body edit or expiry before a revoker executes.
-See [GOVERNANCE.md](./GOVERNANCE.md).
-Zero-window expiration/body freshness needs enforcement by the actual merge platform; this implementation does not claim to supply that guarantee.
-This is a remaining acceptance limitation, not evidence of a fully installed unattended system.
+The parser bounds PR bodies at 60,000 bytes and rejects duplicate/dangling intent markers; legacy JSON and Markdown intent cannot be mixed.
+Evidence creation requires checkout HEAD equal to the candidate SHA and a safe reports output path.
+Trusted model hashes, complete case denominators and priorities determine strict P0 admission.
+Merge-group evidence uses PR sentinel zero while retaining exact integration SHA/run/attempt/tree identity.
+CI workflow contents at the candidate run SHA must equal protected base contents, not merely share names; mismatches require rebase and rerun before evidence download or publication.
+When run PR association is empty, authenticated commit-to-PR lookup must find exactly one current open PR at that head with the configured root repository/base; forks are permitted, ambiguous associations are not.
+The gate rechecks body and integration identity before success publication and merge actuation.
 
-[Verification design](./VERIFICATION-DESIGN.md) records how the supplied iOS article informs machine-readable assertion summaries and independent behavioral oracles, while preserving this specification's inline UI evidence and failed-attempt retention.
+Performance admission requires signed `adequacy.performanceReviewed`, a registered interaction, sample size at least five, finite nonnegative observations and accurate median/p95 statistics in each selected environment.
+The protected `tools/assurance/baseline.json` is read as `context.performanceBaseline={path,documentHash,document}` with a canonical document hash.
+Version-one baseline provenance needs matching modelHash, sourceHash, runId and a finite nonfuture createdAt.
+Measurement, browser, platform, architecture, viewport, reducedMotion, surface, fixture and workload must match exactly, with at least five valid baseline values.
+Reported and recomputed comparisons must agree on within-baseline status, deltaMs and toleranceMs.
+PR Quality collects repetitions through `ASSURANCE_REPEAT=5 ASSURANCE_BENCHMARK_AFTER_FIRST=1`; no automatic baseline promotion occurs.
+Controlled fixture timings do not prove production latency improvements.
 
-Docs-only Markdown changes skip actual image capture after protected impact classification and retain a not-applicable receipt; executable MDX, TSX and build hooks under `docs/` cannot use that exemption.
-CI collects five comparable performance repetitions for authored interactions without auto-promoting baselines.
-Performance changes require a registered interaction, actual finite observations and a protected comparable baseline with real run/source/model provenance.
-Reserved version overrides and breaking trailers in contributor release text are rejected; the validated change type and explicit breaking flag author the squash Conventional Commit.
+Reserved version overrides and breaking trailers in contributor release text are rejected; validated change type and explicit breaking intent determine the squash Conventional Commit.
+Protected release/version proposals still need the separate approval interface described in [RELEASE](./RELEASE.md).
+Executable MDX, TSX and documentation build hooks cannot use the plain-Markdown capture exemption.
+
+For exact executable contracts and rejection fixtures, use [contract.mjs](./contract.mjs), [evidence.mjs](./evidence.mjs), [orchestrate.mjs](./orchestrate.mjs), [merge-gate.mjs](./merge-gate.mjs) and their adjacent tests.
+These validators supplement, rather than waive, the independent and external requirements above.

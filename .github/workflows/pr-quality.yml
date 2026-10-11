@@ -52,8 +52,8 @@ jobs:
       - run: pnpm build:storybook
       - name: React Doctor for changed sources
         run: pnpm run doctor --scope changed --base "$BEFORE_SHA"
-      - name: Audit assurance even after failure
-        if: always()
+      - name: Audit assurance after a journey failure
+        if: failure() && hashFiles('reports/assurance/latest.json') != ''
         run: pnpm assurance:audit --strict
       - name: Generate evidence manifest
         if: always()
