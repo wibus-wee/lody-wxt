@@ -4,10 +4,20 @@ import { execFileSync } from 'node:child_process';
 import { lstat, readdir, readFile } from 'node:fs/promises';
 import process from 'node:process';
 
-import { digest, hashPattern, safePath, shaPattern } from './common.mjs';
+import { digest, hashPattern, parsePolicy, safePath, shaPattern } from './common.mjs';
 import { assertCleanSnapshot } from './snapshot.mjs';
 
 const assuranceDirectory = /^reports\/assurance\/[a-f0-9-]+$/;
+
+export function protectedEvidencePolicy(ref, directory = '.') {
+  assert.ok(shaPattern.test(ref ?? ''), 'Trusted base policy SHA is required');
+  const git = (args) => execFileSync('git', args, { cwd: directory, encoding: 'utf8' });
+  git(['cat-file', '-e', `${ref}^{commit}`]);
+  const path = '.github/autonomous-maintenance-policy.yml';
+  // A first bootstrap PR has no protected policy yet. Never load its candidate policy.
+  if (!git(['ls-tree', '--name-only', ref, '--', path]).trim()) return null;
+  return parsePolicy(git(['show', `${ref}:${path}`]));
+}
 export async function collectFiles(root = 'reports', excluded = 'reports/autonomy/evidence.json') {
   const files = [];
   async function visit(path) {
@@ -76,6 +86,11 @@ export function verifyEvidence(
   { run, job, artifact, commit, policy, repo, pr, headSha, trustedModel, now = Date.now() },
   readArtifact,
 ) {
+  assert.notEqual(
+    manifest.acceptanceEligible,
+    false,
+    'Bootstrap diagnostics cannot authorize acceptance',
+  );
   assert.equal(manifest.schemaVersion, 1);
   assert.equal(manifest.repo, repo);
   assert.equal(manifest.pr, run.event === 'merge_group' ? 0 : pr);

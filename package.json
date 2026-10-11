@@ -22,7 +22,7 @@
     "prepare": "pnpm ui:update && wxt prepare",
     "build:ui": "node tools/ui/build.mjs",
     "ui:update": "node scripts/sync-ui.mjs && node scripts/generate-icons.mjs && pnpm build:ui",
-    "typecheck": "pnpm build:ui && pnpm --filter @lody-mobile/sdk typecheck && wxt prepare && tsc --noEmit",
+    "typecheck": "pnpm build:ui && pnpm build:sdk && wxt prepare && tsc --noEmit",
     "lint": "pnpm test:rules && pnpm lint:ast && oxlint --disable-nested-config && eslint .",
     "lint:fix": "pnpm test:rules && pnpm lint:ast && oxlint --disable-nested-config --fix && eslint . --fix",
     "test:sdk": "pnpm --filter @lody-mobile/sdk test",

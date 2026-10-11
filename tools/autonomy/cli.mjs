@@ -1,9 +1,8 @@
-import { execFileSync } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import process from 'node:process';
 
-import { parsePolicy, safePath } from './common.mjs';
-import { createEvidence } from './evidence.mjs';
+import { safePath } from './common.mjs';
+import { createEvidence, protectedEvidencePolicy } from './evidence.mjs';
 
 const command = process.argv[2];
 if (command === 'evidence') {
@@ -17,12 +16,7 @@ if (command === 'evidence') {
   const event = JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH, 'utf8'));
   const ref =
     process.env.AUTONOMY_POLICY_REF ?? event.pull_request?.base.sha ?? event.merge_group?.base_sha;
-  if (!ref || !/^[a-f0-9]{40}$/.test(ref)) throw new Error('Trusted base policy SHA is required');
-  const policy = parsePolicy(
-    execFileSync('git', ['show', `${ref}:.github/autonomous-maintenance-policy.yml`], {
-      encoding: 'utf8',
-    }),
-  );
+  const policy = protectedEvidencePolicy(ref);
   const evidence = await createEvidence({
     repo: process.env.GITHUB_REPOSITORY,
     pr: event.pull_request?.number ?? Number(process.env.AUTONOMY_PR_NUMBER ?? 0),
@@ -31,9 +25,14 @@ if (command === 'evidence') {
     runAttempt: process.env.GITHUB_RUN_ATTEMPT,
     event: process.env.GITHUB_EVENT_NAME,
     status: process.env.AUTONOMY_CI_RESULT === 'success' ? 'passed' : 'failed',
-    policyVersion: policy.version,
+    policyVersion: policy?.version ?? null,
     output,
   });
+  if (!policy) {
+    evidence.acceptanceEligible = false;
+    evidence.reason =
+      'Protected policy is not deployed; this bootstrap requires independent maintainer review';
+  }
   await mkdir('reports/autonomy', { recursive: true });
   await writeFile(output, `${JSON.stringify(evidence, null, 2)}\n`);
 } else if (command === 'accept') {
