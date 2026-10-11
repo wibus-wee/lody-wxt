@@ -49,9 +49,17 @@ Intermediate Node integration logs, including `local-functional-autonomy.log`, `
 Those fixtures are not browser execution, downloaded-image publication, live signature verification or remote GitHub enforcement.
 
 Before readiness, complete real browser/extension/mutation/capture runs, protected workflow deployment and App/Dots/attachment configuration, then all [ten isolated remote pilots](./examples/README.md) and merge→immutable-release→installed-monitor continuity.
-Product gaps are tracked separately in [draft PR #6](https://github.com/wibus-wee/lody-wxt/pull/6), as requested by the owner; the simplified UI and all model obligations remain intact.
-Missing historical-session access and unmounted workspace/conversation routes keep PR #4 blocked.
-The full failed run and the later fast-failure run are retained; early stopping does not turn skipped obligations into verified cases.
+The earlier missing-navigation failures were tests for intentionally disabled surfaces, not a requirement to restore the old UI.
+On the owner's clarification, six model cases and their scenarios were retired together: advanced management/archive, sidebar management, advanced delete/fork, advanced steer recovery and unreachable sharing.
+Current compact-chat editing/forking remains required.
+The namespace registry is regenerated from the model; the historical 19/44 result above remains a failed observation under its original model, not a result for the revised scope.
+Active chat, identity, scrolling and extension tests no longer use the removed history button as setup.
+Existing-conversation fixtures explicitly seed per-surface selection before the behavior under test; reload assertions then use production restoration without reseeding.
+Profile restart verifies the durable new-chat draft and identity, rather than promising cross-profile history navigation.
+Settings synchronization uses the current ambient preference, with the removed display-name editor assertions retired.
+The local retirement check passed 112 autonomy, five assurance-tool and three release tests before stopping on the two unavailable generated-icon imports ([check](../../reports/autonomy/retire-disabled-check.log)).
+The attempted browser assurance and packaged extension build are also blocked by the unavailable pinned Runeicons checkout; no revised browser or coverage pass is claimed.
+Fresh CI must establish results for the revised model.
 
 No protected-capture pilot, adversarial acceptance result, release publication or incident recovery is claimed.
 The observed manual CLI image upload validates native GitHub publication and the public download, not the deployed CI publisher.

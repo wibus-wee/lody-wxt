@@ -13,7 +13,7 @@ import { RuntimeBoundary } from '../e2e/support/runtime-boundary';
 
 test.use({ trace: 'off' });
 
-test('active conversation and draft survive extension and profile restarts; logout stays durable', async () => {
+test('new scoped draft and account survive extension and profile restarts; logout stays durable', async () => {
   test.setTimeout(120_000);
   const info = test.info();
   const evidence = new JourneyEvidence(
@@ -189,27 +189,25 @@ test('active conversation and draft survive extension and profile restarts; logo
     await expect(page.getByRole('button', { name: '运行配置', exact: true })).toContainText(
       'Controlled model',
     );
-    await page
-      .getByRole('textbox', { name: '消息', exact: true })
-      .fill('Continue this work after restart');
-    await page.getByRole('button', { name: '发送消息', exact: true }).click();
-    await expect(page.getByRole('article', { name: '你的消息', exact: true })).toContainText(
-      'Continue this work after restart',
-    );
-    const streams = [
-      ...new Set(
-        cloud.traffic
-          .filter((row) => row.kind === 'append' && row.stream.startsWith('workspace-a:s:'))
-          .map((row) => row.stream),
-      ),
-    ];
-    expect(streams).toHaveLength(1);
-    const sessionId = streams[0]!.slice('workspace-a:s:'.length);
-    const requestId = cloud.submittedTurn(sessionId).requestId;
-    cloud.beginReply(sessionId);
-    await expect(page.getByText('正在分析网页', { exact: true })).toBeVisible();
-    const draft = 'Unsent follow-up survives worker and browser restarts';
+    const draft = 'Unsent NEW scoped draft survives worker and browser restarts';
     await page.getByRole('textbox', { name: '消息', exact: true }).fill(draft);
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          Object.entries(localStorage).some(
+            ([key, value]) =>
+              key.startsWith('lody:chat-draft:') &&
+              key.endsWith(':new') &&
+              JSON.parse(value).text ===
+                'Unsent NEW scoped draft survives worker and browser restarts',
+          ),
+        ),
+      )
+      .toBe(true);
+    await info.attach('draft-restart-baseline', {
+      body: 'The unsent NEW conversation draft is persisted under the account-scoped :new localStorage key. Conversation selection is per-surface sessionStorage and is deliberately not restored across a full profile restart. No history selection is seeded or credited.',
+      contentType: 'text/plain',
+    });
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     const beforeReload = received.length;
     await worker
@@ -241,12 +239,8 @@ test('active conversation and draft survive extension and profile restarts; logo
     expect(received.slice(beforeReload)).toContain('/api/auth/get-session');
     expect(received.slice(beforeReload).some((url) => url.includes('/device/'))).toBe(false);
     await page.goto(`chrome-extension://${id}/sidepanel.html`);
-    await page.getByRole('button', { name: '会话列表', exact: true }).click();
-    await page
-      .getByRole('button', { name: 'Continue this work after restart', exact: true })
-      .click();
     await expect(page.getByRole('textbox', { name: '消息', exact: true })).toHaveValue(draft);
-    await expect(page.getByText('正在分析网页', { exact: true })).toBeVisible();
+    await expect(page.getByRole('article', { name: '你的消息', exact: true })).toHaveCount(0);
     await stopTrace();
     await context.close();
     const beforeRestart = received.length;
@@ -263,21 +257,13 @@ test('active conversation and draft survive extension and profile restarts; logo
     expect(received.slice(beforeRestart).some((url) => url.includes('/device/'))).toBe(false);
     await evidence.check('identity-and-draft-survive-profile-restart', async () => {
       await page.goto(`chrome-extension://${id}/sidepanel.html`);
-      await page.getByRole('button', { name: '会话列表', exact: true }).click();
-      await page
-        .getByRole('button', { name: 'Continue this work after restart', exact: true })
-        .click();
       await expect(page.getByRole('textbox', { name: '消息', exact: true })).toHaveValue(draft);
-      await expect(page.getByText('正在分析网页', { exact: true })).toBeVisible();
-      cloud.finishReply(sessionId);
-      await expect(
-        page.getByText('网页分析完成：这是一个协作项目。', { exact: true }),
-      ).toBeVisible();
-      await expect(page.getByRole('textbox', { name: '消息', exact: true })).toHaveValue(draft);
-      const history = cloud.document(sessionId).getList('history').toJSON();
-      expect(history).toHaveLength(2);
-      expect(history[0]).toMatchObject({ id: requestId, role: 'user' });
-      await expect(page.getByRole('article', { name: '你的消息', exact: true })).toHaveCount(1);
+      await expect(page.getByRole('article', { name: '你的消息', exact: true })).toHaveCount(0);
+      expect(
+        await page.evaluate(() =>
+          Object.keys(sessionStorage).filter((key) => key.startsWith('lody:chat-selection:')),
+        ),
+      ).toEqual([]);
     });
     await page.goto(url);
     await page.getByRole('button', { name: '退出此设备' }).click();

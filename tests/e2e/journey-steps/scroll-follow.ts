@@ -7,7 +7,7 @@ import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 
 import type { JourneyWorld } from './world';
-import { ready, reopen, restored } from './world';
+import { ready, restored, selectFixtureConversation } from './world';
 
 const requireSdk = createRequire(
   new URL('../../../packages/lody-sdk/package.json', import.meta.url),
@@ -70,7 +70,7 @@ When(
       item.setContainer('text', new LoroText()).update('这是一段可以选中检查的简短回复。');
     });
     await ready(this);
-    await reopen(this.page);
+    await selectFixtureConversation(this.page);
     const answer = this.page.getByText('这是一段可以选中检查的简短回复。', { exact: true });
     await expect(answer).toBeVisible();
     this.assertions = () =>

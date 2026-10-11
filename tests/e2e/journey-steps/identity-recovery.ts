@@ -7,7 +7,7 @@ import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 
 import type { JourneyWorld } from './world';
-import { ready, reopen, restored } from './world';
+import { ready, restored, selectFixtureConversation } from './world';
 
 const requireSdk = createRequire(
   new URL('../../../packages/lody-sdk/package.json', import.meta.url),
@@ -23,7 +23,7 @@ const otherDraft = 'Question belonging only to Other studio';
 async function streamWithRetainedDraft(world: JourneyWorld) {
   await ready(world);
   await composer(world.page).fill(world.draft);
-  await reopen(world.page);
+  await selectFixtureConversation(world.page);
   await composer(world.page).fill(activeQuestion);
   await world.page.getByRole('button', { name: '发送消息', exact: true }).click();
   await expect(
