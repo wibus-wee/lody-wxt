@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+
 import { assessConfiguration } from './preflight.mjs';
 const policy = {
   reviewer: 'connected-assistant',

@@ -1,4 +1,7 @@
-> Review architecture update: the owner clarified that Dots is the connected assistant. The separate endpoint/signature/App design described in older entries below is superseded. Historical failures are retained; they are not instructions to deploy those services. Current operation is described in RUNBOOK.md.
+> Review architecture update: the owner clarified that Dots is the connected assistant.
+> The separate endpoint/signature/App design described in older entries below is superseded.
+> Historical failures are retained; they are not instructions to deploy those services.
+> Current operation is described in RUNBOOK.md.
 
 # Validation record
 
