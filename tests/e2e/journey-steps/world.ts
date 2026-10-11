@@ -74,9 +74,15 @@ export async function ready(world: JourneyWorld) {
     'Controlled model',
   );
 }
-export async function reopen(page: Page, title = 'Historical conversation') {
-  await page.getByRole('button', { name: '会话列表', exact: true }).click();
-  await page.getByRole('button', { name: title, exact: true }).click();
+export async function selectFixtureConversation(page: Page) {
+  // Match workspaceScope and useLodyClient's accountKey for the isolated account fixture.
+  const scope = JSON.stringify(['https://backend.lody.ai', 'lody-cli', 'user-a', 'workspace-a']);
+  const accountKey = JSON.stringify([scope, 'https://convex.lody.ai']);
+  await page.evaluate((key) => {
+    sessionStorage.setItem(`lody:chat-selection:${key}`, 'history-a');
+  }, accountKey);
+  await page.reload();
+  await restored(page);
 }
 export async function restored(page: Page) {
   await expect(page.getByRole('button', { name: '运行配置', exact: true })).toContainText(

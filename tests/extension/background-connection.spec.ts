@@ -142,11 +142,65 @@ test('packaged workspace connects before panels, reuses its runtime and recovers
     await expect(panel.getByRole('button', { name: '运行配置', exact: true })).toContainText(
       'Controlled model',
     );
-    await panel.getByRole('button', { name: '会话列表', exact: true }).click();
-    await expect(
-      panel.getByRole('button', { name: 'Historical conversation', exact: true }),
-    ).toBeVisible();
     await panel.close();
+    const probe = await context.newPage();
+    await probe.goto(`${origin}/options.html#/account`);
+    const readWorkerSessions = () =>
+      probe.evaluate(async (stored) => {
+        type Reply = {
+          type: string;
+          id?: string;
+          value?: { id: string; title: string }[];
+          error?: { message: string };
+        };
+        type Port = {
+          postMessage: (message: object) => void;
+          disconnect: () => void;
+          onMessage: {
+            addListener: (listener: (reply: Reply) => void) => void;
+            removeListener: (listener: (reply: Reply) => void) => void;
+          };
+        };
+        const port = (
+          globalThis as typeof globalThis & {
+            chrome: { runtime: { connect: (options: { name: string }) => Port } };
+          }
+        ).chrome.runtime.connect({ name: 'lody:workspace' });
+        const call = (method: string, args: object[]) =>
+          new Promise<Reply['value']>((resolve, reject) => {
+            const id = crypto.randomUUID();
+            const listener = (reply: Reply) => {
+              if (reply.id !== id) return;
+              port.onMessage.removeListener(listener);
+              if (reply.type === 'error') reject(new Error(reply.error?.message));
+              else resolve(reply.value);
+            };
+            port.onMessage.addListener(listener);
+            port.postMessage({ type: 'call', id, method, args });
+          });
+        try {
+          await call('bootstrap', [
+            {
+              accountId: 'user-a',
+              workspaceId: 'workspace-a',
+              authOrigin: stored.config.authOrigin,
+              token: stored.token.access_token,
+              convexUrl: 'https://convex.lody.ai',
+              accountKey: JSON.stringify([
+                JSON.stringify(['https://backend.lody.ai', 'lody-cli', 'user-a', 'workspace-a']),
+                'https://convex.lody.ai',
+              ]),
+            },
+          ]);
+          return await call('repository.list', []);
+        } finally {
+          port.disconnect();
+        }
+      }, session);
+    await test.info().attach('worker-observation-baseline', {
+      body: 'An options-page probe reads the real worker repository over the production authorized workspace port. It does not mount a conversation or keep a session lease. Fixture selection later seeds only per-surface sessionStorage; opening history receives no journey credit.',
+      contentType: 'text/plain',
+    });
     await evidence.check('closed-panel-observes-authoritative-update', async () => {
       noPanel();
       cloud.setSessionMetadata('history-a', { title: 'Updated while the panel was closed' });
@@ -163,8 +217,14 @@ test('packaged workspace connects before panels, reuses its runtime and recovers
           ),
         )
         .toBe(true);
+      await expect
+        .poll(
+          async () => (await readWorkerSessions())?.find((row) => row.id === 'history-a')?.title,
+        )
+        .toBe('Updated while the panel was closed');
       noPanel();
     });
+    await probe.close();
     const reopened = await context.newPage();
     const second = await context.newPage();
     await evidence.check('opening-panels-reuses-workspace-bootstrap', async () => {
@@ -172,10 +232,6 @@ test('packaged workspace connects before panels, reuses its runtime and recovers
       await expect(reopened.getByRole('button', { name: '运行配置', exact: true })).toContainText(
         'Controlled model',
       );
-      await reopened.getByRole('button', { name: '会话列表', exact: true }).click();
-      await expect(
-        reopened.getByRole('button', { name: 'Updated while the panel was closed', exact: true }),
-      ).toBeVisible();
       await second.goto(`${origin}/sidepanel.html`);
       await expect(second.getByRole('button', { name: '运行配置', exact: true })).toContainText(
         'Controlled model',
@@ -246,10 +302,15 @@ test('packaged workspace connects before panels, reuses its runtime and recovers
     await expect(companion.getByRole('button', { name: '运行配置', exact: true })).toContainText(
       'Controlled model',
     );
-    await restored.getByRole('button', { name: '会话列表', exact: true }).click();
-    await restored
-      .getByRole('button', { name: 'Updated during worker suspension', exact: true })
-      .click();
+    // Baseline selection for the active-panel restart probe; no history-opening credit.
+    await restored.evaluate(() => {
+      const scope = JSON.stringify([
+        JSON.stringify(['https://backend.lody.ai', 'lody-cli', 'user-a', 'workspace-a']),
+        'https://convex.lody.ai',
+      ]);
+      sessionStorage.setItem(`lody:chat-selection:${scope}`, 'history-a');
+    });
+    await restored.reload();
     await expect(restored.getByRole('article', { name: '你的消息', exact: true })).toContainText(
       'Previously asked question',
     );

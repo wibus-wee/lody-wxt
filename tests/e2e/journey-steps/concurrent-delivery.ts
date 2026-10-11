@@ -4,7 +4,7 @@ import { After, Then, When } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
 
 import type { JourneyWorld } from './world';
-import { ready, reopen, restored, submittedSession } from './world';
+import { ready, restored, submittedSession } from './world';
 
 const releases = new WeakMap<JourneyWorld, () => void>();
 After(function (this: JourneyWorld) {
@@ -74,18 +74,26 @@ When('the other surface tries to submit the same draft', async function (this: J
 
 Then('both surfaces reconcile exactly one admitted turn', async function (this: JourneyWorld) {
   assert.ok(this.otherPage);
-  await this.evidence.check('both-surfaces-observe-one-turn', async () => {
+  await this.evidence.check('authoritative-refresh-without-duplicate-send', async () => {
     const userTurn = this.page.getByRole('article', { name: '你的消息', exact: true });
     await expect(userTurn).toContainText(this.draft);
     expect(submittedSession(this)).toBe(this.sessionId);
+    // This surface still owns an unsent draft. Refresh its authoritative cloud
+    // listing without manufacturing a selection of the first surface's session.
+    const metadataObserved = this.otherPage!.waitForResponse(
+      (response) =>
+        response.request().method() === 'GET' &&
+        decodeURIComponent(response.url()).includes('workspace-a:meta') &&
+        response.ok(),
+    );
     await this.otherPage!.getByRole('button', { name: '重新读取', exact: true }).click();
-    await reopen(this.otherPage!, this.draft);
+    await metadataObserved;
+    await expect(this.otherPage!.getByRole('textbox', { name: '消息', exact: true })).toHaveValue(
+      this.draft,
+    );
     await expect(
       this.otherPage!.getByRole('article', { name: '你的消息', exact: true }),
-    ).toHaveCount(1);
-    await expect(
-      this.otherPage!.getByRole('article', { name: '你的消息', exact: true }),
-    ).toContainText(this.draft);
+    ).toHaveCount(0);
     expect(this.cloud.historyTurnIds(this.sessionId)).toEqual([this.requestId]);
     expect(this.cloud.submittedTurn(this.sessionId).inputConfig.prompt).toBe(this.draft);
     const submittedIds = [

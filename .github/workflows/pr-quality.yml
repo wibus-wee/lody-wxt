@@ -1,0 +1,78 @@
+name: PR Quality
+on:
+  pull_request:
+  merge_group:
+permissions:
+  contents: read
+concurrency:
+  group: pr-quality-${{ github.event.pull_request.number || github.ref }}-${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+  cancel-in-progress: false
+jobs:
+  verify:
+    name: PR Quality / verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      LODY_UI_PINNED: '1'
+      ASSURANCE_REPEAT: '5'
+      ASSURANCE_BENCHMARK_AFTER_FIRST: '1'
+      ASSURANCE_FAIL_FAST: '1'
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      BEFORE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+      AUTONOMY_POLICY_REF: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - name: Verify detached candidate
+        run: |
+          git checkout --detach "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium firefox
+      - run: pnpm check
+      - run: pnpm test:sdk
+      - run: pnpm test:sdk:package
+      - run: pnpm test:browser
+      - run: pnpm test:assurance
+      - run: pnpm assurance:audit --strict
+      - run: pnpm build:firefox
+      - run: pnpm build
+      - run: pnpm build:web
+      - name: Record candidate build provenance
+        run: node tools/autonomy/capture-ui.mjs --record-build "$GITHUB_WORKSPACE" "$CANDIDATE_SHA"
+      - run: pnpm build:docs
+      - run: pnpm build:storybook
+      - name: React Doctor for changed sources
+        run: pnpm run doctor --scope changed --base "$BEFORE_SHA"
+      - name: Audit assurance after a journey failure
+        if: failure() && hashFiles('reports/assurance/latest.json') != ''
+        run: pnpm assurance:audit --strict
+      - name: Generate evidence manifest
+        if: always()
+        env:
+          AUTONOMY_CI_RESULT: ${{ job.status }}
+        run: node tools/autonomy/cli.mjs evidence --output reports/autonomy/evidence.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: autonomy-evidence-${{ env.CANDIDATE_SHA }}-${{ github.run_attempt }}
+          include-hidden-files: true
+          if-no-files-found: error
+          path: |
+            reports/
+            dist/web/
+            .output/chrome-mv3/
+            COVERAGE.md
+            coverage/
+            playwright-report/
+            test-results/
+          retention-days: 30

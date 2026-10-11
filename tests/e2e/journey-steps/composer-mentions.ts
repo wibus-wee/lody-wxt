@@ -16,6 +16,37 @@ const unavailableLabel = /wrong-machine/u;
 const structuredShortcutLabel = /scoped-review/u;
 const composer = (page: Page) => page.getByRole('textbox', { name: '消息', exact: true });
 const menu = (page: Page) => page.getByRole('listbox', { name: '提及与命令', exact: true });
+// Deliver actual touch events across animation frames so the browser processes
+// each move before the next one, then always release the active contact.
+async function swipeTouch(page: Page, x: number, y: number, distance: number) {
+  const touch = await page.context().newCDPSession(page);
+  try {
+    await touch.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x, y, id: 0 }],
+    });
+    const steps = Math.ceil(Math.abs(distance) / 8);
+    for (let step = 1; step <= steps; step++) {
+      await page.evaluate(
+        () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+      );
+      await touch.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x, y: y + (distance * step) / steps, id: 0 }],
+      });
+    }
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+    );
+  } finally {
+    try {
+      await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    } finally {
+      await touch.detach();
+    }
+  }
+}
+
 async function inspectMenu(world: JourneyWorld, name: string) {
   for (const width of [360, 400]) {
     await world.page.setViewportSize({ width, height: 780 });
@@ -356,36 +387,28 @@ When(
       await menu(this.page).getByRole('option', { name: '快捷指令', exact: true }).tap();
       await expect(menu(this.page).getByRole('option', { name: privateLabel })).toBeVisible();
       const scroller = this.page.locator('[data-mention-scroll]');
+      await expect
+        .poll(() => scroller.evaluate((element) => element.scrollHeight > element.clientHeight))
+        .toBe(true);
       const bounds = await scroller.boundingBox();
       expect(bounds).not.toBeNull();
-      const touch = await this.context.newCDPSession(this.page);
-      try {
-        await touch.send('Input.synthesizeScrollGesture', {
-          x: bounds!.x + bounds!.width / 2,
-          y: bounds!.y + bounds!.height * 0.8,
-          yDistance: -Math.min(120, bounds!.height * 0.5),
-          gestureSourceType: 'touch',
-          speed: 500,
-          preventFling: true,
-        });
-        await expect
-          .poll(() => scroller.evaluate((element) => element.scrollTop))
-          .toBeGreaterThan(0);
-        await expect(input).toHaveValue('Lead @shortcut:');
-        await touch.send('Input.synthesizeScrollGesture', {
-          x: bounds!.x + bounds!.width / 2,
-          y: bounds!.y + bounds!.height * 0.2,
-          yDistance: Math.min(120, bounds!.height * 0.5) + 24,
-          gestureSourceType: 'touch',
-          speed: 500,
-          preventFling: true,
-        });
-        await expect
-          .poll(() => scroller.evaluate((element) => element.scrollTop))
-          .toBeLessThanOrEqual(1);
-      } finally {
-        await touch.detach();
-      }
+      await swipeTouch(
+        this.page,
+        bounds!.x + bounds!.width / 2,
+        bounds!.y + bounds!.height * 0.8,
+        -Math.min(120, bounds!.height * 0.5),
+      );
+      await expect.poll(() => scroller.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+      await expect(input).toHaveValue('Lead @shortcut:');
+      await swipeTouch(
+        this.page,
+        bounds!.x + bounds!.width / 2,
+        bounds!.y + bounds!.height * 0.2,
+        Math.min(120, bounds!.height * 0.5) + 24,
+      );
+      await expect
+        .poll(() => scroller.evaluate((element) => element.scrollTop))
+        .toBeLessThanOrEqual(1);
       const back = this.page.getByRole('button', { name: '快捷指令，返回全部分类', exact: true });
       await expect(back).toBeInViewport();
       await back.tap();

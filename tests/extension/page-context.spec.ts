@@ -15,6 +15,8 @@ test.use({ trace: 'off' });
 
 for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
   test(`packaged capture on ${origin} preserves text and sends one prompt`, async () => {
+    // This lifecycle captures eight sources, checks three layouts and runs axe.
+    test.setTimeout(60_000);
     const testInfo = test.info();
     const profile = await mkdtemp(path.join(tmpdir(), 'lody-page-capture-'));
     const extension = path.resolve('.output/chrome-mv3');
@@ -23,6 +25,8 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
       headless: true,
       args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
     });
+    context.setDefaultTimeout(10_000);
+    context.setDefaultNavigationTimeout(15_000);
     const evidence = origin.startsWith('https:')
       ? new JourneyEvidence('capture-and-send-context', 'packaged-selection', 'extension')
       : null;
@@ -89,23 +93,25 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
         expect(await grantedOrigins()).not.toContain(`${origin}/*`);
         const settings = await context.newPage();
         await settings.goto('chrome://extensions');
-        await settings.evaluate(
-          async (options) => {
-            const api = (
-              globalThis as typeof globalThis & {
-                chrome: {
-                  developerPrivate: {
-                    addHostPermission: (extensionId: string, host: string) => Promise<void>;
+        await test.step('grant only the HTTP fixture origin', async () => {
+          await settings.evaluate(
+            async (options) => {
+              const api = (
+                globalThis as typeof globalThis & {
+                  chrome: {
+                    developerPrivate: {
+                      addHostPermission: (extensionId: string, host: string) => Promise<void>;
+                    };
                   };
-                };
-              }
-            ).chrome;
-            await api.developerPrivate.addHostPermission(options.extensionId, options.host);
-          },
-          { extensionId: new URL(worker.url()).host, host: `${origin}/*` },
-        );
+                }
+              ).chrome;
+              await api.developerPrivate.addHostPermission(options.extensionId, options.host);
+            },
+            { extensionId: new URL(worker.url()).host, host: `${origin}/*` },
+          );
+          expect(await grantedOrigins()).not.toContain('http://*/*');
+        });
         await settings.close();
-        expect(await grantedOrigins()).not.toContain('http://*/*');
         await source.bringToFront();
       }
       await panel.getByRole('textbox', { name: '消息', exact: true }).fill('Keep my draft');
@@ -226,6 +232,8 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
       await expect(panel.getByRole('article', { name: '你的消息', exact: true })).toContainText(
         'Explain these references',
       );
+      // Capturing needs the source tab active; layout and axe need the panel active.
+      await panel.bringToFront();
       const sentMessage = panel.getByRole('article', { name: '你的消息', exact: true });
       await expect(
         sentMessage.getByRole('group', { name: '已附加的网页资料', exact: true }),
@@ -258,7 +266,9 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
         body: await panel.screenshot(),
         contentType: 'image/png',
       });
-      expect((await new AxeBuilder({ page: panel }).analyze()).violations).toEqual([]);
+      await test.step('audit the foreground panel accessibility', async () => {
+        expect((await new AxeBuilder({ page: panel }).analyze()).violations).toEqual([]);
+      });
       const lastCard = cards.last().getByRole('button');
       await lastCard.focus();
       await panel.keyboard.press('Enter');
@@ -324,22 +334,37 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
       await expect(
         panel.getByText('网页分析完成：这是一个协作项目。', { exact: true }),
       ).toBeVisible();
-      await panel.reload();
-      await panel.getByRole('textbox', { name: '消息', exact: true }).fill('Continue the analysis');
-      await panel.getByRole('button', { name: '发送消息', exact: true }).click();
-      await expect(panel.getByRole('article', { name: '你的消息', exact: true })).toHaveCount(2);
-      expect(cloud.submittedTurn(sessionId).inputConfig).toMatchObject({
-        prompt: 'Continue the analysis',
-        mcpServerIds: ['research-stdio'],
-        inputBlocks: [{ type: 'text', text: 'Continue the analysis' }],
+      await test.step('restore the selected conversation and submit a continuation', async () => {
+        await panel.reload({ waitUntil: 'domcontentloaded' });
+        await expect(panel.getByRole('button', { name: '运行配置', exact: true })).toContainText(
+          'Controlled model',
+        );
+        await expect(panel.getByRole('article', { name: '你的消息', exact: true })).toContainText(
+          'Explain these references',
+        );
+        await expect(
+          panel.getByText('网页分析完成：这是一个协作项目。', { exact: true }),
+        ).toBeVisible();
+        const prompt = panel.getByRole('textbox', { name: '消息', exact: true });
+        await prompt.fill('Continue the analysis');
+        await expect(prompt).toHaveValue('Continue the analysis');
+        await panel.getByRole('button', { name: '发送消息', exact: true }).click();
+        await expect(panel.getByRole('article', { name: '你的消息', exact: true })).toHaveCount(2);
+        expect(cloud.submittedTurn(sessionId).inputConfig).toMatchObject({
+          prompt: 'Continue the analysis',
+          mcpServerIds: ['research-stdio'],
+          inputBlocks: [{ type: 'text', text: 'Continue the analysis' }],
+        });
       });
     } finally {
       const trace =
         evidence && process.env.ASSURANCE_RUN_DIRECTORY
           ? `${process.env.ASSURANCE_RUN_DIRECTORY}/packaged-capture.trace.zip`
           : testInfo.outputPath('capture.trace.zip');
-      await context.tracing.stop({ path: trace });
-      await testInfo.attach('capture-trace', { path: trace, contentType: 'application/zip' });
+      await test.step('retain the capture trace', async () => {
+        await context.tracing.stop({ path: trace });
+        await testInfo.attach('capture-trace', { path: trace, contentType: 'application/zip' });
+      });
       if (evidence && process.env.ASSURANCE_RUN_DIRECTORY) {
         await evidence.write(
           testInfo.status === 'passed' ? 'passed' : 'failed',

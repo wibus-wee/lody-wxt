@@ -20,7 +20,7 @@ const styles = stylex.create({
     fontSize: 12,
     lineHeight: '18px',
     fontWeight: 400,
-    color: composer.hint,
+    color: composer.label,
   },
   spinner: {
     flexShrink: 0,

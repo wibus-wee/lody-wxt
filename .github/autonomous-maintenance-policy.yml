@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "repository": "wibus-wee/lody-wxt",
+  "baseBranch": "main",
+  "mergeStrategy": "protected-auto-merge",
+  "requiredChecks": [
+    "PR Quality / verify",
+    "Autonomy / acceptance"
+  ],
+  "ciWorkflow": ".github/workflows/pr-quality.yml",
+  "ciJob": "PR Quality / verify",
+  "ciAppId": 15368,
+  "acceptanceAppId": null,
+  "strictP0": true,
+  "maxEvidenceAgeHours": 24,
+  "maxReviewCycles": 3,
+  "maxRetries": 2,
+  "retryDelaySeconds": 3,
+  "protectedPrefixes": [
+    ".github/",
+    "AGENTS.md",
+    "tools/autonomy/",
+    "tools/assurance/",
+    "tools/release/",
+    "scripts/",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "eslint.config.",
+    "wxt.config.",
+    "vite.config.",
+    "playwright.config.",
+    "cucumber.mjs",
+    ".release-please",
+    "release-please-config.json",
+    ".gitmodules",
+    ".npmrc",
+    ".ast-grep/",
+    "sgconfig",
+    "vendor/",
+    "tools/ui/",
+    "tools/vite/",
+    ".vscode/",
+    "docs/vite.config.",
+    "docs/source.config.",
+    ".storybook/",
+    "tools/docs/"
+  ],
+  "elevatedPrefixes": [
+    "packages/lody-sdk/",
+    "src/features/account/",
+    "src/features/network/",
+    "src/features/connection/",
+    "src/features/conversations/",
+    "src/shared/storage",
+    "src/features/preferences/"
+  ],
+  "nonRuntimePrefixes": [],
+  "screenshot": {
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "viewports": [
+      {
+        "width": 1280,
+        "height": 800
+      },
+      {
+        "width": 390,
+        "height": 844
+      }
+    ],
+    "allowedImageHosts": [
+      "github.com",
+      "user-images.githubusercontent.com",
+      "github-production-user-asset-6210df.s3.amazonaws.com"
+    ],
+    "requireBeforeForExisting": true
+  },
+  "release": {
+    "strategy": "release-please",
+    "initialVersion": "0.1.0",
+    "breakingBeforeOne": "minor",
+    "immutable": true
+  },
+  "monitor": {
+    "retryLimit": 2,
+    "cooldownHours": 24,
+    "closeOnlyInstalledVerified": true
+  }
+}

@@ -1,0 +1,28 @@
+# Enforcement requires externally installed GitHub protection/rulesets.
+# Protected policy and elevated-risk state owners require approval outside the change.
+/.github/ @wibus-wee
+/AGENTS.md @wibus-wee
+/tools/autonomy/ @wibus-wee
+/tools/assurance/ @wibus-wee
+/tools/release/ @wibus-wee
+/scripts/ @wibus-wee
+/package.json @wibus-wee
+/pnpm-lock.yaml @wibus-wee
+/pnpm-workspace.yaml @wibus-wee
+/.gitmodules @wibus-wee
+/.npmrc @wibus-wee
+/*config* @wibus-wee
+/cucumber.mjs @wibus-wee
+/.release-please-manifest.json @wibus-wee
+/vendor/ @wibus-wee
+/packages/lody-sdk/ @wibus-wee
+/src/features/account/ @wibus-wee
+/src/features/network/ @wibus-wee
+/src/features/connection/ @wibus-wee
+/src/features/conversations/ @wibus-wee
+/src/shared/storage.ts @wibus-wee
+/.vscode/ @wibus-wee
+/.storybook/ @wibus-wee
+/docs/vite.config.ts @wibus-wee
+/docs/source.config.ts @wibus-wee
+/tools/docs/ @wibus-wee

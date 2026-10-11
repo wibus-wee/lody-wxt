@@ -6,7 +6,7 @@ import { When } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
 
 import type { JourneyWorld } from './world';
-import { ready, reopen, restored } from './world';
+import { ready, restored, selectFixtureConversation } from './world';
 
 const requireSdk = createRequire(
   new URL('../../../packages/lody-sdk/package.json', import.meta.url),
@@ -33,7 +33,7 @@ When(
       user.set('pageContexts', [pageSource]);
     });
     await ready(this);
-    await reopen(this.page);
+    await selectFixtureConversation(this.page);
     const user = this.page.getByRole('article', { name: '你的消息', exact: true });
     await expect(user).toContainText(pageSource.title);
     await user.getByRole('button', { name: '消息操作', exact: true }).click();

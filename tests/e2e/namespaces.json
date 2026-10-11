@@ -10,9 +10,9 @@
     "reason": "Closed-panel observation, terminal validation, deduplication and account isolation cross worker and browser permission lifetimes."
   },
   "sharing": {
-    "disposition": "journey",
+    "disposition": "unmounted-adapter",
     "owners": ["sharing", "connection", "documents"],
-    "reason": "Explicit public disclosure, delivery recovery and revocation cross different credential/data-plane boundaries."
+    "reason": "ShareDialog and its publication adapters have no reachable mounted disclosure action; protocol checks do not establish a product sharing journey."
   },
   "privacy": {
     "disposition": "journey",
@@ -36,8 +36,8 @@
   },
   "workspace": {
     "disposition": "journey",
-    "owners": ["advanced", "machine", "documents"],
-    "reason": "Advanced commands, metadata management and destructive operations."
+    "owners": ["account", "quickDraft", "capture", "documents", "machine"],
+    "reason": "Mounted compact conversation actions edit, regenerate and fork retained history."
   },
   "pageContext": {
     "disposition": "journey",

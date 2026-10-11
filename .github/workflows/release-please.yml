@@ -1,0 +1,71 @@
+name: Release please
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+jobs:
+  propose:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          skip-github-release: true
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          # An optional separately provisioned token lets release PR events trigger
+          # checks. Tag packaging below uses explicit workflow dispatch.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+  plan:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.plan.outputs.tag }}
+      commit: ${{ steps.plan.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+      - id: plan
+        run: node tools/autonomy/release-plan.mjs plan
+  tag:
+    needs: plan
+    if: needs.plan.outputs.tag != ''
+    environment: release-promotion
+    # Release please owns the batched PR; this job owns tag-only publication.
+    # Explicit dispatch also works when the tag uses GITHUB_TOKEN.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      SOURCE_COMMIT: ${{ needs.plan.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+      - name: Require configured independent environment approval
+        run: node tools/autonomy/release-plan.mjs approval release-promotion
+      - name: Tag the approved merged manifest version and dispatch packaging
+        run: node tools/autonomy/release-plan.mjs promote "$SOURCE_COMMIT"

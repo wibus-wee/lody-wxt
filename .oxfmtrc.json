@@ -13,6 +13,7 @@
     "storybook-static/**",
     "src/shared/icons/generated.ts",
     "pnpm-lock.yaml",
-    "COVERAGE.md"
+    "COVERAGE.md",
+    ".github/autonomous-maintenance-policy.yml"
   ]
 }

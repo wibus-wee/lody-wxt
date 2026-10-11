@@ -1,0 +1,52 @@
+name: Revoke stale acceptance
+on:
+  pull_request_target:
+    types: [edited, synchronize, closed, converted_to_draft]
+  workflow_run:
+    workflows: [Independent Acceptance, Merge Gate Recheck]
+    types: [completed]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: acceptance-revocation
+  cancel-in-progress: false
+jobs:
+  revoke:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: autonomy
+    steps:
+      # Never check out the PR, its merge ref, or downloaded executable content.
+      - uses: actions/checkout@v5
+        with:
+          ref: refs/heads/main
+          persist-credentials: false
+      - name: Bind controller to protected workflow snapshot
+        env:
+          TRUSTED_WORKFLOW_SHA: ${{ github.workflow_sha }}
+        run: test "$(git rev-parse HEAD)" = "$TRUSTED_WORKFLOW_SHA"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+      - uses: actions/create-github-app-token@v2
+        id: app
+        with:
+          app-id: ${{ vars.AUTONOMY_APP_ID }}
+          private-key: ${{ secrets.AUTONOMY_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-checks: write
+          permission-pull-requests: read
+          permission-contents: read
+          permission-actions: read
+          permission-administration: read
+      - name: Revoke only; never authorize a merge
+        run: node tools/autonomy/invalidate.mjs
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}

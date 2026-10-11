@@ -21,6 +21,7 @@ async function main() {
     startedAt: new Date().toISOString(),
     repeat,
     benchmarkAfterFirst: process.env.ASSURANCE_BENCHMARK_AFTER_FIRST === '1',
+    failFast: process.env.ASSURANCE_FAIL_FAST === '1',
     authored: authored.map((item) => item.key),
     layers: {},
   };
@@ -92,16 +93,23 @@ async function main() {
             ? `(${process.env.ASSURANCE_TAGS}) and @performance`
             : '@performance'
           : process.env.ASSURANCE_TAGS;
+      if (manifest.failFast) args.push('--fail-fast');
       if (tags) args.push('--tags', tags);
       const code = await run(process.execPath, args, { ASSURANCE_REPETITION: String(repetition) });
       const report = JSON.parse(await readFile(`${directory}/cucumber-${repetition}.json`, 'utf8'));
       if (!report.some((feature) => feature.elements?.some((item) => item.type === 'scenario')))
         throw new Error('No user journeys executed');
       result ||= code;
+      if (code !== 0 && manifest.failFast) break;
     }
     manifest.layers.web = { exitCode: result };
     if (process.argv.includes('--extension')) {
-      const extension = await run('pnpm', ['exec', 'playwright', 'test']);
+      const extension = await run('pnpm', [
+        'exec',
+        'playwright',
+        'test',
+        ...(manifest.failFast ? ['--max-failures=1'] : []),
+      ]);
       manifest.layers.extension = { exitCode: extension };
       result ||= extension;
     }

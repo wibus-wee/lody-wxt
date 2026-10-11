@@ -98,6 +98,9 @@ test('packaged slash and shortcut manager authorize through the real service wor
     let slashFailure = '';
     try {
       await expect(privateOption).toBeVisible({ timeout: 8000 });
+      await expect(list.getByRole('option', { name: /team-summary/u })).toBeVisible({
+        timeout: 8000,
+      });
     } catch (error) {
       slashFailure = error instanceof Error ? error.message : String(error);
     }
@@ -115,6 +118,9 @@ test('packaged slash and shortcut manager authorize through the real service wor
     let managerFailure = '';
     try {
       await expect(privateCard).toBeVisible({ timeout: 8000 });
+      await expect(
+        panel.getByRole('region', { name: '快捷指令 团队共享摘要', exact: true }),
+      ).toBeVisible({ timeout: 8000 });
     } catch (error) {
       managerFailure = error instanceof Error ? error.message : String(error);
     }
