@@ -418,6 +418,7 @@ export class RuntimeBoundary {
   constructor(
     options: {
       modelControls?: boolean;
+      searchableModels?: { id: string; category?: string; count?: number };
       modeOption?: string;
       configOnlyMode?: boolean;
       recentHistory?: boolean;
@@ -579,6 +580,39 @@ export class RuntimeBoundary {
           'model-a': { effortValues: ['high'], fastMode: true },
           'model-b': { effortValues: ['low'], fastMode: false },
         },
+      });
+    }
+    if (options.searchableModels) {
+      const { id, category, count = 30 } = options.searchableModels;
+      machine.set(['acpCapability', 'agent-a'], {
+        cliType: options.agent?.cliType ?? 'builtin',
+        agentType: options.agent?.agentType ?? 'claude',
+        fetchedAt: Date.now(),
+        models: [],
+        modes: [],
+        configOptions: [
+          {
+            id,
+            ...(category === undefined ? {} : { category }),
+            name: 'Model',
+            type: 'select',
+            currentValue: 'model-a',
+            options: Array.from({ length: count }, (_, index) => ({
+              value: index === 0 ? 'model-a' : `provider/model-${index}`,
+              name: index === 0 ? 'Controlled model' : `Research model ${index}`,
+            })),
+          },
+          {
+            id: 'effort',
+            name: 'Thinking level',
+            type: 'select',
+            currentValue: 'high',
+            options: [
+              { value: 'high', name: 'High' },
+              { value: 'low', name: 'Low' },
+            ],
+          },
+        ],
       });
     }
     const capabilityRow = Array.from(machine.scanValues()).find(
