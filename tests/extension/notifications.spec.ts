@@ -248,11 +248,13 @@ test('packaged notifications observe verified terminal events with the panel clo
     await evidence.check('first-poll-fast-task-verified', async () => {
       await wake(worker);
       // checkedAt can be persisted by another session before this event is saved.
-      await expect.poll(async () => (await state(worker)).events).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ sessionId: fastSession, kind: 'completed' }),
-        ]),
-      );
+      await expect
+        .poll(async () => (await state(worker)).events)
+        .toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ sessionId: fastSession, kind: 'completed' }),
+          ]),
+        );
       // emit persists the event before the observer finishes clearing the pending turn.
       await expect
         .poll(async () => (await state(worker)).pendingTurns[fastSession!])
