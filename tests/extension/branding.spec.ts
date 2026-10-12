@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -54,18 +54,46 @@ test('installed extension displays its official icon instead of a browser placeh
     await page.goto('chrome://extensions');
     const card = page.locator('extensions-item').filter({ hasText: 'Lody' });
     await expect(card).toHaveCount(1);
-    const icon = card.locator('#icon');
+    const icon = card.locator('img#icon');
     await expect(icon).toBeVisible();
-    await expect(icon).toHaveAttribute('src', new RegExp(`^chrome://extension-icon/${id}/`));
     await expect
       .poll(() => icon.evaluate((element) => (element as HTMLImageElement).naturalWidth))
       .toBeGreaterThan(0);
+    const expectedIcon = await readFile(path.join(extension, 'icon/48.png'));
+    const matchesArtwork = await icon.evaluate(
+      async (element, expected) => {
+        const actual = element as HTMLImageElement;
+        await actual.decode();
+        const reference = new Image();
+        reference.src = expected;
+        await reference.decode();
+        if (
+          actual.naturalWidth !== reference.naturalWidth ||
+          actual.naturalHeight !== reference.naturalHeight
+        )
+          return false;
+        const pixels = (image: HTMLImageElement) => {
+          const canvas = document.createElement('canvas');
+          canvas.width = image.naturalWidth;
+          canvas.height = image.naturalHeight;
+          const context = canvas.getContext('2d');
+          if (!context) throw new Error('Image pixel comparison requires a canvas context');
+          context.drawImage(image, 0, 0);
+          return context.getImageData(0, 0, canvas.width, canvas.height).data;
+        };
+        const left = pixels(actual);
+        const right = pixels(reference);
+        return left.every((value, index) => value === right[index]);
+      },
+      `data:image/png;base64,${expectedIcon.toString('base64')}`,
+    );
+    expect(matchesArtwork).toBe(true);
     await test.info().attach('installed-extension-icon', {
       body: await card.screenshot(),
       contentType: 'image/png',
     });
     await page.reload();
-    await expect(card.locator('#icon')).toBeVisible();
+    await expect(card.locator('img#icon')).toBeVisible();
   } finally {
     await context?.close();
     await rm(profile, { recursive: true, force: true });
