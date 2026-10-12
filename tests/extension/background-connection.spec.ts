@@ -198,7 +198,7 @@ test('packaged workspace connects before panels, reuses its runtime and recovers
         }
       }, session);
     await test.info().attach('worker-observation-baseline', {
-      body: 'An options-page probe reads the real worker repository over the production authorized workspace port. It does not mount a conversation or keep a session lease. Fixture selection later seeds only per-surface sessionStorage; opening history receives no journey credit.',
+      body: 'An options-page probe reads the real worker repository over the production authorized workspace port. It does not mount a conversation or keep a session lease. The active-panel probe later opens the existing conversation through the history control.',
       contentType: 'text/plain',
     });
     await evidence.check('closed-panel-observes-authoritative-update', async () => {
@@ -302,15 +302,8 @@ test('packaged workspace connects before panels, reuses its runtime and recovers
     await expect(companion.getByRole('button', { name: '运行配置', exact: true })).toContainText(
       'Controlled model',
     );
-    // Baseline selection for the active-panel restart probe; no history-opening credit.
-    await restored.evaluate(() => {
-      const scope = JSON.stringify([
-        JSON.stringify(['https://backend.lody.ai', 'lody-cli', 'user-a', 'workspace-a']),
-        'https://convex.lody.ai',
-      ]);
-      sessionStorage.setItem(`lody:chat-selection:${scope}`, 'history-a');
-    });
-    await restored.reload();
+    await restored.getByRole('button', { name: '会话列表', exact: true }).click();
+    await restored.locator('[data-history-id="history-a"]').click();
     await expect(restored.getByRole('article', { name: '你的消息', exact: true })).toContainText(
       'Previously asked question',
     );

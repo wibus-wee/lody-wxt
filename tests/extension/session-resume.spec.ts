@@ -97,24 +97,20 @@ test('installed sidebar restores recent sessions and retains expired history', a
       await expect(panel.getByRole('article', { name: '你的消息', exact: true })).toHaveCount(0);
       await panel.getByRole('button', { name: '会话列表', exact: true }).click();
       await expect(panel.locator(`[data-history-id="${session}"]`)).toBeVisible();
-      await test
-        .info()
-        .attach('expired-session-history', {
-          body: await panel.screenshot(),
-          contentType: 'image/png',
-        });
+      await test.info().attach('expired-session-history', {
+        body: await panel.screenshot(),
+        contentType: 'image/png',
+      });
     });
     await evidence.check('history-opens-authoritative-conversation', async () => {
       await panel.locator(`[data-history-id="${session}"]`).click();
       await expect(panel.getByRole('article', { name: '你的消息', exact: true })).toContainText(
         prompt,
       );
-      await test
-        .info()
-        .attach('restored-conversation', {
-          body: await panel.screenshot(),
-          contentType: 'image/png',
-        });
+      await test.info().attach('restored-conversation', {
+        body: await panel.screenshot(),
+        contentType: 'image/png',
+      });
     });
     await evidence.check('explicit-new-prevents-resume', async () => {
       await panel.getByRole('button', { name: '新建会话', exact: true }).click();

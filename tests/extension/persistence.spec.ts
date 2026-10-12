@@ -205,7 +205,7 @@ test('new scoped draft and account survive extension and profile restarts; logou
       )
       .toBe(true);
     await info.attach('draft-restart-baseline', {
-      body: 'The unsent NEW conversation draft is persisted under the account-scoped :new localStorage key. Conversation selection is per-surface sessionStorage and is deliberately not restored across a full profile restart. No history selection is seeded or credited.',
+      body: 'The unsent NEW conversation draft is persisted under the account-scoped :new localStorage key. No conversation has been selected, so profile restart must retain the new draft without inventing a resume selection. No history selection is seeded or credited.',
       contentType: 'text/plain',
     });
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
@@ -261,7 +261,7 @@ test('new scoped draft and account survive extension and profile restarts; logou
       await expect(page.getByRole('article', { name: '你的消息', exact: true })).toHaveCount(0);
       expect(
         await page.evaluate(() =>
-          Object.keys(sessionStorage).filter((key) => key.startsWith('lody:chat-selection:')),
+          Object.keys(localStorage).filter((key) => key.startsWith('lody:chat-resume:')),
         ),
       ).toEqual([]);
     });
