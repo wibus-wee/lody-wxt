@@ -29,6 +29,7 @@ jobs:
       ASSURANCE_EXTENSION_WORKERS: '1'
       ASSURANCE_REQUIRE_PERFORMANCE: '1'
       ASSURANCE_PERFORMANCE_MODE: report
+      ASSURANCE_COVERAGE_PATH: reports/assurance/COVERAGE.md
     steps:
       - uses: actions/checkout@v5
         with:

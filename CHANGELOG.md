@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.3](https://github.com/wibus-wee/lody-wxt/compare/v0.2.2...v0.2.3) (2026-10-12)
+
+### Bug Fixes
+
+- Write release coverage evidence into the uploaded reports directory instead of modifying tracked COVERAGE.md. Source and submodule drift checks remain strict.
+
+The v0.2.2 tag is retained unchanged; its package was built but publication was blocked by generated report drift.
+
 ## [0.2.2](https://github.com/wibus-wee/lody-wxt/compare/v0.2.1...v0.2.2) (2026-10-12)
 
 ### Bug Fixes
