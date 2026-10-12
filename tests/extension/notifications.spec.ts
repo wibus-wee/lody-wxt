@@ -213,6 +213,7 @@ test('packaged notifications observe verified terminal events with the panel clo
     await expect(fastPanel.getByRole('button', { name: '运行配置', exact: true })).toContainText(
       'Controlled model',
     );
+    await fastPanel.getByRole('button', { name: '新建会话', exact: true }).click();
     await fastPanel
       .getByRole('textbox', { name: '消息', exact: true })
       .fill('Fast completion under one alarm');
