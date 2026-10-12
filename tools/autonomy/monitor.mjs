@@ -72,6 +72,41 @@ const gh = (...args) =>
     maxBuffer: 16 * 1024 * 1024,
     timeout: 120000,
   }).trim();
+export function selectPublishedRelease(command = gh) {
+  let release;
+  try {
+    release = JSON.parse(command('api', 'repos/{owner}/{repo}/releases/latest'));
+  } catch (error) {
+    let response;
+    try {
+      response = JSON.parse(String(error.stdout));
+    } catch {
+      throw error;
+    }
+    if (String(response.status) !== '404') throw error;
+    // A 404 alone can also mean inaccessible data. Confirm a readable collection.
+    const pages = JSON.parse(
+      command('api', '--paginate', '--slurp', 'repos/{owner}/{repo}/releases?per_page=100'),
+    );
+    assert.ok(Array.isArray(pages) && pages.every(Array.isArray));
+    const releases = pages.flat();
+    assert.ok(
+      releases.every(
+        (item) => item && typeof item.draft === 'boolean' && typeof item.prerelease === 'boolean',
+      ),
+      'Invalid releases collection',
+    );
+    assert.ok(
+      releases.every((item) => item.draft || item.prerelease),
+      'Latest stable lookup failed despite an existing stable release',
+    );
+    return null;
+  }
+  assert.equal(release.draft, false);
+  assert.equal(release.prerelease, false);
+  validateTag(release.tag_name);
+  return release;
+}
 export function verifiedResult(file, expected) {
   const result = JSON.parse(readFileSync(file));
   assert.equal(result.version, validateTag(expected.tag));
@@ -170,14 +205,19 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const [command] = process.argv.slice(2);
   if (command === 'select') {
     const policy = monitorPolicy();
-    const release = JSON.parse(gh('api', 'repos/{owner}/{repo}/releases/latest'));
-    assert.ok(!release.draft && !release.prerelease);
-    validateTag(release.tag_name);
+    const release = selectPublishedRelease();
     writeFileSync(
       process.env.GITHUB_OUTPUT,
-      `tag=${release.tag_name}\ndownload_attempts=${policy.retryLimit + 1}\n`,
+      `tag=${release?.tag_name ?? ''}\ndownload_attempts=${policy.retryLimit + 1}\n`,
       { flag: 'a' },
     );
+    if (!release) {
+      const message =
+        'No stable release has been published; installed-release verification was not run.\n';
+      console.log(message.trim());
+      if (process.env.GITHUB_STEP_SUMMARY)
+        writeFileSync(process.env.GITHUB_STEP_SUMMARY, message, { flag: 'a' });
+    }
   } else if (command === 'result') {
     verifiedResult(process.env.RESULT_FILE, {
       tag: process.env.RELEASE_TAG,

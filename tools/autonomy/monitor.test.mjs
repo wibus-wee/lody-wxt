@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 
-import { incidentPlan, report, verifiedResult } from './monitor.mjs';
+import { incidentPlan, report, selectPublishedRelease, verifiedResult } from './monitor.mjs';
 
 const identity = { tag: 'v1.2.3', archiveSha256: 'a'.repeat(64) };
 const issue = {
@@ -185,4 +185,66 @@ test('cooldown reopening preserves the previously verified immutable archive ide
       .find((arg) => arg.startsWith('body='))
       .includes(`Archive SHA-256: ${identity.archiveSha256}`),
   );
+});
+
+test('missing latest release skips only after confirming no stable published release', () => {
+  const missing = Object.assign(new Error('404'), { stdout: '{"status":"404"}' });
+  for (const releases of [
+    [],
+    [{ draft: true, prerelease: false }],
+    [{ draft: false, prerelease: true }],
+  ]) {
+    const calls = [];
+    assert.equal(
+      selectPublishedRelease((...args) => {
+        calls.push(args);
+        if (args.at(-1).endsWith('/latest')) throw missing;
+        return JSON.stringify([releases]);
+      }),
+      null,
+    );
+    assert.equal(calls.length, 2);
+  }
+});
+
+test('release selection preserves stable identity and fails closed on access and data failures', () => {
+  const stable = { tag_name: 'v1.2.3', draft: false, prerelease: false };
+  assert.deepEqual(
+    selectPublishedRelease(() => JSON.stringify(stable)),
+    stable,
+  );
+  for (const error of [
+    new Error('network'),
+    Object.assign(new Error('403'), { stdout: '{"status":"403"}' }),
+  ]) {
+    assert.throws(
+      () =>
+        selectPublishedRelease(() => {
+          throw error;
+        }),
+      (actual) => actual === error,
+    );
+  }
+  const missing = Object.assign(new Error('404'), { stdout: '{"status":404}' });
+  for (const response of [JSON.stringify([[stable]]), '{}', 'invalid', JSON.stringify([[{}]])]) {
+    assert.throws(() =>
+      selectPublishedRelease((...args) => {
+        if (args.at(-1).endsWith('/latest')) throw missing;
+        return response;
+      }),
+    );
+  }
+  assert.throws(
+    () =>
+      selectPublishedRelease((...args) => {
+        if (args.at(-1).endsWith('/latest')) throw missing;
+        throw new Error('collection unavailable');
+      }),
+    /collection unavailable/,
+  );
+  for (const release of [
+    { ...stable, draft: true },
+    { ...stable, tag_name: '../invalid' },
+  ])
+    assert.throws(() => selectPublishedRelease(() => JSON.stringify(release)));
 });

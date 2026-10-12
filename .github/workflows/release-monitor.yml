@@ -12,14 +12,37 @@ concurrency:
   group: release-monitor
   cancel-in-progress: false
 jobs:
+  select:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.select.outputs.tag }}
+      download_attempts: ${{ steps.select.outputs.download_attempts }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          package-manager-cache: false
+      - name: Resolve real latest stable published release
+        id: select
+        run: node tools/autonomy/monitor.mjs select
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
   installed:
+    needs: select
+    if: needs.select.outputs.tag != ''
     permissions:
       contents: read
       attestations: read
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
-      tag: ${{ steps.select.outputs.tag }}
+      tag: ${{ needs.select.outputs.tag }}
       sha256: ${{ steps.identity.outputs.sha256 }}
       verified: ${{ steps.result.outcome == 'success' }}
     env:
@@ -36,13 +59,9 @@ jobs:
         with:
           node-version: 26
           package-manager-cache: false
-      - name: Resolve real latest stable published release
-        id: select
-        working-directory: controller
-        run: node tools/autonomy/monitor.mjs select
       - uses: actions/checkout@v5
         with:
-          ref: refs/tags/${{ steps.select.outputs.tag }}
+          ref: refs/tags/${{ needs.select.outputs.tag }}
           fetch-depth: 0
           persist-credentials: false
           path: product
@@ -52,8 +71,8 @@ jobs:
       - name: Download published assets (bounded transport retries)
         working-directory: product
         env:
-          RELEASE_TAG: ${{ steps.select.outputs.tag }}
-          DOWNLOAD_ATTEMPTS: ${{ steps.select.outputs.download_attempts }}
+          RELEASE_TAG: ${{ needs.select.outputs.tag }}
+          DOWNLOAD_ATTEMPTS: ${{ needs.select.outputs.download_attempts }}
         run: |
           for ((attempt=1; attempt<=DOWNLOAD_ATTEMPTS; attempt++)); do
             rm -rf dist/release
@@ -67,7 +86,7 @@ jobs:
         id: identity
         working-directory: product
         env:
-          RELEASE_TAG: ${{ steps.select.outputs.tag }}
+          RELEASE_TAG: ${{ needs.select.outputs.tag }}
         run: |
           node ../controller/tools/autonomy/release-plan.mjs binding "$RELEASE_TAG" "$(git rev-parse HEAD)"
           node ../controller/tools/autonomy/release-plan.mjs verify "$RELEASE_TAG" dist/release "$(git rev-parse HEAD)"
@@ -93,7 +112,7 @@ jobs:
         id: result
         working-directory: product
         env:
-          RELEASE_TAG: ${{ steps.select.outputs.tag }}
+          RELEASE_TAG: ${{ needs.select.outputs.tag }}
           ARCHIVE_SHA256: ${{ steps.identity.outputs.sha256 }}
           RESULT_FILE: reports/release-install/result.json
         run: node ../controller/tools/autonomy/monitor.mjs result

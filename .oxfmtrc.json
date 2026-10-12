@@ -14,6 +14,7 @@
     "src/shared/icons/generated.ts",
     "pnpm-lock.yaml",
     "COVERAGE.md",
+    "CHANGELOG.md",
     ".github/autonomous-maintenance-policy.yml"
   ]
 }
