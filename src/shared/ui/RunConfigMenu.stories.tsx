@@ -58,3 +58,24 @@ export const Custom: Story = {
     reasoningOptions: [],
   },
 };
+
+export const SearchableAcpModels: Story = {
+  args: {
+    agentLocked: true,
+    models: [],
+    modelId: '',
+    configOptions: [
+      {
+        id: 'vendor-model',
+        category: 'model',
+        name: 'Model',
+        type: 'select',
+        currentValue: 'provider/model-0',
+        options: Array.from({ length: 30 }, (_, index) => ({
+          value: `provider/model-${index}`,
+          name: `Research model ${index}`,
+        })),
+      },
+    ],
+  },
+};

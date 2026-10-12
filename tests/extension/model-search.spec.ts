@@ -11,6 +11,8 @@ import { AccountBoundary, signIn } from '../e2e/support/account-boundary';
 import { searchConfigModel } from '../e2e/support/model-search-journey';
 import { RuntimeBoundary } from '../e2e/support/runtime-boundary';
 
+test.use({ trace: 'off' });
+
 test('installed sidebar searches legacy-ID ACP models and sends the selected configuration', async () => {
   test.setTimeout(90_000);
   const profile = await mkdtemp(path.join(tmpdir(), 'lody-model-search-'));

@@ -276,6 +276,21 @@ export function RunConfigMenu(props: RunConfigMenuProps) {
     modelOption?.options.find((option) => option.value === modelValue)?.name ??
     props.models.find((option) => option.value === props.modelId)?.label ??
     props.agentLabel;
+  // Lody's desktop-run-config-menu normalizes legacy models and ACP model
+  // selectors into the same searchable picker. Keep config values on their
+  // original channel so registry/custom agents receive configOptionValues.
+  const modelPickerOptions: readonly RunOption[] = modelOption
+    ? modelOption.options.map((option) => ({ value: String(option.value), label: option.name }))
+    : props.models;
+  const selectedModel = modelOption ? String(modelValue) : props.modelId;
+  const selectModel = (value: string) => {
+    if (modelOption) {
+      const option = modelOption.options.find((row) => String(row.value) === value);
+      if (option) props.onConfigOptionChange?.(modelOption.id, option.value);
+    } else {
+      props.onModelChange(value);
+    }
+  };
   const reasoningLabel = props.reasoningOptions.find(
     (option) => option.value === props.reasoningEffort,
   )?.label;
@@ -358,6 +373,7 @@ export function RunConfigMenu(props: RunConfigMenuProps) {
             </Menu.Submenu>
           )}
           {props.configOptions?.map((option) => {
+            if (option === modelOption) return null;
             const value = props.configOptionValues?.[option.id] ?? option.currentValue;
             if (option.type === 'boolean')
               return (
@@ -402,18 +418,18 @@ export function RunConfigMenu(props: RunConfigMenuProps) {
               </Menu.Submenu>
             );
           })}
-          {!modelOption && props.models.length > 0 && (
+          {modelPickerOptions.length > 0 && (
             <Menu.Submenu>
-              <ValueSubTrigger label="模型" value={modelLabel} searchable />
+              <ValueSubTrigger label={modelOption?.name ?? '模型'} value={modelLabel} searchable />
               <SearchableMenuContent
-                alignOffset={props.models.length >= 6 ? -32 : 0}
+                alignOffset={modelPickerOptions.length >= 6 ? -32 : 0}
                 {...stylex.props(styles.optionMenu, optionMenuTheme)}
               >
                 <div {...stylex.props(styles.modelList)}>
                   <ModelOptions
-                    options={props.models}
-                    selected={props.modelId}
-                    onSelect={props.onModelChange}
+                    options={modelPickerOptions}
+                    selected={selectedModel}
+                    onSelect={selectModel}
                   />
                 </div>
               </SearchableMenuContent>
