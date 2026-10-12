@@ -1,0 +1,97 @@
+[
+  {
+    "surface": "web",
+    "route": "/#/",
+    "scenario": "acp-model-picker",
+    "state": "ACP model picker retains its current selection",
+    "account": "signed-in",
+    "covers": ["src/shared/ui/RunConfigMenu.tsx", "src/shared/ui/SearchableMenuContent.tsx"],
+    "actions": [
+      {
+        "action": "click",
+        "role": "button",
+        "name": "运行配置"
+      },
+      {
+        "action": "click",
+        "role": "menuitem",
+        "name": "Model Controlled model"
+      },
+      {
+        "action": "assertVisible",
+        "role": "dialog",
+        "name": "选择模型"
+      }
+    ],
+    "before": {
+      "route": "/#/",
+      "state": "Legacy plain ACP model submenu",
+      "account": "signed-in",
+      "actions": [
+        {
+          "action": "click",
+          "role": "button",
+          "name": "运行配置"
+        },
+        {
+          "action": "click",
+          "role": "menuitem",
+          "name": "Model Controlled model"
+        },
+        {
+          "action": "assertVisible",
+          "role": "menuitem",
+          "name": "Model Controlled model"
+        }
+      ]
+    }
+  },
+  {
+    "surface": "extension",
+    "route": "/#/",
+    "scenario": "acp-model-picker",
+    "state": "ACP model picker retains its current selection",
+    "account": "signed-in",
+    "covers": ["src/shared/ui/RunConfigMenu.tsx", "src/shared/ui/SearchableMenuContent.tsx"],
+    "actions": [
+      {
+        "action": "click",
+        "role": "button",
+        "name": "运行配置"
+      },
+      {
+        "action": "click",
+        "role": "menuitem",
+        "name": "Model Controlled model"
+      },
+      {
+        "action": "assertVisible",
+        "role": "dialog",
+        "name": "选择模型"
+      }
+    ],
+    "entry": "sidepanel",
+    "before": {
+      "route": "/#/",
+      "state": "Legacy plain ACP model submenu",
+      "account": "signed-in",
+      "actions": [
+        {
+          "action": "click",
+          "role": "button",
+          "name": "运行配置"
+        },
+        {
+          "action": "click",
+          "role": "menuitem",
+          "name": "Model Controlled model"
+        },
+        {
+          "action": "assertVisible",
+          "role": "menuitem",
+          "name": "Model Controlled model"
+        }
+      ]
+    }
+  }
+]
