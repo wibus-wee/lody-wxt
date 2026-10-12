@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.1](https://github.com/wibus-wee/lody-wxt/compare/v0.2.0...v0.2.1) (2026-10-12)
+
+### Bug Fixes
+
+- Collect independent packaged-extension performance samples for every release repetition, preserving separate reports and traces ([#14](https://github.com/wibus-wee/lody-wxt/pull/14)).
+- Support the approved single-maintainer release flow while retaining release checks and exact-commit promotion ([#13](https://github.com/wibus-wee/lody-wxt/pull/13)).
+
+The v0.2.0 tag is retained unchanged. Its release stopped before publication because packaged-extension performance sampling was incomplete.
+
 ## [0.2.0](https://github.com/wibus-wee/lody-wxt/compare/v0.1.0...v0.2.0) (2026-10-12)
 
 
