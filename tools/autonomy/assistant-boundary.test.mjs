@@ -28,10 +28,17 @@ test('CI keeps real browser and extension obligations after service removal', ()
     'pnpm check',
     'pnpm test:browser',
     'pnpm test:assurance',
-    'pnpm assurance:audit --strict',
+    'node tools/assurance/cli.mjs audit --strict',
   ])
     assert.ok(workflow.includes(command));
-  assert.match(workflow, /ASSURANCE_REPEAT: '5'/);
+  assert.match(workflow, /ASSURANCE_REPEAT: '1'/);
+  assert.match(workflow, /needs: \[checks, web, extension\]/);
+  assert.match(workflow, /success\/success\/success/);
+  const release = read('.github/workflows/release.yml');
+  assert.match(release, /ASSURANCE_REPEAT: '5'/);
+  assert.match(release, /ASSURANCE_REQUIRE_PERFORMANCE: '1'/);
+  assert.match(release, /pnpm test:assurance/);
+  assert.match(release, /pnpm assurance:audit --strict/);
   const policy = JSON.parse(read('.github/autonomous-maintenance-policy.yml'));
   assert.equal(policy.reviewer, 'connected-assistant');
   assert.deepEqual(policy.requiredChecks, ['PR Quality / verify']);

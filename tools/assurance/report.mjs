@@ -4,7 +4,7 @@ import process from 'node:process';
 
 import { auditCatalog, caseKey, findCase, modelHash, sourceFingerprint } from './catalog.mjs';
 import { model } from './model.mjs';
-import { compareBaseline, performanceGroups } from './performance.mjs';
+import { assertReleaseSamples, compareBaseline, performanceGroups } from './performance.mjs';
 
 const cucumberReportName = /^cucumber-\d+\.json$/;
 const repetitionDigits = /\d+/;
@@ -211,6 +211,11 @@ export async function generateReport() {
     ...group,
     comparison: compareBaseline(group, baseline),
   }));
+  if (process.env.ASSURANCE_REQUIRE_PERFORMANCE === '1')
+    assertReleaseSamples(
+      groups,
+      model.interactions.map((interaction) => interaction.id),
+    );
   const verified = rows.filter((row) => row.status === 'verified').length;
   const lines = [
     '# Product assurance',

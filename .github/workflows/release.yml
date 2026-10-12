@@ -23,6 +23,11 @@ jobs:
     env:
       RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
       LODY_UI_PINNED: '1'
+      ASSURANCE_REPEAT: '5'
+      ASSURANCE_BENCHMARK_AFTER_FIRST: '1'
+      ASSURANCE_WEB_WORKERS: '1'
+      ASSURANCE_EXTENSION_WORKERS: '1'
+      ASSURANCE_REQUIRE_PERFORMANCE: '1'
     steps:
       - uses: actions/checkout@v5
         with:
@@ -53,8 +58,10 @@ jobs:
       - run: pnpm test:sdk
       - run: pnpm test:sdk:package
       - run: pnpm test:browser
-      - name: Build tagged extension and run extension tests
-        run: pnpm test:extension
+      - name: Verify all journeys and release performance samples
+        run: |
+          pnpm test:assurance
+          pnpm assurance:audit --strict
       - name: Package tagged source without remote submodule updates
         run: pnpm release:package
       - name: Reject source or submodule drift during build
