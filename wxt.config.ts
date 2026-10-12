@@ -11,6 +11,18 @@ export default defineConfig({
   publicDir: 'src/public',
   manifest: {
     name: 'Lody',
+    icons: {
+      16: 'icon/16.png',
+      32: 'icon/32.png',
+      48: 'icon/48.png',
+      128: 'icon/128.png',
+    },
+    action: {
+      default_icon: {
+        16: 'icon/16.png',
+        32: 'icon/32.png',
+      },
+    },
     incognito: 'not_allowed',
     description: 'Lody agent conversations and workspace in your browser.',
     permissions: [
