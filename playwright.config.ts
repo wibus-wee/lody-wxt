@@ -13,7 +13,7 @@ export default defineConfig({
       'json',
       {
         outputFile: process.env.ASSURANCE_RUN_DIRECTORY
-          ? `${process.env.ASSURANCE_RUN_DIRECTORY}/extension.json`
+          ? `${process.env.ASSURANCE_RUN_DIRECTORY}/${process.env.ASSURANCE_EXTENSION_REPORT ?? 'extension.json'}`
           : 'reports/extension.json',
       },
     ],

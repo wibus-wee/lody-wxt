@@ -5,6 +5,7 @@ import process from 'node:process';
 
 import { auditCatalog, modelHash, sourceFingerprint } from './catalog.mjs';
 import { generateReport } from './report.mjs';
+import { extensionRuns } from './extension-runs.mjs';
 import { shardCases } from './shard.mjs';
 
 async function main() {
@@ -143,12 +144,12 @@ async function main() {
       manifest.layers.web = { exitCode: result };
     }
     if (extension) {
-      const extensionResult = await run('pnpm', [
-        'exec',
-        'playwright',
-        'test',
-        ...(manifest.failFast ? ['--max-failures=1'] : []),
-      ]);
+      let extensionResult = 0;
+      for (const invocation of extensionRuns(repeat, directory, manifest.failFast)) {
+        const code = await run('pnpm', invocation.args, invocation.env);
+        extensionResult ||= code;
+        if (code !== 0 && manifest.failFast) break;
+      }
       manifest.layers.extension = { exitCode: extensionResult };
       result ||= extensionResult;
     }

@@ -4,6 +4,7 @@ import process from 'node:process';
 
 import { auditCatalog, caseKey, findCase, modelHash, sourceFingerprint } from './catalog.mjs';
 import { model } from './model.mjs';
+import { collectExtensionOutcomes, extensionReportName } from './extension-runs.mjs';
 import { assertReleaseSamples, compareBaseline, performanceGroups } from './performance.mjs';
 
 const cucumberReportName = /^cucumber-\d+\.json$/;
@@ -132,25 +133,20 @@ export async function generateReport() {
           }
       }
     }
-    const extension = await readOptional(`${latest.directory}/extension.json`);
-    const visit = (suites) => {
-      for (const suite of suites ?? []) {
-        for (const spec of suite.specs ?? [])
-          for (const test of spec.tests ?? []) {
-            const statuses = test.results.map((result) => result.status);
-            outcomes.set(
-              `extension:1:${spec.id}`,
-              statuses.length && statuses.every((status) => status === 'passed')
-                ? 'passed'
-                : statuses.some((status) => ['failed', 'timedOut', 'interrupted'].includes(status))
-                  ? 'failed'
-                  : 'incomplete',
-            );
-          }
-        visit(suite.suites);
-      }
-    };
-    visit(extension?.suites);
+    for (const file of await readdir(latest.directory)) {
+      const match = file.match(extensionReportName);
+      if (!match) continue;
+      const repetition = Number(match[1] ?? 1);
+      assert.ok(
+        repetition >= 1 && repetition <= manifest.repeat,
+        'Unexpected extension repetition',
+      );
+      collectExtensionOutcomes(
+        await readOptional(`${latest.directory}/${file}`),
+        repetition,
+        outcomes,
+      );
+    }
     for (const record of records) if (record.trace) await readFile(record.trace);
   }
   const results =
