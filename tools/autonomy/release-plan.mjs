@@ -230,8 +230,6 @@ export function verifyAttestations(directory, tag, options = {}, command = gh) {
   const policy = [
     '--repo',
     repository,
-    '--signer-workflow',
-    `${repository}/.github/workflows/release.yml`,
     '--cert-identity-regex',
     identity,
     '--predicate-type',

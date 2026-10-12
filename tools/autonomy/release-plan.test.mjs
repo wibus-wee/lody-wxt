@@ -337,9 +337,14 @@ test('every public asset requires a verified provenance signature from the restr
       path.join('release-assets', assets[index]),
     ]);
     assert.equal(args[args.indexOf('--repo') + 1], 'example/lody.wxt');
-    assert.equal(
-      args[args.indexOf('--signer-workflow') + 1],
-      'example/lody.wxt/.github/workflows/release.yml',
+    // gh accepts exactly one identity selector; the anchored certificate regex pins the workflow.
+    assert.deepEqual(
+      args.filter((arg) =>
+        ['--cert-identity', '--cert-identity-regex', '--signer-repo', '--signer-workflow'].includes(
+          arg,
+        ),
+      ),
+      ['--cert-identity-regex'],
     );
     assert.equal(args[args.indexOf('--predicate-type') + 1], 'https://slsa.dev/provenance/v1');
     assert.ok(args.includes('--deny-self-hosted-runners'));
