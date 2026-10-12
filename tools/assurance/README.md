@@ -91,7 +91,8 @@ pnpm assurance:baseline
 pnpm assurance:audit
 ```
 
-With `ASSURANCE_BENCHMARK_AFTER_FIRST=1`, the first repetition executes all web journeys and subsequent repetitions select their authored `@performance` cases; packaged checks execute once.
+With `ASSURANCE_BENCHMARK_AFTER_FIRST=1`, the first repetition executes all web journeys and subsequent repetitions select their authored `@performance` cases; packaged checks execute once per repetition with separate framework reports, receipts and trace directories.
+Ordinary PRs use one repetition; release uses five.
 This retains complete lifecycle evidence in the same run while repeating only measured workloads.
 A targeted investigation can use `ASSURANCE_TAGS='@performance' pnpm test:e2e`; its report represents only that run and will show other obligations as missing.
 Promotion is explicit and requires at least five successful comparable samples for every observed group.

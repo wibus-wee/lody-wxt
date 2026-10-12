@@ -252,7 +252,10 @@ test('packaged notifications observe verified terminal events with the panel clo
           expect.objectContaining({ sessionId: fastSession, kind: 'completed' }),
         ]),
       );
-      expect((await state(worker)).pendingTurns[fastSession!]).toBeUndefined();
+      // emit persists the event before the observer finishes clearing the pending turn.
+      await expect
+        .poll(async () => (await state(worker)).pendingTurns[fastSession!])
+        .toBeUndefined();
     });
     const openPlaceholder = async () => {
       const created = context.waitForEvent('page');
