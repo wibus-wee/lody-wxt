@@ -6,6 +6,8 @@ import { pathToFileURL } from 'node:url';
 
 import { modelHash, sourceFingerprint } from './catalog.mjs';
 
+const reportDirectory = /^reports\/assurance\/[a-f0-9-]+$/;
+
 // Independent workers never certify the whole model. Join only complete, matching lanes.
 export function mergeManifests(inputs, expected) {
   assert.equal(inputs.length, 2, 'Both web and extension lanes are required');
@@ -44,7 +46,7 @@ export async function mergeReports(root) {
     const latest = JSON.parse(
       await readFile(path.join(base, 'reports/assurance/latest.json'), 'utf8'),
     );
-    assert.match(latest.directory, /^reports\/assurance\/[a-f0-9-]+$/);
+    assert.match(latest.directory, reportDirectory);
     const directory = path.join(base, latest.directory);
     const manifest = JSON.parse(await readFile(path.join(directory, 'run.json'), 'utf8'));
     assert.equal(manifest.lane, lane);
@@ -82,4 +84,7 @@ export async function mergeReports(root) {
   await writeFile('reports/assurance/latest.json', JSON.stringify({ directory: destination }));
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
-  await mergeReports(process.argv[2] ?? '.ci-inputs');
+  mergeReports(process.argv[2] ?? '.ci-inputs').catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });

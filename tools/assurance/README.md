@@ -127,10 +127,23 @@ Controlled protocol fixtures prove neither a deployed agent nor production autho
 
 ## PR latency and release sampling
 
-PR Quality runs three independent read-only lanes: checks, web lifecycle scenarios (four workers), and packaged extension journeys (three workers) plus builds. Each scenario keeps its own browser context/profile and protocol boundary. The aggregator retains the existing `PR Quality / verify` check and exact-head artifact interface. It requires every lane to succeed, matching run/attempt/commit/model/source identities, both raw framework reports and the complete lifecycle audit. Missing, duplicate, failed or foreign lanes cannot certify acceptance. Raw failures remain in their lane artifacts.
+PR Quality runs three independent read-only lanes: checks, web lifecycle scenarios (four workers), and packaged extension journeys (three workers) plus builds.
+Each scenario keeps its own browser context/profile and protocol boundary.
+The aggregator retains the existing `PR Quality / verify` check and exact-head artifact interface.
+It requires every lane to succeed, matching run/attempt/commit/model/source identities, both raw framework reports and the complete lifecycle audit.
+Missing, duplicate, failed or foreign lanes cannot certify acceptance.
+Raw failures remain in their lane artifacts.
 
-Ordinary PRs execute every functional journey once, including interruption/recovery and authored interaction outcomes. Their single interaction observations are provisional diagnostics, not a five-sample performance comparison. Release packaging executes the full functional run plus four additional authored performance rounds, serially, and explicitly requires five comparable successful samples for every measurement before publishing. Release sampling does not authorize publication or alter baseline promotion.
+Ordinary PRs execute every functional journey once, including interruption/recovery and authored interaction outcomes.
+Their single interaction observations are provisional diagnostics, not a five-sample performance comparison.
+Release packaging executes the full functional run plus four additional authored performance rounds, serially, and explicitly requires five comparable successful samples for every measurement before publishing.
+Release sampling does not authorize publication or alter baseline promotion.
 
-Only dependencies/browser binaries are cached by pinned inputs; candidate test results are never reused across commits. Built Chrome/web bytes are transferred within the same run and validated against their exact-source build receipt, not reconstructed in the aggregation job. New PR commits cancel superseded runs; incomplete runs never pass the aggregate gate.
+Only dependencies/browser binaries are cached by pinned inputs; candidate test results are never reused across commits.
+Built Chrome/web bytes are transferred within the same run and validated against their exact-source build receipt, not reconstructed in the aggregation job.
+New PR commits cancel superseded runs; incomplete runs never pass the aggregate gate.
 
-Compare cold/warm setup, each lane and aggregate wall time against the original serial run before claiming a speedup. Worker counts trade runner resources for latency and must be checked for fixture isolation and resource contention. Keep release performance workers at one. No performance threshold, timeout, retry policy or functional obligation is relaxed by this split.
+Compare cold/warm setup, each lane and aggregate wall time against the original serial run before claiming a speedup.
+Worker counts trade runner resources for latency and must be checked for fixture isolation and resource contention.
+Keep release performance workers at one.
+No performance threshold, timeout, retry policy or functional obligation is relaxed by this split.
