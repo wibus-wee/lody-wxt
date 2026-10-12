@@ -37,6 +37,7 @@ test('CI keeps real browser and extension obligations after service removal', ()
   const release = read('.github/workflows/release.yml');
   assert.match(release, /ASSURANCE_REPEAT: '5'/);
   assert.match(release, /ASSURANCE_REQUIRE_PERFORMANCE: '1'/);
+  assert.match(release, /ASSURANCE_PERFORMANCE_MODE: report/);
   assert.match(release, /pnpm test:assurance/);
   assert.match(release, /pnpm assurance:audit --strict/);
   const policy = JSON.parse(read('.github/autonomous-maintenance-policy.yml'));

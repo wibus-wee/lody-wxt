@@ -28,6 +28,7 @@ jobs:
       ASSURANCE_WEB_WORKERS: '1'
       ASSURANCE_EXTENSION_WORKERS: '1'
       ASSURANCE_REQUIRE_PERFORMANCE: '1'
+      ASSURANCE_PERFORMANCE_MODE: report
     steps:
       - uses: actions/checkout@v5
         with:

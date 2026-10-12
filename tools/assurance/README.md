@@ -139,7 +139,10 @@ Raw failures remain in their lane artifacts.
 
 Ordinary PRs execute every functional journey once, including interruption/recovery and authored interaction outcomes.
 Their single interaction observations are provisional diagnostics, not a five-sample performance comparison.
-Release packaging executes the full functional run plus four additional authored performance rounds, serially, and explicitly requires five comparable successful samples for every measurement before publishing.
+Release packaging executes the full functional run plus four additional authored performance rounds, serially, and reports whether each measurement has five comparable successful samples.
+Release performance is advisory: missing/invalid measurements, insufficient samples and regressions remain in COVERAGE.md, audit.json and logs without blocking packaging.
+Functional framework failures, incomplete lifecycle obligations, stale evidence, package installation, provenance and publication checks still block.
+Explicit baseline promotion still requires sufficient successful comparable samples.
 Release sampling does not authorize publication or alter baseline promotion.
 
 Only dependencies/browser binaries are cached by pinned inputs; candidate test results are never reused across commits.

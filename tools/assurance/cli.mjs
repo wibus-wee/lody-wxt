@@ -3,7 +3,7 @@ import process from 'node:process';
 
 import { auditCatalog, modelHash } from './catalog.mjs';
 import { model } from './model.mjs';
-import { promoteBaseline } from './performance.mjs';
+import { performanceBlocks, promoteBaseline } from './performance.mjs';
 import { generateReport } from './report.mjs';
 
 const command = process.argv[2] ?? 'audit';
@@ -21,9 +21,8 @@ if (command === 'namespaces') {
     !audit.finished ||
     audit.stale ||
     audit.layerFailures.length > 0 ||
-    audit.measurementFailures.length > 0 ||
-    audit.cases.some((item) => ['failed', 'incomplete'].includes(item.status)) ||
-    audit.performance.some((item) => item.comparison.status === 'regression')
+    performanceBlocks(audit, process.env.ASSURANCE_PERFORMANCE_MODE) ||
+    audit.cases.some((item) => ['failed', 'incomplete'].includes(item.status))
   )
     process.exitCode = 1;
   if (

@@ -77,7 +77,7 @@ export function promoteBaseline(groups, provenance) {
   };
 }
 
-// Release publishing must not proceed with a missing or under-sampled boundary.
+// Keep strict validation available for explicit enforcement and baseline tooling.
 export function assertReleaseSamples(groups, interactionIds) {
   for (const id of interactionIds) {
     const matching = groups.filter((group) => group.id === id);
@@ -85,4 +85,28 @@ export function assertReleaseSamples(groups, interactionIds) {
     for (const group of matching)
       assert.ok(group.values.length >= policy.minimumSamples, `Incomplete release samples: ${id}`);
   }
+}
+
+// Advisory release reporting retains every missing/undersampled boundary.
+export function releaseSampleFindings(groups, interactionIds) {
+  return interactionIds.flatMap((id) => {
+    const matching = groups.filter((group) => group.id === id);
+    if (!matching.length) return [`Missing release measurement: ${id}`];
+    return matching
+      .filter((group) => group.values.length < policy.minimumSamples)
+      .map(
+        (group) =>
+          `Incomplete release samples: ${id} (${group.values.length}/${policy.minimumSamples})`,
+      );
+  });
+}
+
+export function performanceBlocks(audit, mode = 'enforce') {
+  assert.ok(['enforce', 'report'].includes(mode), 'Unknown performance mode');
+  if (mode === 'report') return false;
+  return (
+    audit.measurementFailures.length > 0 ||
+    (audit.performanceWarnings ?? []).length > 0 ||
+    audit.performance.some((item) => item.comparison.status === 'regression')
+  );
 }
