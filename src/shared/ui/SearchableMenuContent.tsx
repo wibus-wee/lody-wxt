@@ -1,6 +1,11 @@
+import * as stylex from '@stylexjs/stylex';
 import type { ReactNode } from 'react';
 
-import { Menu } from './index';
+import { Popover } from './index';
+
+const styles = stylex.create({
+  title: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clipPath: 'inset(50%)' },
+});
 
 export function SearchableMenuContent({
   children,
@@ -12,14 +17,15 @@ export function SearchableMenuContent({
   alignOffset: number;
 }) {
   return (
-    <Menu.Content
+    <Popover.Content
       side="right"
       align="start"
       alignOffset={alignOffset}
       data-lody-menu-content=""
       {...(className ? { className } : {})}
     >
+      <Popover.Title {...stylex.props(styles.title)}>选择模型</Popover.Title>
       {children}
-    </Menu.Content>
+    </Popover.Content>
   );
 }

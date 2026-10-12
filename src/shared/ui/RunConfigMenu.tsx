@@ -9,7 +9,7 @@ import type { AgentIdentity } from '../icons/agent-identity';
 import { Icon } from '../icons/Icon';
 import { AgentIcon } from './AgentIcon';
 import { composerSurface as surface } from './composer';
-import { Button, Menu, Switch } from './index';
+import { Button, Menu, Popover, Switch } from './index';
 import { fuzzyMatch } from './menu';
 import { MenuSearchInput } from './MenuSearchInput';
 import { SearchableMenuContent } from './SearchableMenuContent';
@@ -420,8 +420,11 @@ export function RunConfigMenu(props: RunConfigMenuProps) {
             );
           })}
           {modelPickerOptions.length > 0 && (
-            <Menu.Submenu>
-              <ValueSubTrigger label={modelOption?.name ?? '模型'} value={modelLabel} searchable />
+            <Popover.Root>
+              <Popover.Trigger nativeButton={false} render={<Menu.Item closeOnClick={false} />}>
+                {modelOption?.name ?? '模型'}
+                <span {...stylex.props(styles.rowValue)}>{modelLabel}</span>
+              </Popover.Trigger>
               <SearchableMenuContent
                 alignOffset={modelPickerOptions.length >= 6 ? -32 : 0}
                 {...stylex.props(styles.optionMenu, optionMenuTheme)}
@@ -434,7 +437,7 @@ export function RunConfigMenu(props: RunConfigMenuProps) {
                   />
                 </div>
               </SearchableMenuContent>
-            </Menu.Submenu>
+            </Popover.Root>
           )}
           {!props.configOptions?.length && props.reasoningOptions.length > 0 && (
             <Menu.Submenu>
