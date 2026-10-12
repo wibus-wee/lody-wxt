@@ -127,7 +127,9 @@ Controlled protocol fixtures prove neither a deployed agent nor production autho
 
 ## PR latency and release sampling
 
-PR Quality runs three independent read-only lanes: checks, web lifecycle scenarios (four workers), and packaged extension journeys (three workers) plus builds.
+PR Quality runs independent read-only lanes: checks/builds, three web lifecycle shards (two workers each), and packaged extension journeys (three workers).
+A stable partition assigns each authored web case exactly once.
+The aggregator checks each shard’s raw framework cases against its assigned partition before combining them; missing or duplicated cases fail closed.
 Each scenario keeps its own browser context/profile and protocol boundary.
 The aggregator retains the existing `PR Quality / verify` check and exact-head artifact interface.
 It requires every lane to succeed, matching run/attempt/commit/model/source identities, both raw framework reports and the complete lifecycle audit.

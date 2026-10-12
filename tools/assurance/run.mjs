@@ -5,6 +5,7 @@ import process from 'node:process';
 
 import { auditCatalog, modelHash, sourceFingerprint } from './catalog.mjs';
 import { generateReport } from './report.mjs';
+import { shardCases } from './shard.mjs';
 
 async function main() {
   const authored = await auditCatalog();
@@ -15,6 +16,20 @@ async function main() {
   if (!['all', 'web', 'extension'].includes(lane)) throw new Error('Invalid assurance lane');
   const web = lane !== 'extension';
   const extension = lane === 'extension' || process.argv.includes('--extension');
+  const shard =
+    lane === 'web'
+      ? {
+          index: Number(process.env.ASSURANCE_WEB_SHARD ?? 0),
+          count: Number(process.env.ASSURANCE_WEB_SHARDS ?? 1),
+        }
+      : undefined;
+  const selected = shard
+    ? shardCases(
+        authored.map((item) => item.key),
+        shard.index,
+        shard.count,
+      )
+    : undefined;
   const identity = process.env.ASSURANCE_RUN_ID;
   const id = identity ? createHash('sha256').update(identity).digest('hex') : randomUUID();
   const directory = `reports/assurance/${id}`;
@@ -22,6 +37,8 @@ async function main() {
   const manifest = {
     id,
     lane,
+    shard,
+    selected,
     candidateSha: process.env.CANDIDATE_SHA ?? null,
     modelHash,
     sourceHash: await sourceFingerprint(),
@@ -95,12 +112,21 @@ async function main() {
           '--format',
           `json:${directory}/cucumber-${repetition}.json`,
         ];
-        const tags =
+        let tags =
           manifest.benchmarkAfterFirst && repetition > 1
             ? process.env.ASSURANCE_TAGS
               ? `(${process.env.ASSURANCE_TAGS}) and @performance`
               : '@performance'
             : process.env.ASSURANCE_TAGS;
+        if (shard && shard.count > 1) {
+          const selection = selected
+            .map((key) => {
+              const [journey, variant] = key.split('/');
+              return `(@journey:${journey} and @case:${variant})`;
+            })
+            .join(' or ');
+          tags = tags ? `(${tags}) and (${selection})` : selection;
+        }
         if (manifest.failFast) args.push('--fail-fast');
         if (tags) args.push('--tags', tags);
         const code = await run(process.execPath, args, {

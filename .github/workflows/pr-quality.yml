@@ -13,6 +13,7 @@ env:
   BEFORE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
   AUTONOMY_POLICY_REF: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
   ASSURANCE_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+  ASSURANCE_WEB_SHARDS: '3'
   ASSURANCE_REPEAT: '1'
   ASSURANCE_FAIL_FAST: '1'
 jobs:
@@ -46,6 +47,9 @@ jobs:
       - run: pnpm test:sdk
       - run: pnpm test:sdk:package
       - run: pnpm test:browser
+      - run: pnpm exec wxt build -b firefox
+      - run: pnpm exec vite build --config docs/vite.config.ts
+      - run: pnpm exec storybook build
       - run: pnpm run doctor --scope changed --base "$BEFORE_SHA"
       - uses: actions/upload-artifact@v4
         if: always()
@@ -54,11 +58,16 @@ jobs:
           path: coverage/
           if-no-files-found: warn
   web:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
       ASSURANCE_LANE: web
-      ASSURANCE_WEB_WORKERS: '4'
+      ASSURANCE_WEB_WORKERS: '2'
+      ASSURANCE_WEB_SHARD: ${{ matrix.shard }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -86,7 +95,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: assurance-web-${{ github.run_attempt }}
+          name: assurance-web-${{ matrix.shard }}-${{ github.run_attempt }}
           compression-level: 0
           path: |
             reports/
@@ -124,11 +133,8 @@ jobs:
       - run: pnpm test:assurance:extension
       # The installed Chrome package from assurance is the package we publish as evidence.
       # Avoid pnpm build again; direct target builds reuse the prepared SDK/UI.
-      - run: pnpm exec wxt build -b firefox
       - run: pnpm exec vite build
       - run: node tools/autonomy/capture-ui.mjs --record-build "$GITHUB_WORKSPACE" "$CANDIDATE_SHA"
-      - run: pnpm exec vite build --config docs/vite.config.ts
-      - run: pnpm exec storybook build
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -172,15 +178,18 @@ jobs:
         run: test "$CHECKS/$WEB/$EXTENSION" = success/success/success
       - uses: actions/download-artifact@v4
         with:
-          name: assurance-web-${{ github.run_attempt }}
-          path: .ci-inputs/assurance-web
+          pattern: assurance-web-*-${{ github.run_attempt }}
+          path: .ci-inputs
       - uses: actions/download-artifact@v4
         with:
           name: assurance-extension-${{ github.run_attempt }}
           path: .ci-inputs/assurance-extension
       - name: Restore exact tested build and combine evidence
         run: |
-          cmp .ci-inputs/assurance-web/src/shared/icons/generated.ts .ci-inputs/assurance-extension/src/shared/icons/generated.ts
+          for shard in 0 1 2; do
+            mv ".ci-inputs/assurance-web-$shard-$GITHUB_RUN_ATTEMPT" ".ci-inputs/assurance-web-$shard"
+            cmp ".ci-inputs/assurance-web-$shard/src/shared/icons/generated.ts" .ci-inputs/assurance-extension/src/shared/icons/generated.ts
+          done
           cp .ci-inputs/assurance-extension/src/shared/icons/generated.ts src/shared/icons/generated.ts
           cp -R .ci-inputs/assurance-extension/dist .
           cp -R .ci-inputs/assurance-extension/.output .
