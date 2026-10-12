@@ -48,7 +48,9 @@
     "test:assurance:tools": "node --test tools/assurance/*.test.mjs",
     "assurance:validate": "node tools/assurance/cli.mjs validate",
     "assurance:audit": "node tools/assurance/cli.mjs audit",
-    "assurance:baseline": "node tools/assurance/cli.mjs baseline"
+    "assurance:baseline": "node tools/assurance/cli.mjs baseline",
+    "test:assurance:web": "node tools/assurance/run.mjs",
+    "test:assurance:extension": "node tools/assurance/run.mjs --extension"
   },
   "dependencies": {
     "@base-ui/react": "1.8.0",

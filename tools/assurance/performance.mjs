@@ -76,3 +76,13 @@ export function promoteBaseline(groups, provenance) {
     })),
   };
 }
+
+// Release publishing must not proceed with a missing or under-sampled boundary.
+export function assertReleaseSamples(groups, interactionIds) {
+  for (const id of interactionIds) {
+    const matching = groups.filter((group) => group.id === id);
+    assert.ok(matching.length > 0, `Missing release measurement: ${id}`);
+    for (const group of matching)
+      assert.ok(group.values.length >= policy.minimumSamples, `Incomplete release samples: ${id}`);
+  }
+}

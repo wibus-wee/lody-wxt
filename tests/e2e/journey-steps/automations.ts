@@ -162,10 +162,12 @@ When(
         previousRevision: expectedRevision,
         bodyDocId: current?.bodyDocId,
       });
-      expect(this.cloud.shortcuts.indexEntry('desktop-private')).toMatchObject({
-        kind: 'active',
-        entry: { visibility: 'workspace', bodyDocId: current?.bodyDocId },
-      });
+      await expect
+        .poll(() => this.cloud.shortcuts.indexEntry('desktop-private'))
+        .toMatchObject({
+          kind: 'active',
+          entry: { visibility: 'workspace', bodyDocId: current?.bodyDocId },
+        });
     });
     this.assertions = async () => {
       expect(

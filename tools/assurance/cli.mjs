@@ -27,8 +27,12 @@ if (command === 'namespaces') {
   )
     process.exitCode = 1;
   if (
-    process.argv.includes('--strict') &&
-    audit.cases.some((item) => item.priority === 'P0' && item.status !== 'verified')
+    (process.argv.includes('--strict') || process.argv.includes('--complete')) &&
+    audit.cases.some(
+      (item) =>
+        (process.argv.includes('--complete') || item.priority === 'P0') &&
+        item.status !== 'verified',
+    )
   )
     process.exitCode = 1;
 } else if (command === 'baseline') {

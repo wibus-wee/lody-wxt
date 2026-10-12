@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { caseKey, findCase, modelHash } from './catalog.mjs';
-import { compareBaseline, performanceGroups, promoteBaseline } from './performance.mjs';
+import {
+  assertReleaseSamples,
+  compareBaseline,
+  performanceGroups,
+  promoteBaseline,
+} from './performance.mjs';
 import { auditEvidence } from './report.mjs';
 
 const manifest = { id: 'isolated-run', sourceHash: 'source' };
@@ -99,4 +104,13 @@ test('regression comparisons require comparable environments and sufficient samp
   );
   assert.equal(compareBaseline(group([151]), baseline).status, 'insufficient samples');
   assert.throws(() => promoteBaseline([group([1])], {}), /Need 5/);
+});
+
+test('release requires every authored measurement and five comparable samples', () => {
+  assert.throws(() => assertReleaseSamples([], ['send']));
+  assert.throws(() => assertReleaseSamples([{ id: 'send', values: [1, 2, 3, 4] }], ['send']));
+  assertReleaseSamples([{ id: 'send', values: [1, 2, 3, 4, 5] }], ['send']);
+  assert.throws(() =>
+    assertReleaseSamples([{ id: 'send', values: [1, 2, 3, 4, 5] }], ['send', 'stop']),
+  );
 });

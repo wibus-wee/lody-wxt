@@ -225,6 +225,7 @@ export async function armInteraction(
         reducedMotion: sample.motion,
         surface: new URL(page.url()).protocol.includes('extension') ? 'extension' : 'web',
         fixture: 'controlled-http-streams',
+        ...(process.env.ASSURANCE_REQUIRE_PERFORMANCE === '1' ? {} : { execution: 'functional' }),
         workload: definition.workload,
       },
       attribution: {
