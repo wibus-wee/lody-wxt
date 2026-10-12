@@ -162,7 +162,7 @@ function ClientChat({
       return { id: '', error: reason instanceof Error ? reason.message : '无法恢复当前会话。' };
     }
   });
-  const [selected, setSelected] = useState('');
+  const [selected, setSelected] = useState(initialSelection.id);
   const selectionGenerationRef = useRef(0);
   const restoreSelectionRef = useRef(initialSelection.id);
   const actionRef = useRef(false);

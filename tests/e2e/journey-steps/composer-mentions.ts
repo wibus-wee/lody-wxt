@@ -192,7 +192,7 @@ When(
       expect(this.cloud.document('history-a').getList('history').length).toBe(2);
       expect(
         await this.page.evaluate(() =>
-          Object.entries(sessionStorage).filter(([key]) => key.startsWith('lody:chat-selection:')),
+          Object.entries(localStorage).filter(([key]) => key.startsWith('lody:chat-resume:')),
         ),
       ).toEqual([]);
     });

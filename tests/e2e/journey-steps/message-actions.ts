@@ -134,9 +134,9 @@ When(
         await expect
           .poll(() =>
             this.page.evaluate(() =>
-              Object.entries(sessionStorage)
-                .filter(([key]) => key.startsWith('lody:chat-selection:'))
-                .map(([, value]) => value),
+              Object.entries(localStorage)
+                .filter(([key]) => key.startsWith('lody:chat-resume:'))
+                .map(([, value]) => JSON.parse(value).id),
             ),
           )
           .toEqual([target]);

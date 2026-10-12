@@ -1,25 +1,30 @@
+import * as v from 'valibot';
+
 /** Only selection metadata is retained; expiry never deletes remote conversations. */
-export const SESSION_RESUME_TTL = 5 * 60 * 1000;
+const SESSION_RESUME_TTL = 5 * 60 * 1000;
+const resumeSchema = v.object({ id: v.string(), seenAt: v.pipe(v.number(), v.finite()) });
 
 export function resumeKey(accountKey: string): string {
-  // accountKey already includes authenticated user, auth origin, workspace and backend.
+  // accountKey includes authenticated user, auth origin, workspace and backend.
   return `lody:chat-resume:${accountKey}`;
 }
 
-export function readResume(key: string, now = Date.now()): string {
+function readRecord(key: string) {
   const raw = localStorage.getItem(key);
-  if (!raw) return '';
-  let record: unknown;
+  if (!raw) return null;
   try {
-    record = JSON.parse(raw);
+    const result = v.safeParse(resumeSchema, JSON.parse(raw));
+    return result.success ? result.output : null;
   } catch {
-    return '';
+    return null;
   }
-  if (!record || typeof record !== 'object') return '';
-  if (!('id' in record) || typeof record.id !== 'string') return '';
-  if (!('seenAt' in record) || typeof record.seenAt !== 'number') return '';
+}
+
+export function readResume(key: string, now = Date.now()): string {
+  const record = readRecord(key);
+  if (!record) return '';
   const age = now - record.seenAt;
-  return Number.isFinite(age) && age >= 0 && age < SESSION_RESUME_TTL ? record.id : '';
+  return age >= 0 && age < SESSION_RESUME_TTL ? record.id : '';
 }
 
 export function writeResume(key: string, id: string): void {
@@ -28,9 +33,5 @@ export function writeResume(key: string, id: string): void {
 }
 
 export function touchResume(key: string, id: string): void {
-  const raw = localStorage.getItem(key);
-  if (!raw) return;
-  const record: unknown = JSON.parse(raw);
-  if (record && typeof record === 'object' && 'id' in record && record.id === id)
-    writeResume(key, id);
+  if (readRecord(key)?.id === id) writeResume(key, id);
 }
