@@ -150,7 +150,7 @@ export function reconcileAssets(local, remote) {
   return assets.filter((name) => !(name in remote));
 }
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
-export function validateApprovalEnvironment(environment, name) {
+export function validateReleaseEnvironment(environment, name) {
   assert.ok(['release-promotion', 'release-publication'].includes(name));
   assert.equal(environment.name, name);
   assert.equal(
@@ -161,10 +161,7 @@ export function validateApprovalEnvironment(environment, name) {
   const reviewers = environment.protection_rules?.find(
     (rule) => rule.type === 'required_reviewers',
   );
-  assert.ok(
-    reviewers?.reviewers?.length > 0 && reviewers.prevent_self_review === true,
-    'Configured independent release reviewers required',
-  );
+  assert.ok(!reviewers, 'Single-maintainer release must not require manual reviewers');
   assert.ok(
     environment.deployment_branch_policy,
     'Release environment must restrict deployment refs',
@@ -343,17 +340,19 @@ export function publish(tag, directory, commit, options = {}) {
     rmSync(remoteDirectory, { recursive: true, force: true });
   }
 }
-export function planPromotion() {
+export function planPromotion(source = 'HEAD') {
+  if (source !== 'HEAD') assert.match(source, gitSha);
+  const commit = git('rev-parse', `${source}^{commit}`);
   assert.equal(
     git('status', '--porcelain', '--untracked-files=no'),
     '',
     'Promotion source must be clean',
   );
   const manifestPath = '.release-please-manifest.json';
-  const previousFiles = git('ls-tree', '--name-only', 'HEAD^', '--', manifestPath);
+  const previousFiles = git('ls-tree', '--name-only', `${commit}^`, '--', manifestPath);
   if (!previousFiles) return null; // Bootstrap config is not a release.
-  const previous = JSON.parse(git('show', `HEAD^:${manifestPath}`))['.'];
-  const version = JSON.parse(readFileSync(manifestPath))['.'];
+  const previous = JSON.parse(git('show', `${commit}^:${manifestPath}`))['.'];
+  const version = JSON.parse(git('show', `${commit}:${manifestPath}`))['.'];
   if (previous === version) return null;
   const tag = `v${version}`;
   validateTag(tag);
@@ -365,15 +364,14 @@ export function planPromotion() {
     firstDifference >= 0 && after[firstDifference] > before[firstDifference],
     'Release version must increase',
   );
-  assert.equal(JSON.parse(readFileSync('package.json')).version, version);
-  const commit = git('rev-parse', 'HEAD');
+  assert.equal(JSON.parse(git('show', `${commit}:package.json`)).version, version);
   execFileSync('git', ['merge-base', '--is-ancestor', commit, 'refs/remotes/origin/main'], {
     stdio: 'pipe',
   });
   return { tag, commit };
 }
 export function promote(expectedCommit) {
-  const plan = planPromotion();
+  const plan = planPromotion(expectedCommit);
   assert.ok(plan, 'No merged release manifest change');
   const { tag, commit } = plan;
   assert.equal(commit, expectedCommit, 'Promotion plan changed');
@@ -391,11 +389,11 @@ export function promote(expectedCommit) {
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [command, tag, directory = 'dist/release', commit] = process.argv.slice(2);
-  if (command === 'approval') {
+  if (command === 'environment') {
     const environment = JSON.parse(gh('api', `repos/{owner}/{repo}/environments/${tag}`));
-    validateApprovalEnvironment(environment, tag);
+    validateReleaseEnvironment(environment, tag);
   } else if (command === 'plan') {
-    const plan = planPromotion();
+    const plan = planPromotion(tag);
     if (plan)
       writeFileSync(process.env.GITHUB_OUTPUT, `tag=${plan.tag}\ncommit=${plan.commit}\n`, {
         flag: 'a',
@@ -426,6 +424,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   } else if (command === 'publish') publish(tag, directory, commit);
   else
     throw new Error(
-      'Usage: release-plan.mjs promote | approval ENVIRONMENT | binding TAG COMMIT | source TAG | attestations TAG DIRECTORY [BUNDLE] | verify|publish TAG DIRECTORY COMMIT',
+      'Usage: release-plan.mjs promote | environment ENVIRONMENT | binding TAG COMMIT | source TAG | attestations TAG DIRECTORY [BUNDLE] | verify|publish TAG DIRECTORY COMMIT',
     );
 }

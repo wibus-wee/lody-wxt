@@ -24,7 +24,10 @@ Do not interpret missing events or unobserved CI completion as successful accept
   This change does not mutate repository settings.
 - Keep the existing strict GitHub protection, required PR Quality identity, code-owner approval and no-force-push controls. `pnpm autonomy:preflight` only inspects them.
   A denied API means unknown configuration.
-- Existing release-promotion/publication controls and release credentials are untouched.
+- Release promotion/publication uses the existing restricted environments without manual reviewers.
+  Test, performance, checksum, attestation and immutable-download gates still apply; credentials are unchanged.
+  To resume a merged version after a workflow-only fix, dispatch Release please from main with the exact original release commit in `source_commit`.
+  The commit must be on main history and contain a valid increasing manifest/package version transition; arbitrary refs and off-main commits fail closed.
   A release proposal is not an ordinary runtime PR and must follow [RELEASE.md](./RELEASE.md).
 
 ## Preserved runtime and evidence fixes
