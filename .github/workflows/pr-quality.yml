@@ -5,21 +5,20 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: pr-quality-${{ github.event.pull_request.number || github.ref }}-${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-  cancel-in-progress: false
+  group: pr-quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+env:
+  LODY_UI_PINNED: '1'
+  CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+  BEFORE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+  AUTONOMY_POLICY_REF: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+  ASSURANCE_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+  ASSURANCE_REPEAT: '1'
+  ASSURANCE_FAIL_FAST: '1'
 jobs:
-  verify:
-    name: PR Quality / verify
+  checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-    env:
-      LODY_UI_PINNED: '1'
-      ASSURANCE_REPEAT: '5'
-      ASSURANCE_BENCHMARK_AFTER_FIRST: '1'
-      ASSURANCE_FAIL_FAST: '1'
-      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-      BEFORE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
-      AUTONOMY_POLICY_REF: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
         with:
@@ -37,27 +36,159 @@ jobs:
           node-version: 26
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium firefox
+      - uses: actions/cache@v4
+        id: browsers
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm check
       - run: pnpm test:sdk
       - run: pnpm test:sdk:package
       - run: pnpm test:browser
-      - run: pnpm test:assurance
-      - run: pnpm assurance:audit --strict
-      - run: pnpm build:firefox
-      - run: pnpm build
-      - run: pnpm build:web
-      - name: Record candidate build provenance
-        run: node tools/autonomy/capture-ui.mjs --record-build "$GITHUB_WORKSPACE" "$CANDIDATE_SHA"
-      - run: pnpm build:docs
-      - run: pnpm build:storybook
-      - name: React Doctor for changed sources
-        run: pnpm run doctor --scope changed --base "$BEFORE_SHA"
-      - name: Audit assurance after a journey failure
-        if: failure() && hashFiles('reports/assurance/latest.json') != ''
-        run: pnpm assurance:audit --strict
-      - name: Generate evidence manifest
+      - run: pnpm run doctor --scope changed --base "$BEFORE_SHA"
+      - uses: actions/upload-artifact@v4
         if: always()
+        with:
+          name: checks-${{ github.run_attempt }}
+          path: coverage/
+          if-no-files-found: warn
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ASSURANCE_LANE: web
+      ASSURANCE_WEB_WORKERS: '4'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - name: Verify detached candidate
+        run: |
+          git checkout --detach "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v4
+        id: browsers
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:assurance:web
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: assurance-web-${{ github.run_attempt }}
+          compression-level: 0
+          path: |
+            reports/
+            src/shared/icons/generated.ts
+          if-no-files-found: error
+  extension:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ASSURANCE_LANE: extension
+      ASSURANCE_EXTENSION_WORKERS: '3'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - name: Verify detached candidate
+        run: |
+          git checkout --detach "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v4
+        id: browsers
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:assurance:extension
+      # The installed Chrome package from assurance is the package we publish as evidence.
+      # Avoid pnpm build again; direct target builds reuse the prepared SDK/UI.
+      - run: pnpm exec wxt build -b firefox
+      - run: pnpm exec vite build
+      - run: node tools/autonomy/capture-ui.mjs --record-build "$GITHUB_WORKSPACE" "$CANDIDATE_SHA"
+      - run: pnpm exec vite build --config docs/vite.config.ts
+      - run: pnpm exec storybook build
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: assurance-extension-${{ github.run_attempt }}
+          include-hidden-files: true
+          compression-level: 0
+          path: |
+            reports/
+            src/shared/icons/generated.ts
+            dist/web/
+            .output/chrome-mv3/
+            playwright-report/
+            test-results/
+          if-no-files-found: error
+  verify:
+    name: PR Quality / verify
+    if: always()
+    needs: [checks, web, extension]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - name: Verify detached candidate
+        run: |
+          git checkout --detach "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          package-manager-cache: false
+      - name: Require every lane
+        env:
+          CHECKS: ${{ needs.checks.result }}
+          WEB: ${{ needs.web.result }}
+          EXTENSION: ${{ needs.extension.result }}
+        run: test "$CHECKS/$WEB/$EXTENSION" = success/success/success
+      - uses: actions/download-artifact@v4
+        with:
+          name: assurance-web-${{ github.run_attempt }}
+          path: .ci-inputs/assurance-web
+      - uses: actions/download-artifact@v4
+        with:
+          name: assurance-extension-${{ github.run_attempt }}
+          path: .ci-inputs/assurance-extension
+      - name: Restore exact tested build and combine evidence
+        run: |
+          cmp .ci-inputs/assurance-web/src/shared/icons/generated.ts .ci-inputs/assurance-extension/src/shared/icons/generated.ts
+          cp .ci-inputs/assurance-extension/src/shared/icons/generated.ts src/shared/icons/generated.ts
+          cp -R .ci-inputs/assurance-extension/dist .
+          cp -R .ci-inputs/assurance-extension/.output .
+          cp -R .ci-inputs/assurance-extension/test-results .
+          node tools/assurance/merge.mjs .ci-inputs
+          node tools/assurance/cli.mjs audit --strict --complete
+          node --input-type=module -e 'import {verifyBuild} from "./tools/autonomy/capture-ui.mjs"; await verifyBuild(process.cwd(), process.env.CANDIDATE_SHA, {extension:true})'
+      - name: Generate evidence manifest
         env:
           AUTONOMY_CI_RESULT: ${{ job.status }}
         run: node tools/autonomy/cli.mjs evidence --output reports/autonomy/evidence.json
@@ -66,13 +197,12 @@ jobs:
         with:
           name: autonomy-evidence-${{ env.CANDIDATE_SHA }}-${{ github.run_attempt }}
           include-hidden-files: true
+          compression-level: 0
           if-no-files-found: error
           path: |
             reports/
             dist/web/
             .output/chrome-mv3/
             COVERAGE.md
-            coverage/
-            playwright-report/
             test-results/
           retention-days: 30
