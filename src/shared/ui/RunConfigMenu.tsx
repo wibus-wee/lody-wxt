@@ -421,7 +421,11 @@ export function RunConfigMenu(props: RunConfigMenuProps) {
           })}
           {modelPickerOptions.length > 0 && (
             <Popover.Root>
-              <Popover.Trigger nativeButton={false} render={<Menu.Item closeOnClick={false} />}>
+              <Popover.Trigger
+                role="menuitem"
+                nativeButton={false}
+                render={<Menu.Item closeOnClick={false} />}
+              >
                 {modelOption?.name ?? '模型'}
                 <span {...stylex.props(styles.rowValue)}>{modelLabel}</span>
               </Popover.Trigger>
