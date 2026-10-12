@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { extensionRuns, collectExtensionOutcomes } from './extension-runs.mjs';
-import { auditEvidence } from './report.mjs';
+
 import { findCase, modelHash } from './catalog.mjs';
-import { performanceGroups, assertReleaseSamples } from './performance.mjs';
+import { collectExtensionOutcomes, extensionRuns } from './extension-runs.mjs';
+import { assertReleaseSamples, performanceGroups } from './performance.mjs';
+import { auditEvidence } from './report.mjs';
 
 test('release schedules five independent packaged executions without overwriting reports or traces', () => {
   const runs = extensionRuns(5, 'reports/run');
@@ -16,7 +17,7 @@ test('release schedules five independent packaged executions without overwriting
   );
   assert.equal(extensionRuns(1, 'reports/pr')[0].env.ASSURANCE_EXTENSION_REPORT, 'extension.json');
   assert.ok(extensionRuns(1, 'reports/pr', true)[0].args.includes('--max-failures=1'));
-  for (const invalid of [0, 21, 1.5, NaN])
+  for (const invalid of [0, 21, 1.5, Number.NaN])
     assert.throws(() => extensionRuns(invalid, 'reports/run'));
 });
 

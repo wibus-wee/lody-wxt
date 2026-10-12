@@ -4,8 +4,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import process from 'node:process';
 
 import { auditCatalog, modelHash, sourceFingerprint } from './catalog.mjs';
-import { generateReport } from './report.mjs';
 import { extensionRuns } from './extension-runs.mjs';
+import { generateReport } from './report.mjs';
 import { shardCases } from './shard.mjs';
 
 async function main() {

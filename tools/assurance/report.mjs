@@ -3,8 +3,8 @@ import { readdir, readFile, writeFile } from 'node:fs/promises';
 import process from 'node:process';
 
 import { auditCatalog, caseKey, findCase, modelHash, sourceFingerprint } from './catalog.mjs';
-import { model } from './model.mjs';
 import { collectExtensionOutcomes, extensionReportName } from './extension-runs.mjs';
+import { model } from './model.mjs';
 import { assertReleaseSamples, compareBaseline, performanceGroups } from './performance.mjs';
 
 const cucumberReportName = /^cucumber-\d+\.json$/;
