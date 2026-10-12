@@ -5,6 +5,7 @@ import process from 'node:process';
 
 import { auditCatalog, modelHash, sourceFingerprint } from './catalog.mjs';
 import { extensionRuns } from './extension-runs.mjs';
+import { performanceBlocks } from './performance.mjs';
 import { generateReport } from './report.mjs';
 import { shardCases } from './shard.mjs';
 
@@ -164,9 +165,8 @@ async function main() {
       if (
         audit.stale ||
         audit.layerFailures.length > 0 ||
-        audit.measurementFailures.length > 0 ||
-        audit.cases.some((item) => ['failed', 'incomplete'].includes(item.status)) ||
-        audit.performance.some((item) => item.comparison.status === 'regression')
+        performanceBlocks(audit, process.env.ASSURANCE_PERFORMANCE_MODE) ||
+        audit.cases.some((item) => ['failed', 'incomplete'].includes(item.status))
       )
         result = 1;
       process.exitCode = result;

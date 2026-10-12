@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.2](https://github.com/wibus-wee/lody-wxt/compare/v0.2.1...v0.2.2) (2026-10-12)
+
+### Bug Fixes
+
+- Report release performance sampling gaps and regressions without blocking package publication; keep functional, installation and provenance checks enforced.
+- Wait for the target notification event to be persisted before asserting completion.
+
+The v0.2.0 and v0.2.1 tags are retained unchanged. Neither produced a published package.
+
 ## [0.2.1](https://github.com/wibus-wee/lody-wxt/compare/v0.2.0...v0.2.1) (2026-10-12)
 
 ### Bug Fixes
