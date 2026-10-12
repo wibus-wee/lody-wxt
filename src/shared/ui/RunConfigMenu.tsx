@@ -242,6 +242,7 @@ function ModelOptions({
         {...stylex.props(styles.options)}
         role={filtered.length ? 'menu' : 'status'}
         aria-label="模型选项"
+        tabIndex={filtered.length ? 0 : undefined}
       >
         {filtered.length ? (
           filtered.map((option) => (
