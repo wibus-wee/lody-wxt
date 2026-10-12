@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import process from 'node:process';
 
 import { auditCatalog, caseKey, findCase, modelHash, sourceFingerprint } from './catalog.mjs';
@@ -9,6 +10,14 @@ import { compareBaseline, performanceGroups, releaseSampleFindings } from './per
 
 const cucumberReportName = /^cucumber-\d+\.json$/;
 const repetitionDigits = /\d+/;
+
+export async function writeCoverageReport(
+  markdown,
+  destination = process.env.ASSURANCE_COVERAGE_PATH ?? 'COVERAGE.md',
+) {
+  await mkdir(dirname(destination), { recursive: true });
+  await writeFile(destination, markdown);
+}
 
 export async function readOptional(path) {
   try {
@@ -314,7 +323,7 @@ export async function generateReport() {
     `Artifacts: ${latest ? `[run manifest](./${latest.directory}/run.json), [machine-readable audit](./${latest.directory}/audit.json)` : 'no current run'}. Source drift invalidates credit; missing runs remain missing.`,
     '',
   );
-  await writeFile('COVERAGE.md', lines.join('\n'));
+  await writeCoverageReport(lines.join('\n'));
   const audit = {
     layerFailures: Object.entries(manifest?.layers ?? {})
       .filter(([, result]) => result.exitCode !== 0)
