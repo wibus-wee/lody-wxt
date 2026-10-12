@@ -5,7 +5,7 @@ import path from 'node:path';
 import type { BrowserContext } from '@playwright/test';
 import { chromium, expect, test } from '@playwright/test';
 
-test('installed extension displays its official icon instead of a browser placeholder', async ({}, testInfo) => {
+test('installed extension displays its official icon instead of a browser placeholder', async () => {
   const profile = await mkdtemp(path.join(tmpdir(), 'lody-branding-'));
   const extension = path.resolve('.output/chrome-mv3');
   let context: BrowserContext | undefined;
@@ -60,7 +60,7 @@ test('installed extension displays its official icon instead of a browser placeh
     await expect
       .poll(() => icon.evaluate((element) => (element as HTMLImageElement).naturalWidth))
       .toBeGreaterThan(0);
-    await testInfo.attach('installed-extension-icon', {
+    await test.info().attach('installed-extension-icon', {
       body: await card.screenshot(),
       contentType: 'image/png',
     });
