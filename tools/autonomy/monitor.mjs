@@ -214,7 +214,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (!release) {
       const message =
         'No stable release has been published; installed-release verification was not run.\n';
-      console.log(message.trim());
+      process.stdout.write(message);
       if (process.env.GITHUB_STEP_SUMMARY)
         writeFileSync(process.env.GITHUB_STEP_SUMMARY, message, { flag: 'a' });
     }
