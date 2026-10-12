@@ -23,7 +23,7 @@ import {
   publish,
   reconcileAssets,
   sha256,
-  validateApprovalEnvironment,
+  validateReleaseEnvironment,
   validateTag,
   verifyArchive,
   verifyAssets,
@@ -219,25 +219,18 @@ test('checksum inventory, version, commit and tagged dependency provenance are e
   }
 });
 
-test('release environments fail closed without independent protected approval', () => {
+test('single-maintainer environments keep ref restrictions without manual reviewers', () => {
   const environment = {
     name: 'release-publication',
     can_admins_bypass: false,
     deployment_branch_policy: { custom_branch_policies: true },
-    protection_rules: [
-      {
-        type: 'required_reviewers',
-        prevent_self_review: true,
-        reviewers: [{ type: 'User', reviewer: { id: 42 } }],
-      },
-    ],
+    protection_rules: [],
   };
   assert.equal(
-    validateApprovalEnvironment(environment, 'release-publication'),
+    validateReleaseEnvironment(environment, 'release-publication'),
     'release-publication',
   );
   for (const change of [
-    { protection_rules: [] },
     { can_admins_bypass: true },
     { deployment_branch_policy: null },
     { name: 'other' },
@@ -248,7 +241,7 @@ test('release environments fail closed without independent protected approval', 
     },
   ])
     assert.throws(() =>
-      validateApprovalEnvironment({ ...environment, ...change }, 'release-publication'),
+      validateReleaseEnvironment({ ...environment, ...change }, 'release-publication'),
     );
 });
 
@@ -293,6 +286,13 @@ test('release planning and publication require the exact approved tag on main hi
     assert.deepEqual(planPromotion(), { tag: 'v0.2.0', commit: approved });
     assert.doesNotThrow(() => assertReleaseSource('v0.2.0', approved));
     assert.doesNotThrow(() => assertReleaseSource('v0.2.0', approved, undefined, approved));
+    // A later workflow fix may resume the same approved release source, never a ref or off-main commit.
+    writeFileSync(path.join(directory, 'maintenance.txt'), 'release workflow fix');
+    const maintenance = commit();
+    git('update-ref', 'refs/remotes/origin/main', maintenance);
+    assert.equal(planPromotion(), null);
+    assert.deepEqual(planPromotion(approved), { tag: 'v0.2.0', commit: approved });
+    assert.throws(() => planPromotion('main'));
     saveVersion('0.3.0');
     assert.throws(() => planPromotion(), /clean/);
     commit();

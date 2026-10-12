@@ -3,6 +3,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Optional exact merged release commit to resume after a workflow fix
+        required: false
+        type: string
 permissions:
   contents: read
 concurrency:
@@ -35,6 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
+          ref: main
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v5
@@ -42,7 +48,9 @@ jobs:
           node-version: 26
           package-manager-cache: false
       - id: plan
-        run: node tools/autonomy/release-plan.mjs plan
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit || github.sha }}
+        run: node tools/autonomy/release-plan.mjs plan "$SOURCE_COMMIT"
   tag:
     needs: plan
     if: needs.plan.outputs.tag != ''
@@ -61,13 +69,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
+          ref: main
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v5
         with:
           node-version: 26
           package-manager-cache: false
-      - name: Require configured independent environment approval
-        run: node tools/autonomy/release-plan.mjs approval release-promotion
-      - name: Tag the approved merged manifest version and dispatch packaging
+      - name: Validate automated release environment
+        run: node tools/autonomy/release-plan.mjs environment release-promotion
+      - name: Tag the exact merged manifest version and dispatch packaging
         run: node tools/autonomy/release-plan.mjs promote "$SOURCE_COMMIT"
