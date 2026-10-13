@@ -70,6 +70,15 @@ document.querySelector('#reload').onclick = () => chrome.runtime.reload();
       path.join(report, 'browser.json'),
       JSON.stringify({ version: context.browser()?.version() }),
     );
+    // Owner approved developer mode for this disposable CI profile on 2026-10-13.
+    const settings = await context.newPage();
+    await settings.goto('chrome://extensions');
+    const developerMode = settings.locator('extensions-manager extensions-toolbar #devMode');
+    await developerMode.waitFor();
+    if ((await developerMode.getAttribute('aria-pressed')) !== 'true') await developerMode.click();
+    assert.equal(await developerMode.getAttribute('aria-pressed'), 'true');
+    await settings.screenshot({ path: path.join(report, '00-developer-mode.png') });
+    await settings.close();
     const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
     const id = new URL(worker.url()).host;
     const page = await context.newPage();
