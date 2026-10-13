@@ -12,6 +12,7 @@ import {
   releaseVersion,
   validateRun,
 } from './release-candidate.mjs';
+import { assertPackageSource } from './release-plan.mjs';
 
 const before = { name: 'app', version: '0.2.4', scripts: { check: 'test' } };
 const after = { ...before, version: '0.2.5' };
@@ -125,6 +126,10 @@ test('real Git candidate inspection rejects bundled runtime changes', () => {
     const head = git('rev-parse', 'HEAD');
     process.chdir(root);
     assert.equal(inspectCandidate(base, head).version, '0.2.5');
+    assertPackageSource(head, head);
+    const squash = git('commit-tree', `${head}^{tree}`, '-p', base, '-m', 'squashed release');
+    assertPackageSource(squash, head);
+    assert.throws(() => assertPackageSource(base, head), /source tree differs/);
     writeFileSync(path.join(root, 'runtime.js'), 'changed');
     git('add', '.');
     git('commit', '-m', 'runtime');
@@ -156,4 +161,5 @@ test('release tests stay in read-only PR verification; publication never rebuild
   assert.match(release, /pnpm release:verify/);
   assert.match(release, /verify-candidate/);
   assert.match(release, /attestations/);
+  assert.match(read('.github/workflows/release-monitor.yml'), /release-plan.mjs verify-published/);
 });
