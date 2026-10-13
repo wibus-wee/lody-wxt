@@ -112,6 +112,7 @@ export function validateCapturePlans(
             'actions',
             'covers',
             'before',
+            'sourceScreenshot',
           ].includes(field),
       ) ||
       !['web', 'extension'].includes(plan.surface) ||
@@ -137,6 +138,16 @@ export function validateCapturePlans(
       plan.actions.length > 30
     )
       throw new Error('Invalid data-only capture plan or unrelated changed-path coverage');
+    if (
+      plan.sourceScreenshot !== undefined &&
+      (plan.surface !== 'extension' ||
+        plan.entry !== 'sidepanel' ||
+        plan.account !== 'signed-in' ||
+        !['blocked', 'overlay'].includes(plan.sourceScreenshot))
+    )
+      throw new Error(
+        'Source screenshot requires an installed signed-in sidepanel and fixed outcome',
+      );
     const identity = JSON.stringify([plan.surface, plan.entry, plan.scenario]);
     if (identities.has(identity)) throw new Error('Duplicate capture plan');
     identities.add(identity);
@@ -173,7 +184,7 @@ export function validateCapturePlans(
       if (
         !plan.before ||
         Object.keys(plan.before).some(
-          (field) => !['route', 'state', 'account', 'actions'].includes(field),
+          (field) => !['route', 'state', 'account', 'actions', 'sourceScreenshot'].includes(field),
         ) ||
         !['route', 'state', 'account', 'actions'].every((field) =>
           Object.hasOwn(plan.before, field),
@@ -231,6 +242,50 @@ export async function executeCaptureActions(page, plan, expect, urlFor) {
     else if (step.action === 'assertAbsent') await expect(target).toHaveCount(0);
     else throw new Error('Unsupported capture action');
   }
+}
+// Candidate plans select a fixed outcome, never source bytes, URLs or scripts.
+export async function captureSourceScreenshot(context, panel, outcome, expect) {
+  if (!['blocked', 'overlay'].includes(outcome)) throw new Error('Invalid screenshot outcome');
+  const url = 'https://backend.lody.ai/autonomy-screenshot-source';
+  await context.route(url, (route) =>
+    route.fulfill({
+      contentType: 'text/html',
+      body: '<!doctype html><html lang="en"><title>Public screenshot fixture</title><style>body{margin:16px;background:#f05028}input{display:block;max-width:90vw}</style><h1>Public screenshot fixture</h1><label>Password<input type="password" aria-label="Fixture password"></label><label>Code<input autocomplete="one-time-code" aria-label="Fixture code"></label><p data-sensitive>Public synthetic marker; all inputs are empty.</p></html>',
+    }),
+  );
+  const source = await context.newPage();
+  source.setDefaultTimeout(10000);
+  await source.goto(url);
+  await source.bringToFront();
+  const session = await context.browser().newBrowserCDPSession();
+  try {
+    const { targetInfos } = await session.send('Target.getTargets', { filter: [{ type: 'tab' }] });
+    const target = targetInfos.find((item) => item.url === url);
+    if (!target) throw new Error('Exact screenshot source tab missing');
+    await session.send('Extensions.triggerAction', {
+      id: new URL(panel.url()).host,
+      targetId: target.targetId,
+    });
+  } finally {
+    await session.detach();
+  }
+  await expect(source.getByLabel('Fixture password', { exact: true })).toBeVisible();
+  await expect(source.getByLabel('Fixture password', { exact: true })).toHaveValue('');
+  await expect(source.getByLabel('Fixture code', { exact: true })).toBeVisible();
+  await expect(source.getByLabel('Fixture code', { exact: true })).toHaveValue('');
+  await panel.getByRole('button', { name: '附加上下文', exact: true }).click();
+  await panel.getByRole('menuitem', { name: '截图并裁剪…', exact: true }).click();
+  const overlay = source.getByRole('dialog', { name: '截取可见内容', exact: true });
+  if (outcome === 'blocked') {
+    await expect(panel.getByRole('alert')).toContainText('当前可见区域包含密码、验证码或敏感内容');
+    await expect(overlay).toHaveCount(0);
+    return panel;
+  }
+  await expect(overlay).toBeVisible();
+  await expect(overlay.getByRole('button', { name: '附加整张截图', exact: true })).toBeVisible();
+  await expect(overlay.getByRole('button', { name: '取消', exact: true })).toBeFocused();
+  await expect(panel.getByRole('alert')).toHaveCount(0);
+  return source;
 }
 const fullSha = /^[a-f0-9]{40}$/;
 const positiveId = /^[1-9]\d*$/;
@@ -642,6 +697,7 @@ export async function captureUI({
                       args: [
                         `--disable-extensions-except=${installed}`,
                         `--load-extension=${installed}`,
+                        ...(plan.sourceScreenshot ? ['--enable-unsafe-extension-debugging'] : []),
                         '--ignore-certificate-errors',
                         '--no-proxy-server',
                         `--host-resolver-rules=MAP backend.lody.ai 127.0.0.1:${accountBoundary.port}`,
@@ -702,8 +758,11 @@ export async function captureUI({
                       'Installed extension account protocol did not traverse its real service worker',
                     );
                 }
-                await page.evaluate(() => document.fonts.ready);
-                const bytes = await page.screenshot({
+                const capturePage = plan.sourceScreenshot
+                  ? await captureSourceScreenshot(context, page, plan.sourceScreenshot, expect)
+                  : page;
+                await capturePage.evaluate(() => document.fonts.ready);
+                const bytes = await capturePage.screenshot({
                   path: path.join(output, `${name}.png`),
                   animations: 'disabled',
                 });

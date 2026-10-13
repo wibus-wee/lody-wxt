@@ -328,3 +328,38 @@ test('new or changed UI can declare an explicit real before state without invent
   shortcut.before.actions[0] = { action: 'evaluate', code: 'true' };
   assert.throws(() => validateCapturePlans([shortcut]), /Unsupported capture action/);
 });
+
+test('source screenshots use only fixed installed-extension fixtures and bind their outcome', async () => {
+  const { validateCapturePlans, capturePlanHash } = await import('./capture-ui.mjs');
+  const plan = {
+    ...declaredPlan(),
+    surface: 'extension',
+    entry: 'sidepanel',
+    sourceScreenshot: 'overlay',
+  };
+  assert.ok(validateCapturePlans([plan]));
+  assert.notEqual(
+    capturePlanHash([plan]),
+    capturePlanHash([{ ...plan, sourceScreenshot: 'blocked' }]),
+  );
+  for (const change of [
+    { surface: 'web' },
+    { entry: 'popup' },
+    { account: 'signed-out' },
+    { sourceScreenshot: 'https://example.com' },
+    { sourceScreenshot: { html: '<script />' } },
+    { sourceUrl: 'https://example.com' },
+  ])
+    assert.throws(() => validateCapturePlans([{ ...plan, ...change }]));
+  const before = {
+    route: plan.route,
+    state: 'Existing explicit rejection',
+    account: plan.account,
+    actions: plan.actions,
+    sourceScreenshot: 'blocked',
+  };
+  assert.ok(validateCapturePlans([{ ...plan, before }]));
+  assert.throws(() =>
+    validateCapturePlans([{ ...plan, before: { ...before, sourceScreenshot: 'arbitrary' } }]),
+  );
+});
