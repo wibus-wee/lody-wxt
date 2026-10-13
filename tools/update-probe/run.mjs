@@ -94,7 +94,8 @@ document.querySelector('#reload').onclick = () => chrome.runtime.reload();
     screenshot('01-location');
     execFileSync('xdotool', ['type', '--clearmodifiers', extension]);
     screenshot('01-path');
-    key('Return');
+    // The GTK chooser's visible Open button, observed in the retained 1280x1024 CI screenshots.
+    execFileSync('xdotool', ['mousemove', '1157', '830', 'click', '1']);
     await new Promise((resolve) => setTimeout(resolve, 1500));
     screenshot('02-selected');
     await writeFile(path.join(report, 'page-state.txt'), await page.locator('body').textContent());
