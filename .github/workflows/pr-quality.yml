@@ -96,7 +96,7 @@ jobs:
         if: always()
         with:
           name: assurance-web-${{ matrix.shard }}-${{ github.run_attempt }}
-          compression-level: 0
+          compression-level: 6
           path: |
             reports/
             src/shared/icons/generated.ts
@@ -140,7 +140,7 @@ jobs:
         with:
           name: assurance-extension-${{ github.run_attempt }}
           include-hidden-files: true
-          compression-level: 0
+          compression-level: 6
           path: |
             reports/
             src/shared/icons/generated.ts
@@ -206,12 +206,13 @@ jobs:
         with:
           name: autonomy-evidence-${{ env.CANDIDATE_SHA }}-${{ github.run_attempt }}
           include-hidden-files: true
-          compression-level: 0
+          compression-level: 6
           if-no-files-found: error
           path: |
             reports/
             dist/web/
             .output/chrome-mv3/
             COVERAGE.md
-            test-results/
+          # Raw test-results remain in assurance-extension; all manifest-referenced
+          # reports and build bytes stay here without duplicating those attachments.
           retention-days: 30
