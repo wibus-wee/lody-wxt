@@ -8,8 +8,8 @@ import AxeBuilder from '@axe-core/playwright';
 import type { BrowserContext, Page } from '@playwright/test';
 import { chromium, expect, test } from '@playwright/test';
 
-import { captureSourceScreenshot } from '../../tools/autonomy/capture-ui.mjs';
 import { JourneyEvidence } from '../../tools/assurance/evidence';
+import { captureSourceScreenshot } from '../../tools/autonomy/capture-ui.mjs';
 import { AccountBoundary, signIn } from '../e2e/support/account-boundary';
 import { RuntimeBoundary } from '../e2e/support/runtime-boundary';
 
