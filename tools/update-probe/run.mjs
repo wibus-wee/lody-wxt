@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
@@ -129,7 +130,60 @@ document.querySelector('#reload').onclick = () => chrome.runtime.reload();
     );
   } finally {
     screenshot('final');
-    await context.close();
+    const session = await context.browser().newBrowserCDPSession();
+    await writeFile(
+      path.join(report, 'extension-histograms.json'),
+      JSON.stringify(
+        await session.send('Browser.getHistograms', { query: 'FileSystemAccess' }),
+        null,
+        2,
+      ),
+    );
+    // Independent ordinary-origin control: only reads the disposable fixture directory.
+    const server = createServer((_request, response) => {
+      response.setHeader('Content-Type', 'text/html');
+      response.end(`<button id="pick">Select control directory</button><pre id="result"></pre><script>
+      document.querySelector('#pick').onclick = async () => {try {
+        const handle = await showDirectoryPicker();
+        const file = await handle.getFileHandle('manifest.json');
+        document.querySelector('#result').textContent = 'CONTROL_READ_OK '+await (await file.getFile()).text();
+      } catch(error) {document.querySelector('#result').textContent=String(error);}};
+      </script>`);
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const control = await context.newPage();
+      await control.goto(`http://127.0.0.1:${server.address().port}`);
+      await control.getByRole('button', { name: 'Select control directory', exact: true }).click();
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      screenshot('control-picker');
+      const title = execFileSync('xdotool', ['getactivewindow', 'getwindowname'], {
+        encoding: 'utf8',
+      }).trim();
+      assert.match(title, pickerTitle);
+      key('ctrl+l');
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      execFileSync('xdotool', ['type', '--clearmodifiers', extension]);
+      screenshot('control-path');
+      execFileSync('xdotool', ['mousemove', '1157', '830', 'click', '1']);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      screenshot('control-result');
+      await writeFile(
+        path.join(report, 'control-state.txt'),
+        await control.locator('body').textContent(),
+      );
+      await writeFile(
+        path.join(report, 'control-histograms.json'),
+        JSON.stringify(
+          await session.send('Browser.getHistograms', { query: 'FileSystemAccess' }),
+          null,
+          2,
+        ),
+      );
+    } finally {
+      server.close();
+      await context.close();
+    }
   }
 }
 main().catch((error) => {

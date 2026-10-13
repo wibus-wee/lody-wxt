@@ -89,7 +89,7 @@ jobs:
           RELEASE_TAG: ${{ needs.select.outputs.tag }}
         run: |
           node ../controller/tools/autonomy/release-plan.mjs binding "$RELEASE_TAG" "$(git rev-parse HEAD)"
-          node ../controller/tools/autonomy/release-plan.mjs verify "$RELEASE_TAG" dist/release "$(git rev-parse HEAD)"
+          node ../controller/tools/autonomy/release-plan.mjs verify-published "$RELEASE_TAG" dist/release "$(git rev-parse HEAD)"
           mkdir -p reports/release-attestation
           node ../controller/tools/autonomy/release-plan.mjs attestations "$RELEASE_TAG" dist/release > reports/release-attestation/verification.json
           echo "sha256=$(sha256sum dist/release/lody-chrome.zip | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"

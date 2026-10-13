@@ -34,7 +34,7 @@ test('CI keeps real browser and extension obligations after service removal', ()
   assert.match(workflow, /ASSURANCE_REPEAT: '1'/);
   assert.match(workflow, /needs: \[checks, web, extension\]/);
   assert.match(workflow, /success\/success\/success/);
-  const release = read('.github/workflows/release.yml');
+  const release = read('.github/workflows/release-pr.yml');
   assert.match(release, /ASSURANCE_REPEAT: '5'/);
   assert.match(release, /ASSURANCE_REQUIRE_PERFORMANCE: '1'/);
   assert.match(release, /ASSURANCE_PERFORMANCE_MODE: report/);
