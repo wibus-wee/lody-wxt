@@ -22,8 +22,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm exec playwright install --with-deps chromium
-      - run: sudo apt-get update && sudo apt-get install -y xvfb xdotool imagemagick
-      - run: xvfb-run --auto-servernum node tools/update-probe/run.mjs
+      - run: sudo apt-get update && sudo apt-get install -y xvfb xdotool imagemagick openbox
+      - run: xvfb-run --auto-servernum sh -c 'openbox >/tmp/openbox.log 2>&1 & sleep 1; node tools/update-probe/run.mjs'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
