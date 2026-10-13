@@ -53,20 +53,20 @@
     "surface": "extension",
     "entry": "popup",
     "route": "/#/",
-    "scenario": "screenshot-menu-entry",
-    "state": "Explicit screenshot action remains available in the attachment menu",
+    "scenario": "no-direct-capture-entry",
+    "state": "Entrypoint retains its own controls without exposing direct screenshot capture",
     "account": "signed-in",
     "covers": ["src/features/page-context/screenshot.ts"],
     "actions": [
       {
-        "action": "click",
+        "action": "assertAbsent",
         "role": "button",
         "name": "附加上下文"
       },
       {
         "action": "assertVisible",
-        "role": "menuitem",
-        "name": "截图并裁剪…"
+        "role": "button",
+        "name": "打开侧栏"
       }
     ]
   },
@@ -74,20 +74,20 @@
     "surface": "extension",
     "entry": "options",
     "route": "/#/",
-    "scenario": "screenshot-menu-entry",
-    "state": "Explicit screenshot action remains available in the attachment menu",
+    "scenario": "no-direct-capture-entry",
+    "state": "Entrypoint retains its own controls without exposing direct screenshot capture",
     "account": "signed-in",
     "covers": ["src/features/page-context/screenshot.ts"],
     "actions": [
       {
-        "action": "click",
+        "action": "assertAbsent",
         "role": "button",
         "name": "附加上下文"
       },
       {
         "action": "assertVisible",
-        "role": "menuitem",
-        "name": "截图并裁剪…"
+        "role": "heading",
+        "name": "设置"
       }
     ]
   }
