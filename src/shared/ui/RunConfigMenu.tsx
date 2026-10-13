@@ -9,7 +9,7 @@ import type { AgentIdentity } from '../icons/agent-identity';
 import { Icon } from '../icons/Icon';
 import { AgentIcon } from './AgentIcon';
 import { composerSurface as surface } from './composer';
-import { Button, Menu, Switch } from './index';
+import { Button, Menu, Popover, Switch } from './index';
 import { fuzzyMatch } from './menu';
 import { MenuSearchInput } from './MenuSearchInput';
 import { SearchableMenuContent } from './SearchableMenuContent';
@@ -242,6 +242,7 @@ function ModelOptions({
         {...stylex.props(styles.options)}
         role={filtered.length ? 'menu' : 'status'}
         aria-label="模型选项"
+        tabIndex={filtered.length ? 0 : undefined}
       >
         {filtered.length ? (
           filtered.map((option) => (
@@ -262,6 +263,7 @@ function ModelOptions({
 
 export function RunConfigMenu(props: RunConfigMenuProps) {
   const [open, setOpen] = useState(false);
+  const [modelOpen, setModelOpen] = useState(false);
   const modelOption = props.configOptions?.find(
     (option) =>
       option.type === 'select' &&
@@ -276,183 +278,212 @@ export function RunConfigMenu(props: RunConfigMenuProps) {
     modelOption?.options.find((option) => option.value === modelValue)?.name ??
     props.models.find((option) => option.value === props.modelId)?.label ??
     props.agentLabel;
+  // Lody's desktop-run-config-menu normalizes legacy models and ACP model
+  // selectors into the same searchable picker. Keep config values on their
+  // original channel so registry/custom agents receive configOptionValues.
+  const modelPickerOptions: readonly RunOption[] = modelOption
+    ? modelOption.options.map((option) => ({ value: String(option.value), label: option.name }))
+    : props.models;
+  const selectedModel = modelOption ? String(modelValue) : props.modelId;
+  const selectModel = (value: string) => {
+    if (modelOption) {
+      const option = modelOption.options.find((row) => String(row.value) === value);
+      if (option) props.onConfigOptionChange?.(modelOption.id, option.value);
+    } else {
+      props.onModelChange(value);
+    }
+  };
   const reasoningLabel = props.reasoningOptions.find(
     (option) => option.value === props.reasoningEffort,
   )?.label;
   return (
-    <Menu.Root open={open && !props.disabled} onOpenChange={setOpen}>
-      <Menu.Trigger
-        disabled={props.disabled}
-        aria-label="运行配置"
-        data-run-config-trigger=""
-        render={<Button type="button" variant="ghost" size="small" aria-label="运行配置" />}
-      >
-        <AgentIcon agent={props.agent} size={16} />
-        <span {...stylex.props(surface.faceText, styles.modelName)}>
-          <span dir="ltr">{modelLabel}</span>
-        </span>
-        {reasoningLabel && (
-          <>
-            <span aria-hidden="true" {...stylex.props(surface.faceDot)}>
-              ·
-            </span>
-            <span {...stylex.props(surface.faceFixed)}>{reasoningLabel}</span>
-          </>
-        )}
-        {props.planMode && (
-          <span {...stylex.props(surface.faceLive)}>
-            <Icon name="plan" size={14} />
+    <Menu.Root
+      open={open && !props.disabled}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setModelOpen(false);
+      }}
+    >
+      <Popover.Root open={modelOpen && open && !props.disabled} onOpenChange={setModelOpen}>
+        <Menu.Trigger
+          disabled={props.disabled}
+          aria-label="运行配置"
+          data-run-config-trigger=""
+          render={<Button type="button" variant="ghost" size="small" aria-label="运行配置" />}
+        >
+          <AgentIcon agent={props.agent} size={16} />
+          <span {...stylex.props(surface.faceText, styles.modelName)}>
+            <span dir="ltr">{modelLabel}</span>
           </span>
-        )}
-        {props.fastMode && (
-          <span {...stylex.props(surface.faceLive)}>
-            <Icon name="fast" size={14} />
-          </span>
-        )}
-      </Menu.Trigger>
-      <Menu.Content
-        side="top"
-        align="start"
-        {...stylex.props(rootMenuTheme)}
-        finalFocus={() =>
-          document.querySelector<HTMLTextAreaElement>('[data-keyboard-nav="composer"]')
-        }
-      >
-        <div {...stylex.props(surface.menuList)}>
-          {props.agentLocked ? (
-            <Menu.Item disabled>
-              Agent
-              <span {...stylex.props(styles.rowValue)}>
-                <AgentIcon agent={props.agent} size={12} />
-                {props.agentLabel}
+          {reasoningLabel && (
+            <>
+              <span aria-hidden="true" {...stylex.props(surface.faceDot)}>
+                ·
               </span>
-            </Menu.Item>
-          ) : (
-            <Menu.Submenu>
-              <ValueSubTrigger
-                label="Agent"
-                value={props.agentLabel}
-                icon={<AgentIcon agent={props.agent} size={12} />}
-              />
-              <Menu.Content {...stylex.props(styles.optionMenu, optionMenuTheme)}>
-                <Menu.RadioGroup
-                  value={props.agentId ?? ''}
-                  onValueChange={(value) => props.onAgentChange?.(value)}
-                >
-                  {props.agents?.map((agent) => (
-                    <Menu.RadioItem
-                      key={agent.value}
-                      value={agent.value}
-                      indicatorSide="end"
-                      indicator="check"
-                      icon={<AgentIcon agent={agent} />}
-                    >
-                      {agent.label}
-                    </Menu.RadioItem>
-                  ))}
-                </Menu.RadioGroup>
-                {props.onChooseTarget && (
-                  <Menu.Item onClick={props.onChooseTarget}>更换对话助手</Menu.Item>
-                )}
-              </Menu.Content>
-            </Menu.Submenu>
+              <span {...stylex.props(surface.faceFixed)}>{reasoningLabel}</span>
+            </>
           )}
-          {props.configOptions?.map((option) => {
-            const value = props.configOptionValues?.[option.id] ?? option.currentValue;
-            if (option.type === 'boolean')
-              return (
-                <ToggleItem
-                  key={option.id}
-                  label={option.name}
-                  checked={value === true}
-                  onToggle={() => props.onConfigOptionChange?.(option.id, value !== true)}
-                  icon={
-                    <Icon
-                      name={option.id.toLowerCase().includes('fast') ? 'fast' : 'plan'}
-                      size={16}
-                    />
-                  }
-                />
-              );
-            return (
-              <Menu.Submenu key={option.id}>
+          {props.planMode && (
+            <span {...stylex.props(surface.faceLive)}>
+              <Icon name="plan" size={14} />
+            </span>
+          )}
+          {props.fastMode && (
+            <span {...stylex.props(surface.faceLive)}>
+              <Icon name="fast" size={14} />
+            </span>
+          )}
+        </Menu.Trigger>
+        <Menu.Content
+          side="top"
+          align="start"
+          {...stylex.props(rootMenuTheme)}
+          finalFocus={() =>
+            document.querySelector<HTMLTextAreaElement>('[data-keyboard-nav="composer"]')
+          }
+        >
+          <div {...stylex.props(surface.menuList)}>
+            {props.agentLocked ? (
+              <Menu.Item disabled>
+                Agent
+                <span {...stylex.props(styles.rowValue)}>
+                  <AgentIcon agent={props.agent} size={12} />
+                  {props.agentLabel}
+                </span>
+              </Menu.Item>
+            ) : (
+              <Menu.Submenu>
                 <ValueSubTrigger
-                  label={option.name}
-                  value={option.options.find((row) => row.value === value)?.name}
+                  label="Agent"
+                  value={props.agentLabel}
+                  icon={<AgentIcon agent={props.agent} size={12} />}
                 />
                 <Menu.Content {...stylex.props(styles.optionMenu, optionMenuTheme)}>
                   <Menu.RadioGroup
-                    value={String(value)}
-                    onValueChange={(selected) => {
-                      const row = option.options.find((item) => String(item.value) === selected);
-                      if (row) props.onConfigOptionChange?.(option.id, row.value);
-                    }}
+                    value={props.agentId ?? ''}
+                    onValueChange={(value) => props.onAgentChange?.(value)}
                   >
-                    {option.options.map((row) => (
+                    {props.agents?.map((agent) => (
                       <Menu.RadioItem
-                        key={String(row.value)}
-                        value={String(row.value)}
-                        closeOnClick={false}
+                        key={agent.value}
+                        value={agent.value}
+                        indicatorSide="end"
+                        indicator="check"
+                        icon={<AgentIcon agent={agent} />}
                       >
-                        {row.name}
+                        {agent.label}
                       </Menu.RadioItem>
                     ))}
                   </Menu.RadioGroup>
+                  {props.onChooseTarget && (
+                    <Menu.Item onClick={props.onChooseTarget}>更换对话助手</Menu.Item>
+                  )}
                 </Menu.Content>
               </Menu.Submenu>
-            );
-          })}
-          {!modelOption && props.models.length > 0 && (
-            <Menu.Submenu>
-              <ValueSubTrigger label="模型" value={modelLabel} searchable />
-              <SearchableMenuContent
-                alignOffset={props.models.length >= 6 ? -32 : 0}
-                {...stylex.props(styles.optionMenu, optionMenuTheme)}
+            )}
+            {props.configOptions?.map((option) => {
+              if (option === modelOption) return null;
+              const value = props.configOptionValues?.[option.id] ?? option.currentValue;
+              if (option.type === 'boolean')
+                return (
+                  <ToggleItem
+                    key={option.id}
+                    label={option.name}
+                    checked={value === true}
+                    onToggle={() => props.onConfigOptionChange?.(option.id, value !== true)}
+                    icon={
+                      <Icon
+                        name={option.id.toLowerCase().includes('fast') ? 'fast' : 'plan'}
+                        size={16}
+                      />
+                    }
+                  />
+                );
+              return (
+                <Menu.Submenu key={option.id}>
+                  <ValueSubTrigger
+                    label={option.name}
+                    value={option.options.find((row) => row.value === value)?.name}
+                  />
+                  <Menu.Content {...stylex.props(styles.optionMenu, optionMenuTheme)}>
+                    <Menu.RadioGroup
+                      value={String(value)}
+                      onValueChange={(selected) => {
+                        const row = option.options.find((item) => String(item.value) === selected);
+                        if (row) props.onConfigOptionChange?.(option.id, row.value);
+                      }}
+                    >
+                      {option.options.map((row) => (
+                        <Menu.RadioItem
+                          key={String(row.value)}
+                          value={String(row.value)}
+                          closeOnClick={false}
+                        >
+                          {row.name}
+                        </Menu.RadioItem>
+                      ))}
+                    </Menu.RadioGroup>
+                  </Menu.Content>
+                </Menu.Submenu>
+              );
+            })}
+            {modelPickerOptions.length > 0 && (
+              <Popover.Trigger
+                role="menuitem"
+                nativeButton={false}
+                render={<Menu.Item closeOnClick={false} />}
               >
-                <div {...stylex.props(styles.modelList)}>
-                  <ModelOptions
-                    options={props.models}
-                    selected={props.modelId}
-                    onSelect={props.onModelChange}
-                  />
-                </div>
-              </SearchableMenuContent>
-            </Menu.Submenu>
-          )}
-          {!props.configOptions?.length && props.reasoningOptions.length > 0 && (
-            <Menu.Submenu>
-              <ValueSubTrigger label="思考强度" value={reasoningLabel} />
-              <Menu.Content align="start" {...stylex.props(styles.optionMenu, optionMenuTheme)}>
-                {props.reasoningOptions.map((option) => (
-                  <OptionItem
-                    key={option.value}
-                    {...option}
-                    selected={option.value === props.reasoningEffort}
-                    onSelect={() => props.onReasoningChange(option.value)}
-                  />
-                ))}
-              </Menu.Content>
-            </Menu.Submenu>
-          )}
-          {(props.planMode !== undefined || props.fastMode !== undefined) && <Menu.Separator />}
-          {props.planMode !== undefined && (
-            <ToggleItem
-              label="Plan"
-              icon={<Icon name="plan" size={16} />}
-              checked={props.planMode}
-              onToggle={() => props.onPlanChange(!props.planMode)}
+                {modelOption?.name ?? '模型'}
+                <span {...stylex.props(styles.rowValue)}>{modelLabel}</span>
+              </Popover.Trigger>
+            )}
+            {!props.configOptions?.length && props.reasoningOptions.length > 0 && (
+              <Menu.Submenu>
+                <ValueSubTrigger label="思考强度" value={reasoningLabel} />
+                <Menu.Content align="start" {...stylex.props(styles.optionMenu, optionMenuTheme)}>
+                  {props.reasoningOptions.map((option) => (
+                    <OptionItem
+                      key={option.value}
+                      {...option}
+                      selected={option.value === props.reasoningEffort}
+                      onSelect={() => props.onReasoningChange(option.value)}
+                    />
+                  ))}
+                </Menu.Content>
+              </Menu.Submenu>
+            )}
+            {(props.planMode !== undefined || props.fastMode !== undefined) && <Menu.Separator />}
+            {props.planMode !== undefined && (
+              <ToggleItem
+                label="Plan"
+                icon={<Icon name="plan" size={16} />}
+                checked={props.planMode}
+                onToggle={() => props.onPlanChange(!props.planMode)}
+              />
+            )}
+            {props.fastMode !== undefined && (
+              <ToggleItem
+                label="Fast"
+                icon={<Icon name="fast" size={16} />}
+                checked={props.fastMode}
+                onToggle={() => props.onFastChange(!props.fastMode)}
+              />
+            )}
+          </div>
+        </Menu.Content>
+        <SearchableMenuContent
+          alignOffset={modelPickerOptions.length >= 6 ? -32 : 0}
+          {...stylex.props(styles.optionMenu, optionMenuTheme)}
+        >
+          <div {...stylex.props(styles.modelList)}>
+            <ModelOptions
+              options={modelPickerOptions}
+              selected={selectedModel}
+              onSelect={selectModel}
             />
-          )}
-          {props.fastMode !== undefined && (
-            <ToggleItem
-              label="Fast"
-              icon={<Icon name="fast" size={16} />}
-              checked={props.fastMode}
-              onToggle={() => props.onFastChange(!props.fastMode)}
-            />
-          )}
-        </div>
-      </Menu.Content>
+          </div>
+        </SearchableMenuContent>
+      </Popover.Root>
     </Menu.Root>
   );
 }

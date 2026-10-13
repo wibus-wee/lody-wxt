@@ -724,6 +724,36 @@ export const model = {
           ],
         },
         {
+          id: 'model-search',
+          lifecycle: ['inspect', 'search', 'cancel', 'select', 'send'],
+          states: [
+            'connection:capabilities-ready',
+            'quickDraft:session-scoped',
+            'documents:confirmed',
+          ],
+          obligations: [
+            'searchable-config-models',
+            'empty-search-recovers',
+            'selection-survives-reopen',
+            'searched-model-reaches-turn',
+          ],
+        },
+        {
+          id: 'packaged-model-search',
+          lifecycle: ['inspect', 'search', 'cancel', 'select', 'send'],
+          states: [
+            'connection:capabilities-ready',
+            'quickDraft:session-scoped',
+            'documents:confirmed',
+          ],
+          obligations: [
+            'searchable-config-models',
+            'empty-search-recovers',
+            'selection-survives-reopen',
+            'searched-model-reaches-turn',
+          ],
+        },
+        {
           id: 'configured',
           interactions: ['send-feedback', 'first-response'],
           lifecycle: ['create', 'send', 'stream', 'route-hide', 'return', 'continue'],
