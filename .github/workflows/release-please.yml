@@ -2,6 +2,9 @@ name: Release please
 on:
   push:
     branches: [main]
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
   workflow_dispatch:
     inputs:
       source_commit:
@@ -15,13 +18,27 @@ concurrency:
   cancel-in-progress: false
 jobs:
   propose:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: write
       pull-requests: write
     steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          package-manager-cache: false
+      - name: Reconcile already published release PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: node tools/autonomy/release-candidate.mjs reconcile
       - uses: googleapis/release-please-action@v4
         with:
           skip-github-release: true
@@ -31,7 +48,7 @@ jobs:
           # checks. Tag packaging below uses explicit workflow dispatch.
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
   plan:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'workflow_run'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
