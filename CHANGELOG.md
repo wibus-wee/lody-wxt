@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.4](https://github.com/wibus-wee/lody-wxt/compare/v0.2.3...v0.2.4) (2026-10-13)
+
+
+### Bug Fixes
+
+* **release:** use compatible exact attestation identity verification ([#18](https://github.com/wibus-wee/lody-wxt/issues/18)) ([08957f0](https://github.com/wibus-wee/lody-wxt/commit/08957f0b6a84a74f056b4878be1eaad71147311d))
+* respect explicit page screenshot requests ([#22](https://github.com/wibus-wee/lody-wxt/issues/22)) ([f07c7ce](https://github.com/wibus-wee/lody-wxt/commit/f07c7ce7a2e78d37c7564e40038ab1f133e4e989))
+* restore history and five-minute conversation resume ([#21](https://github.com/wibus-wee/lody-wxt/issues/21)) ([5e77f8b](https://github.com/wibus-wee/lody-wxt/commit/5e77f8b9245f56d2f35a7ea366ebf02a3939bf53))
+* restore searchable ACP model configuration ([#20](https://github.com/wibus-wee/lody-wxt/issues/20)) ([905f74d](https://github.com/wibus-wee/lody-wxt/commit/905f74de945550edbf7441d1dcc5c4a3daba92c9))
+
 ## [0.2.3](https://github.com/wibus-wee/lody-wxt/compare/v0.2.2...v0.2.3) (2026-10-12)
 
 ### Bug Fixes
