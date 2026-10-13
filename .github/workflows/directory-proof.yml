@@ -1,0 +1,31 @@
+name: Directory update proof
+on:
+  pull_request:
+    paths:
+      - 'tools/update-probe/**'
+      - '.github/workflows/directory-proof.yml'
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          submodules: recursive
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: sudo apt-get update && sudo apt-get install -y xvfb xdotool imagemagick
+      - run: xvfb-run --auto-servernum node tools/update-probe/run.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: directory-proof-${{ github.event.pull_request.head.sha }}
+          path: reports/directory-proof/
