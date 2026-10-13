@@ -6,15 +6,97 @@
     "scenario": "explicit-source-screenshot",
     "state": "Explicit screenshot opens the source-page overlay with empty credential fields",
     "account": "signed-in",
-    "covers": ["src/features/page-context/screenshot.ts"],
+    "covers": [
+      "src/features/page-context/screenshot.ts"
+    ],
     "sourceScreenshot": "overlay",
-    "actions": [{ "action": "assertVisible", "role": "textbox", "name": "消息" }],
+    "actions": [
+      {
+        "action": "assertVisible",
+        "role": "textbox",
+        "name": "消息"
+      }
+    ],
     "before": {
       "route": "/#/",
       "state": "Explicit screenshot is rejected because empty credential fields are visible",
       "account": "signed-in",
       "sourceScreenshot": "blocked",
-      "actions": [{ "action": "assertVisible", "role": "textbox", "name": "消息" }]
+      "actions": [
+        {
+          "action": "assertVisible",
+          "role": "textbox",
+          "name": "消息"
+        }
+      ]
     }
+  },
+  {
+    "surface": "web",
+    "route": "/#/",
+    "scenario": "screenshot-menu-entry",
+    "state": "Explicit screenshot action remains available in the attachment menu",
+    "account": "signed-in",
+    "covers": [
+      "src/features/page-context/screenshot.ts"
+    ],
+    "actions": [
+      {
+        "action": "click",
+        "role": "button",
+        "name": "附加上下文"
+      },
+      {
+        "action": "assertVisible",
+        "role": "menuitem",
+        "name": "截图并裁剪…"
+      }
+    ]
+  },
+  {
+    "surface": "extension",
+    "entry": "popup",
+    "route": "/#/",
+    "scenario": "screenshot-menu-entry",
+    "state": "Explicit screenshot action remains available in the attachment menu",
+    "account": "signed-in",
+    "covers": [
+      "src/features/page-context/screenshot.ts"
+    ],
+    "actions": [
+      {
+        "action": "click",
+        "role": "button",
+        "name": "附加上下文"
+      },
+      {
+        "action": "assertVisible",
+        "role": "menuitem",
+        "name": "截图并裁剪…"
+      }
+    ]
+  },
+  {
+    "surface": "extension",
+    "entry": "options",
+    "route": "/#/",
+    "scenario": "screenshot-menu-entry",
+    "state": "Explicit screenshot action remains available in the attachment menu",
+    "account": "signed-in",
+    "covers": [
+      "src/features/page-context/screenshot.ts"
+    ],
+    "actions": [
+      {
+        "action": "click",
+        "role": "button",
+        "name": "附加上下文"
+      },
+      {
+        "action": "assertVisible",
+        "role": "menuitem",
+        "name": "截图并裁剪…"
+      }
+    ]
   }
 ]
