@@ -8,6 +8,7 @@ import AxeBuilder from '@axe-core/playwright';
 import type { BrowserContext, Page } from '@playwright/test';
 import { chromium, expect, test } from '@playwright/test';
 
+import { captureSourceScreenshot } from '../../tools/autonomy/capture-ui.mjs';
 import { JourneyEvidence } from '../../tools/assurance/evidence';
 import { AccountBoundary, signIn } from '../e2e/support/account-boundary';
 import { RuntimeBoundary } from '../e2e/support/runtime-boundary';
@@ -758,6 +759,10 @@ test('denied screenshot permission preserves the draft and a later explicit capt
 test('screenshot selection runs inside the source page and preserves the owning draft', async () => {
   test.setTimeout(90_000);
   await withPanel('packaged-screenshot-overlay', async (panel, context, evidence, cloud) => {
+    const existingPages = new Set(context.pages());
+    await captureSourceScreenshot(context, panel, 'blocked', expect);
+    for (const page of context.pages()) if (!existingPages.has(page)) await page.close();
+
     const origin = 'https://backend.lody.ai';
     await context.route(`${origin}/overlay-*`, (route) =>
       route.fulfill({
