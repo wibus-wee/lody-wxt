@@ -762,7 +762,7 @@ test('screenshot selection runs inside the source page and preserves the owning 
     await context.route(`${origin}/overlay-*`, (route) =>
       route.fulfill({
         contentType: 'text/html',
-        body: '<!doctype html><html lang="en"><title>Screenshot source</title><style>body{margin:0;background:rgb(240,80,40);font-size:50px}button,input{opacity:.2}main{height:2000px}</style><main><button>Page action</button><input aria-label="Page field"></main></html>',
+        body: '<!doctype html><html lang="en"><title>Screenshot source</title><style>body{margin:0;background:rgb(240,80,40);font-size:50px}button,input{opacity:.2}main{height:2000px}</style><main><button>Page action</button><input aria-label="Page field"></main><aside style="position:fixed;right:0;top:0;width:220px;font-size:14px"><label>Password<input type="password" aria-label="Fixture password"></label><label>Code<input autocomplete="one-time-code" aria-label="Fixture code"></label><p data-sensitive>Public fixture marked by the page</p></aside></html>',
       }),
     );
     const source = await context.newPage();
@@ -780,10 +780,26 @@ test('screenshot selection runs inside the source page and preserves the owning 
       id: new URL(panel.url()).host,
       targetId: target!.targetId,
     });
+    // Empty credential fields and a page-provided marker must not veto an explicit capture.
+    await expect(source.getByLabel('Fixture password', { exact: true })).toBeVisible();
+    await expect(source.getByLabel('Fixture code', { exact: true })).toBeVisible();
+    await expect(source.locator('[data-sensitive]')).toBeVisible();
+    await test.info().attach('explicit-capture-source', {
+      body: await source.screenshot(),
+      contentType: 'image/png',
+    });
     await menu(panel, '截图并裁剪…');
+    await test.info().attach('explicit-capture-result', {
+      body: await panel.screenshot(),
+      contentType: 'image/png',
+    });
     const overlay = source.getByRole('dialog', { name: '截取可见内容' });
     await evidence.check('overlay-isolated-accessible-and-no-panel-dialog', async () => {
       await expect(overlay).toBeVisible();
+      await test.info().attach('explicit-capture-overlay', {
+        body: await source.screenshot(),
+        contentType: 'image/png',
+      });
       await expect(panel.getByRole('dialog')).toHaveCount(0);
       await expect(overlay.getByRole('button', { name: '取消', exact: true })).toBeFocused();
       await expect(overlay.getByRole('button', { name: '附加整张截图' })).toHaveCSS(
