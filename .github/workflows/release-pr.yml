@@ -1,0 +1,106 @@
+name: Release PR Verification
+on:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: release-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.inspect.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          package-manager-cache: false
+      - id: inspect
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node tools/autonomy/release-candidate.mjs inspect "$BASE_SHA" "$HEAD_SHA"
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: inspect
+    if: needs.inspect.outputs.version != ''
+    env:
+      RELEASE_TAG: v${{ needs.inspect.outputs.version }}
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+      LODY_UI_PINNED: '1'
+      ASSURANCE_REPEAT: '5'
+      ASSURANCE_BENCHMARK_AFTER_FIRST: '1'
+      ASSURANCE_WEB_WORKERS: '1'
+      ASSURANCE_EXTENSION_WORKERS: '1'
+      ASSURANCE_REQUIRE_PERFORMANCE: '1'
+      ASSURANCE_PERFORMANCE_MODE: report
+      ASSURANCE_COVERAGE_PATH: reports/assurance/COVERAGE.md
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: pnpm
+      - name: Validate exact release candidate
+        run: |
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          node tools/autonomy/release-candidate.mjs inspect "${{ github.event.pull_request.base.sha }}" "$CANDIDATE_SHA"
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: node --test tools/autonomy/*.test.mjs
+      - name: Prepare tagged UI and icons using the pinned build interface
+        run: |
+          pnpm build:sdk
+          pnpm ui:update
+          pnpm exec wxt prepare
+      - run: pnpm check
+      - run: pnpm test:sdk
+      - run: pnpm test:sdk:package
+      - run: pnpm test:browser
+      - name: Verify all journeys and release performance samples
+        run: |
+          pnpm test:assurance
+          pnpm assurance:audit --strict
+      - name: Package tagged source without remote submodule updates
+        run: pnpm release:package
+      - name: Reject source drift during build
+        run: |
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+      - name: Verify checksum provenance
+        env:
+          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha }}
+          GH_REPO: ${{ github.repository }}
+        run: node tools/autonomy/release-plan.mjs verify "$RELEASE_TAG" dist/release "$SOURCE_COMMIT"
+      - name: Test downloaded layout after extraction
+        run: pnpm release:verify
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-candidate-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist/release/
+          if-no-files-found: error
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-pr-verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            reports/
+            coverage/
+            playwright-report/
+            test-results/

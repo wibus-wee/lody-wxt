@@ -187,6 +187,35 @@ export function assertReleaseSource(tag, commit, main = 'refs/remotes/origin/mai
     execFileSync('git', ['merge-base', '--is-ancestor', workflowSha, main], { stdio: 'pipe' });
   }
 }
+export function assertPackageSource(commit, packageCommit) {
+  assert.match(commit, gitSha);
+  assert.match(packageCommit, gitSha);
+  assert.equal(
+    git('rev-parse', `${packageCommit}^{tree}`),
+    git('rev-parse', `${commit}^{tree}`),
+    'Package source tree differs from the released commit',
+  );
+}
+export function verifyCandidateAssets(directory, tag, commit, packageCommit) {
+  assertReleaseSource(tag, commit);
+  assertPackageSource(commit, packageCommit);
+  return verifyAssets(directory, tag, packageCommit, taggedProvenance(commit));
+}
+export function verifyPublishedAssets(directory, tag, commit) {
+  const infoPath = path.join(directory, 'build-info.json');
+  const stat = lstatSync(infoPath);
+  assert.ok(stat.isFile() && stat.size <= 2 * 1024 * 1024, 'Invalid published provenance');
+  const packageCommit = JSON.parse(readFileSync(infoPath)).commit;
+  assert.match(packageCommit, gitSha);
+  // Historical packages use the tag commit. PR-built packages keep their original
+  // commit; GitHub retains PR objects even after deleting a source branch.
+  if (packageCommit !== commit)
+    execFileSync('git', ['fetch', '--no-tags', 'origin', packageCommit], {
+      timeout: 120000,
+      stdio: 'pipe',
+    });
+  return verifyCandidateAssets(directory, tag, commit, packageCommit);
+}
 export function checkSource(tag) {
   const version = validateTag(tag);
   assert.equal(JSON.parse(readFileSync('package.json')).version, version);
@@ -270,7 +299,8 @@ export function verifyAttestations(directory, tag, options = {}, command = gh) {
 export function publish(tag, directory, commit, options = {}) {
   const command = options.command || gh;
   const provenance = options.provenance || taggedProvenance(commit);
-  verifyAssets(directory, tag, commit, provenance);
+  const packageCommit = options.packageCommit || commit;
+  verifyAssets(directory, tag, packageCommit, provenance);
   const releases = JSON.parse(
     command('api', '--paginate', '--slurp', 'repos/{owner}/{repo}/releases'),
   ).flat();
@@ -310,7 +340,7 @@ export function publish(tag, directory, commit, options = {}) {
     // Re-download before publication, including after an interrupted prior upload.
     rmSync(remoteDirectory, { recursive: true, force: true });
     command('release', 'download', tag, '--dir', remoteDirectory);
-    verifyAssets(remoteDirectory, tag, commit, provenance);
+    verifyAssets(remoteDirectory, tag, packageCommit, provenance);
     reconcileAssets(
       local,
       Object.fromEntries(
@@ -419,6 +449,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         }
       : {};
     process.stdout.write(`${JSON.stringify(verifyAttestations(directory, tag, options))}\n`);
+  } else if (command === 'verify-published') {
+    process.stdout.write(`${JSON.stringify(verifyPublishedAssets(directory, tag, commit))}\n`);
+  } else if (command === 'verify-candidate' || command === 'publish-candidate') {
+    const packageCommit = process.env.PACKAGE_COMMIT;
+    verifyCandidateAssets(directory, tag, commit, packageCommit);
+    if (command === 'publish-candidate') publish(tag, directory, commit, { packageCommit });
   } else if (command === 'publish') publish(tag, directory, commit);
   else
     throw new Error(
