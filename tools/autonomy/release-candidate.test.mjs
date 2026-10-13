@@ -158,6 +158,7 @@ test('release tests stay in read-only PR verification; publication never rebuild
   const release = read('.github/workflows/release.yml');
   assert.doesNotMatch(release, /pnpm (check|test:|build|zip|release:package)|ASSURANCE_REPEAT/);
   assert.match(release, /release-candidate.mjs download/);
+  assert.equal(release.split('checks: read').length - 1, 2);
   assert.match(release, /pnpm release:verify/);
   assert.match(release, /verify-candidate/);
   assert.match(release, /attestations/);
