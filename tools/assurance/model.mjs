@@ -103,7 +103,7 @@ export const model = {
       state: 'Text, attached page contexts, selected conversation and per-turn run configuration.',
       persistence: 'localStorage draft scoped by client.accountKey and conversation or new.',
       lifetime:
-        'The selected conversation is retained in account-scoped sessionStorage; drafts remain scoped to that conversation or a new chat across reload; confirmed send clears the submitted draft.',
+        'The selected conversation is retained in origin/account/workspace-scoped localStorage for five minutes after panel close; explicit new conversation clears the selection; drafts remain scoped to that conversation or a new chat across reload; confirmed send clears the submitted draft.',
     },
     chatScroll: {
       source: ['src/features/chat/Chat.tsx', 'src/features/chat/use-transcript-scroll.ts'],
@@ -710,6 +710,18 @@ export const model = {
         'shell',
       ],
       cases: [
+        {
+          id: 'packaged-session-resume',
+          lifecycle: ['send', 'close', 'reopen', 'expire', 'history', 'new'],
+          states: ['quickDraft:session-scoped', 'documents:confirmed'],
+          obligations: [
+            'close-reopen-restores-same-session',
+            'expiry-keeps-history-accessible',
+            'history-opens-authoritative-conversation',
+            'explicit-new-prevents-resume',
+            'foreign-scope-does-not-restore',
+          ],
+        },
         {
           id: 'reader-scroll',
           lifecycle: ['inspect', 'stream', 'read-history', 'resize', 'jump', 'reload'],
