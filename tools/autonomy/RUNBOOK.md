@@ -92,26 +92,36 @@ Never assume temporary files, sessions or credentials persist across environment
 
 From the next version PR onward, `Release PR Verification` runs the full release
 suite (including five journey/performance samples), builds the download and smoke
-tests its extracted installed layout before merge. This is read-only candidate CI.
+tests its extracted installed layout before merge.
+This is read-only candidate CI.
 Only version metadata (`package.json` version, release manifest and changelog) may
-change in a release PR. Merge product and workflow changes separately first.
+change in a release PR.
+Merge product and workflow changes separately first.
 Accept the version PR only after both PR Quality and Release PR Verification pass
-for its exact head. UI changes keep their independent acceptance before batching.
+for its exact head.
+UI changes keep their independent acceptance before batching.
 
-Release no longer recompiles or reruns the full suite. It resolves the merged PR,
+Release no longer recompiles or reruns the full suite.
+It resolves the merged PR,
 requires its tested head tree to equal the tagged merge tree, verifies the latest
 successful same-repository PR run and its immutable artifact ID/digest, then reads
-only the bounded expected archive members. It reruns the install smoke test on
+only the bounded expected archive members.
+It reruns the install smoke test on
 those exact bytes, rechecks the binding before signing, and publishes the same
 bytes. `build-info.json.commit` intentionally records the pre-squash build commit;
 the complete tree must equal the released tag, including pinned dependencies and
-lockfile. Missing/expired evidence, a stale head, changed merge tree, wrong run,
-or any digest mismatch blocks publication. Recover by obtaining fresh valid PR
+lockfile.
+Missing/expired evidence, a stale head, changed merge tree, wrong run,
+or any digest mismatch blocks publication.
+Recover by obtaining fresh valid PR
 evidence, never by rebuilding an unverified replacement or weakening checks.
 
 Release completion wakes Release please to reconcile `autorelease: pending` only
 when an actual non-draft stable release tag resolves to that exact merged PR.
 Reconciliation also runs before the next proposal, so interrupted cleanup can
-resume. The completion wake cannot tag or dispatch packaging again. Existing
-published binaries remain immutable. Historical tags without this PR artifact
+resume.
+The completion wake cannot tag or dispatch packaging again.
+Existing
+published binaries remain immutable.
+Historical tags without this PR artifact
 contract cannot be republished by the new path; their existing downloads remain.

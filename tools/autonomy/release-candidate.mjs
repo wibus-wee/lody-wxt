@@ -6,10 +6,13 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
 import { readArchive } from './archive.mjs';
-import { assets, sha256, assertReleaseSource, validateTag } from './release-plan.mjs';
+import { assertReleaseSource, assets, sha256, validateTag } from './release-plan.mjs';
 
 const workflow = '.github/workflows/release-pr.yml';
 const sha = /^[a-f0-9]{40}$/;
+const repositoryPattern = /^[\w.-]+\/[\w.-]+$/;
+const digestPattern = /^sha256:[a-f0-9]{64}$/;
+const stableTag = /^v\d+\.\d+\.\d+$/;
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
 const api = (endpoint) =>
   JSON.parse(
@@ -84,7 +87,7 @@ export function validateRun(run, pr, repository) {
 export function resolveCandidate(tag) {
   validateTag(tag);
   const repository = process.env.GH_REPO;
-  assert.match(repository, /^[\w.-]+\/[\w.-]+$/);
+  assert.match(repository, repositoryPattern);
   const prefix = `repos/${repository}`;
   const commit = git('rev-parse', `refs/tags/${tag}^{commit}`);
   assertReleaseSource(tag, commit);
@@ -136,7 +139,7 @@ export function resolveCandidate(tag) {
     .filter((artifact) => artifact.name === name && !artifact.expired);
   assert.equal(artifacts.length, 1, 'Missing or ambiguous immutable candidate artifact');
   assert.equal(artifacts[0].workflow_run.head_sha, pr.head.sha);
-  assert.match(artifacts[0].digest, /^sha256:[a-f0-9]{64}$/);
+  assert.match(artifacts[0].digest, digestPattern);
   assert.ok(
     artifacts[0].size_in_bytes > 0 && artifacts[0].size_in_bytes <= 100000000,
     'Candidate archive exceeds bound',
@@ -180,13 +183,13 @@ export function publishedPending(pr, releases, tagCommit) {
     (release) =>
       !release.draft &&
       !release.prerelease &&
-      /^v\d+\.\d+\.\d+$/.test(release.tag_name) &&
+      stableTag.test(release.tag_name) &&
       tagCommit(release.tag_name) === pr.merge_commit_sha,
   );
 }
 export function reconcilePublished() {
   const repository = process.env.GH_REPO;
-  assert.match(repository, /^[\w.-]+\/[\w.-]+$/);
+  assert.match(repository, repositoryPattern);
   const prefix = `repos/${repository}`;
   const releases = pages(`${prefix}/releases?per_page=100`).flat();
   const issues = pages(
@@ -209,7 +212,7 @@ export function reconcilePublished() {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+async function main() {
   const [command, first, second] = process.argv.slice(2);
   let output;
   if (command === 'inspect') output = inspectCandidate(first, second) || {};
@@ -218,7 +221,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   else if (command === 'reconcile') reconcilePublished();
   else throw new Error('Usage: release-candidate.mjs inspect BASE HEAD | resolve TAG | reconcile');
   if (output) {
-    console.info(JSON.stringify(output));
+    process.stdout.write(`${JSON.stringify(output)}\n`);
     if (process.env.GITHUB_OUTPUT)
       writeFileSync(
         process.env.GITHUB_OUTPUT,
@@ -228,4 +231,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         { flag: 'a' },
       );
   }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 }
