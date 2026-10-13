@@ -100,10 +100,15 @@ document.querySelector('#reload').onclick = () => chrome.runtime.reload();
     await new Promise((resolve) => setTimeout(resolve, 1500));
     screenshot('02-selected');
     await writeFile(path.join(report, 'page-state.txt'), await page.locator('body').textContent());
+    // Explicitly accept the fixture-only read grant in the observed native dialog.
+    execFileSync('xdotool', ['mousemove', '792', '224', 'click', '1']);
     await page.getByText('READ_OK', { exact: true }).waitFor({ timeout: 10000 });
     await page.getByRole('button', { name: 'Write test update', exact: true }).click();
     await new Promise((resolve) => setTimeout(resolve, 1000));
     screenshot('03-permission');
+    // Chromium initially focuses Cancel; move to the affirmative button for this synthetic write grant.
+    key('Tab');
+    key('Return');
     // Capture the real permission result without overriding browser grants.
     await writeFile(path.join(report, 'write-state.txt'), await page.locator('body').textContent());
     await page.getByText('WRITE_OK', { exact: true }).waitFor({ timeout: 10000 });
@@ -167,6 +172,9 @@ document.querySelector('#reload').onclick = () => chrome.runtime.reload();
       screenshot('control-path');
       execFileSync('xdotool', ['mousemove', '1157', '830', 'click', '1']);
       await new Promise((resolve) => setTimeout(resolve, 2000));
+      screenshot('control-permission');
+      execFileSync('xdotool', ['mousemove', '792', '224', 'click', '1']);
+      await control.getByText('CONTROL_READ_OK', { exact: false }).waitFor({ timeout: 10000 });
       screenshot('control-result');
       await writeFile(
         path.join(report, 'control-state.txt'),
