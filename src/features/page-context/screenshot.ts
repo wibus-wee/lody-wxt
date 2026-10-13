@@ -11,7 +11,6 @@ export const screenshotViewportSchema = v.object({
   width: v.number(),
   height: v.number(),
   scale: v.number(),
-  sensitive: v.boolean(),
 });
 
 export interface Screenshot {
@@ -46,27 +45,11 @@ export async function captureVisiblePage(): Promise<Screenshot> {
         width: innerWidth,
         height: innerHeight,
         scale: devicePixelRatio,
-        sensitive: [
-          ...document.querySelectorAll(
-            'input[type="password"],input[autocomplete="one-time-code"],[data-sensitive]',
-          ),
-        ].some((element) => {
-          const rect = element.getBoundingClientRect();
-          return (
-            rect.width > 0 &&
-            rect.height > 0 &&
-            rect.bottom > 0 &&
-            rect.right > 0 &&
-            rect.top < innerHeight &&
-            rect.left < innerWidth
-          );
-        }),
       }),
     });
     return v.parse(screenshotViewportSchema, result?.result);
   };
   const before = await read();
-  if (before.sensitive) throw new Error('当前可见区域包含密码、验证码或敏感内容，请隐藏后再截图。');
   let data: string;
   try {
     data = await browser.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
@@ -78,7 +61,7 @@ export async function captureVisiblePage(): Promise<Screenshot> {
     throw cause;
   }
   const after = await read();
-  const fields = ['url', 'document', 'x', 'y', 'width', 'height', 'scale', 'sensitive'] as const;
+  const fields = ['url', 'document', 'x', 'y', 'width', 'height', 'scale'] as const;
   if (fields.some((field) => before[field] !== after[field]))
     throw new Error('页面在截图期间发生变化，请保持页面静止后重试。');
   const blob = await (await fetch(data)).blob();
