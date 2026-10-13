@@ -140,6 +140,19 @@ document.querySelector('#reload').onclick = () => chrome.runtime.reload();
     );
   } finally {
     screenshot('final');
+    // Read the browser's actual extension state; never re-enable it to make the proof pass.
+    const diagnostic = await context.newPage();
+    await diagnostic.goto('chrome://extensions');
+    await writeFile(
+      path.join(report, 'extension-state.json'),
+      JSON.stringify(
+        await diagnostic.evaluate(async () => await globalThis.chrome.management.getAll()),
+        null,
+        2,
+      ),
+    );
+    await diagnostic.screenshot({ path: path.join(report, 'extensions-page.png') });
+    await diagnostic.close();
     const session = await context.browser().newBrowserCDPSession();
     await writeFile(
       path.join(report, 'extension-histograms.json'),
