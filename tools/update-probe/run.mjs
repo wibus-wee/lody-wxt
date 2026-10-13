@@ -117,7 +117,12 @@ document.querySelector('#reload').onclick = () => chrome.runtime.reload();
       JSON.parse(await readFile(path.join(extension, 'manifest.json'), 'utf8')).version,
       '0.0.2',
     );
+    const reloadedWorker = context.waitForEvent('serviceworker', {
+      predicate: (next) => new URL(next.url()).host === id,
+      timeout: 15000,
+    });
     await page.getByRole('button', { name: 'Reload', exact: true }).click();
+    await reloadedWorker;
     const after = await context.newPage();
     await after.goto(url);
     await after.getByText('"version":"0.0.2"', { exact: false }).waitFor();
