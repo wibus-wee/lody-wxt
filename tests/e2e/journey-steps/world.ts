@@ -76,14 +76,11 @@ export async function ready(world: JourneyWorld) {
   );
 }
 export async function selectFixtureConversation(page: Page) {
-  // Match workspaceScope and useLodyClient's accountKey for the isolated account fixture.
-  const scope = JSON.stringify(['https://backend.lody.ai', 'lody-cli', 'user-a', 'workspace-a']);
-  const accountKey = JSON.stringify([scope, 'https://convex.lody.ai']);
-  await page.evaluate((key) => {
-    sessionStorage.setItem(`lody:chat-selection:${key}`, 'history-a');
-  }, accountKey);
-  await page.reload();
-  await restored(page);
+  await page.getByRole('button', { name: '会话列表', exact: true }).click();
+  await page.locator('[data-history-id="history-a"]').click();
+  await expect(page.getByRole('article', { name: '你的消息', exact: true })).toContainText(
+    'Previously asked question',
+  );
 }
 export async function restored(page: Page) {
   await expect(page.getByRole('button', { name: '运行配置', exact: true })).toContainText(

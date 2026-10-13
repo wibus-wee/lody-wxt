@@ -1,0 +1,77 @@
+[
+  {
+    "surface": "web",
+    "route": "/#/",
+    "scenario": "conversation-history-entry",
+    "state": "History popover reachable from chat header",
+    "account": "signed-in",
+    "covers": ["src/features/chat/ConnectedChat.tsx", "src/features/chat/session-resume.ts"],
+    "before": {
+      "route": "/#/",
+      "state": "Chat header without history entry",
+      "account": "signed-in",
+      "actions": [
+        {
+          "action": "assertAbsent",
+          "role": "button",
+          "name": "会话列表"
+        },
+        {
+          "action": "assertVisible",
+          "role": "textbox",
+          "name": "消息"
+        }
+      ]
+    },
+    "actions": [
+      {
+        "action": "click",
+        "role": "button",
+        "name": "会话列表"
+      },
+      {
+        "action": "assertVisible",
+        "role": "heading",
+        "name": "最近对话"
+      }
+    ]
+  },
+  {
+    "surface": "extension",
+    "route": "/#/",
+    "scenario": "conversation-history-entry",
+    "state": "History popover reachable from chat header",
+    "account": "signed-in",
+    "covers": ["src/features/chat/ConnectedChat.tsx", "src/features/chat/session-resume.ts"],
+    "before": {
+      "route": "/#/",
+      "state": "Chat header without history entry",
+      "account": "signed-in",
+      "actions": [
+        {
+          "action": "assertAbsent",
+          "role": "button",
+          "name": "会话列表"
+        },
+        {
+          "action": "assertVisible",
+          "role": "textbox",
+          "name": "消息"
+        }
+      ]
+    },
+    "actions": [
+      {
+        "action": "click",
+        "role": "button",
+        "name": "会话列表"
+      },
+      {
+        "action": "assertVisible",
+        "role": "heading",
+        "name": "最近对话"
+      }
+    ],
+    "entry": "sidepanel"
+  }
+]

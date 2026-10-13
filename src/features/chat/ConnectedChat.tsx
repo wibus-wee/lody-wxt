@@ -38,6 +38,7 @@ import { DictationDialog } from '../voice/DictationDialog';
 import { dictationAvailable } from '../voice/recognition';
 import { Chat } from './Chat';
 import { ChatHeader } from './ChatHeader';
+import { ChatHistory } from './ChatHistory';
 import { ComposerContextBar } from './ComposerContextBar';
 import { ConnectionDiagnostics } from './ConnectionDiagnostics';
 import { messageAttachments, sameAttachments } from './conversation-actions';
@@ -49,6 +50,7 @@ import { createComposerMentionSource } from './mentions/source';
 import type { ComposerMentionRange } from './mentions/types';
 import type { ChatMessage } from './MessageView';
 import { contextSchema, matchesContextInput } from './real-adapter';
+import { readResume, resumeKey, touchResume, writeResume } from './session-resume';
 import { SkillsPicker } from './SkillsPicker';
 import { TargetPicker } from './TargetPicker';
 import { useAttachmentDrafts } from './use-attachment-drafts';
@@ -152,10 +154,10 @@ function ClientChat({
   const [sharing, setSharing] = useState<{ id: string; title: string } | null>(null);
   const [diagnostics, setDiagnostics] = useState(false);
   const [tabs, setTabs] = useState(false);
-  const selectionKey = `lody:chat-selection:${client.accountKey}`;
+  const selectionKey = resumeKey(client.accountKey);
   const [initialSelection] = useState(() => {
     try {
-      return { id: sessionStorage.getItem(selectionKey) ?? '', error: '' };
+      return { id: readResume(selectionKey), error: '' };
     } catch (reason) {
       return { id: '', error: reason instanceof Error ? reason.message : '无法恢复当前会话。' };
     }
@@ -177,14 +179,35 @@ function ClientChat({
       restoreSelectionRef.current = '';
       setSelected(id);
       try {
-        if (id) sessionStorage.setItem(selectionKey, id);
-        else sessionStorage.removeItem(selectionKey);
+        writeResume(selectionKey, id);
       } catch (reason) {
         setError(reason instanceof Error ? reason.message : '无法保存当前会话。');
       }
     },
     [selectionKey],
   );
+  useEffect(() => {
+    if (!selected || !active) return;
+    // Refresh while visible and stamp the actual close when pagehide is delivered.
+    // A crash falls back to the last heartbeat, without resurrecting a cleared selection.
+    const retain = () => {
+      try {
+        touchResume(selectionKey, selected);
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : '无法保存当前会话。');
+      }
+    };
+    const heartbeat = window.setInterval(() => {
+      if (document.visibilityState === 'visible') retain();
+    }, 15_000);
+    window.addEventListener('pagehide', retain);
+    document.addEventListener('visibilitychange', retain);
+    return () => {
+      window.clearInterval(heartbeat);
+      window.removeEventListener('pagehide', retain);
+      document.removeEventListener('visibilitychange', retain);
+    };
+  }, [active, selected, selectionKey]);
   const [busy, setBusy] = useState(false);
   const act = useCallback(async (operation: () => Promise<void>) => {
     if (actionRef.current) return;
@@ -689,6 +712,12 @@ function ClientChat({
       onSubmit={() => send()}
       conversationControl={
         <ChatHeader>
+          <ChatHistory
+            conversations={snapshot.conversations}
+            selected={selected}
+            disabled={busy || snapshot.status !== 'connected'}
+            onOpen={open}
+          />
           <Tooltip.Root>
             <Tooltip.Trigger
               render={
