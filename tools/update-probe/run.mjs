@@ -30,15 +30,21 @@ async function main() {
   );
   await writeFile(
     path.join(extension, 'proof.html'),
-    '<!doctype html><html><head><title>Directory proof fixture</title></head><body><button id="pick">Select test directory</button><button id="reload">Reload</button><pre id="result"></pre><script src="proof.js"></script></body></html>',
+    '<!doctype html><html><head><title>Directory proof fixture</title></head><body><button id="pick">Select test directory</button><button id="write">Write test update</button><button id="reload">Reload</button><pre id="result"></pre><script src="proof.js"></script></body></html>',
   );
   await writeFile(
     path.join(extension, 'proof.js'),
     `
 const output = document.querySelector('#result');
 (async () => { output.textContent = JSON.stringify({version:chrome.runtime.getManifest().version,id:chrome.runtime.id,storage:await chrome.storage.local.get()}); })();
+let directory;
 document.querySelector('#pick').onclick = async () => { try {
- const directory = await showDirectoryPicker({mode:'readwrite'});
+ directory = await showDirectoryPicker({mode:'read'});
+ output.textContent = 'READ_OK';
+} catch(error) { output.textContent = String(error); } };
+document.querySelector('#write').onclick = async () => { try {
+ const permission = await directory.requestPermission({mode:'readwrite'});
+ if (permission !== 'granted') throw new Error('Write permission: '+permission);
  const file = await directory.getFileHandle('manifest.json');
  const manifest = JSON.parse(await (await file.getFile()).text());
  if (manifest.name !== 'Directory proof fixture') throw new Error('Unexpected directory');
@@ -59,6 +65,10 @@ document.querySelector('#reload').onclick = () => chrome.runtime.reload();
     execFileSync('import', ['-window', 'root', path.join(report, `${name}.png`)]);
   const key = (...keys) => execFileSync('xdotool', ['key', '--clearmodifiers', ...keys]);
   try {
+    await writeFile(
+      path.join(report, 'browser.json'),
+      JSON.stringify({ version: context.browser()?.version() }),
+    );
     const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
     const id = new URL(worker.url()).host;
     const page = await context.newPage();
@@ -87,11 +97,13 @@ document.querySelector('#reload').onclick = () => chrome.runtime.reload();
     key('Return');
     await new Promise((resolve) => setTimeout(resolve, 1500));
     screenshot('02-selected');
-    key('Return');
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    screenshot('03-permission');
-    // Preserve the permission dialog for inspection; never blindly confirm another chooser.
     await writeFile(path.join(report, 'page-state.txt'), await page.locator('body').textContent());
+    await page.getByText('READ_OK', { exact: true }).waitFor({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Write test update', exact: true }).click();
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    screenshot('03-permission');
+    // Capture the real permission result without overriding browser grants.
+    await writeFile(path.join(report, 'write-state.txt'), await page.locator('body').textContent());
     await page.getByText('WRITE_OK', { exact: true }).waitFor({ timeout: 10000 });
     screenshot('04-written');
     assert.equal(
