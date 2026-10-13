@@ -76,16 +76,22 @@ document.querySelector('#reload').onclick = () => chrome.runtime.reload();
     }
     screenshot('01-picker');
     assert.match(title, pickerTitle, 'Native directory picker did not open');
+    const pickerWindow = execFileSync('xdotool', ['getactivewindow'], { encoding: 'utf8' }).trim();
+    execFileSync('xdotool', ['windowactivate', '--sync', pickerWindow]);
+    await new Promise((resolve) => setTimeout(resolve, 1500));
     key('ctrl+l');
-    execFileSync('xdotool', ['type', '--clearmodifiers', extension]);
-    key('Return');
     await new Promise((resolve) => setTimeout(resolve, 500));
+    screenshot('01-location');
+    execFileSync('xdotool', ['type', '--clearmodifiers', extension]);
+    screenshot('01-path');
+    key('Return');
+    await new Promise((resolve) => setTimeout(resolve, 1500));
     screenshot('02-selected');
     key('Return');
     await new Promise((resolve) => setTimeout(resolve, 500));
     screenshot('03-permission');
-    // Chrome's directory permission dialog uses its focused affirmative button.
-    key('Return');
+    // Preserve the permission dialog for inspection; never blindly confirm another chooser.
+    await writeFile(path.join(report, 'page-state.txt'), await page.locator('body').textContent());
     await page.getByText('WRITE_OK', { exact: true }).waitFor({ timeout: 10000 });
     screenshot('04-written');
     assert.equal(

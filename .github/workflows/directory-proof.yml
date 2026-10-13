@@ -3,7 +3,7 @@ on:
   pull_request:
     paths:
       - 'tools/update-probe/**'
-      - '.github/workflows/directory-proof.yml'
+      - .github/workflows/directory-proof.yml
 permissions:
   contents: read
 jobs:
