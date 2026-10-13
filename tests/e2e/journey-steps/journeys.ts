@@ -285,7 +285,10 @@ register(
     world.assertions = () =>
       world.evidence.check('new-turn-after-recovery', async () => {
         await expect(userTurn(world.page, 'A new request after exact recovery')).toHaveCount(1);
-        expect(world.cloud.submittedTurn(world.sessionId).requestId).not.toBe(world.requestId);
+        // The visible user turn is optimistic; wait for the authoritative append too.
+        await expect(async () => {
+          expect(world.cloud.submittedTurn(world.sessionId).requestId).not.toBe(world.requestId);
+        }).toPass({ timeout: 15_000 });
       });
   },
 );
