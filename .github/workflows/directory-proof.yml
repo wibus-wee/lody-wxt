@@ -21,6 +21,7 @@ jobs:
           node-version: 26
           cache: pnpm
       - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm exec wxt prepare
       - run: pnpm exec playwright install --with-deps chromium
       - run: sudo apt-get update && sudo apt-get install -y xvfb xdotool imagemagick openbox
       - run: xvfb-run --auto-servernum sh -c 'openbox >/tmp/openbox.log 2>&1 & sleep 1; node tools/update-probe/run.mjs'
