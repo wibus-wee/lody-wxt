@@ -67,7 +67,7 @@ export function inspectCandidate(base, head) {
   return { version, head, tree: git('rev-parse', `${head}^{tree}`) };
 }
 
-export function validateRun(run, pr, repository) {
+export function validateRun(run, pr, repository, associatedPulls = () => []) {
   assert.equal(run.path, workflow);
   assert.equal(run.event, 'pull_request');
   assert.equal(run.head_sha, pr.head.sha);
@@ -75,10 +75,27 @@ export function validateRun(run, pr, repository) {
   assert.equal(run.repository.full_name, repository);
   assert.equal(run.status, 'completed');
   assert.equal(run.conclusion, 'success');
-  assert.ok(
-    run.pull_requests.some((entry) => entry.number === pr.number),
-    'Run does not belong to release PR',
-  );
+  assert.ok(Array.isArray(run.pull_requests), 'Missing run PR association metadata');
+  if (run.pull_requests.length) {
+    // Explicit conflicting associations must never be repaired by a fallback.
+    assert.ok(
+      run.pull_requests.some((entry) => entry.number === pr.number),
+      'Run does not belong to release PR',
+    );
+  } else {
+    // GitHub can omit this list after merge. Independently bind the exact run
+    // commit to the merged PR instead of accepting a branch-name coincidence.
+    const matches = associatedPulls(run.head_sha).filter((entry) => entry.number === pr.number);
+    assert.equal(matches.length, 1, 'Missing or ambiguous commit PR association');
+    const associated = matches[0];
+    assert.equal(associated.head.sha, run.head_sha);
+    assert.equal(associated.head.repo?.full_name, repository);
+    assert.equal(associated.base.repo?.full_name, repository);
+    assert.equal(associated.base.ref, 'main');
+    assert.ok(pr.merged_at && associated.merged_at, 'Fallback requires a merged PR');
+    assert.equal(associated.merge_commit_sha, pr.merge_commit_sha);
+    assert.match(pr.merge_commit_sha, sha);
+  }
   assert.ok(Number.isSafeInteger(run.id) && run.id > 0);
   assert.ok(Number.isSafeInteger(run.run_attempt) && run.run_attempt > 0);
   return `release-candidate-${pr.head.sha}-${run.id}-${run.run_attempt}`;
@@ -128,7 +145,9 @@ export function resolveCandidate(tag) {
     .sort((a, b) => b.id - a.id);
   assert.ok(runs.length, 'No release PR verification run');
   const run = api(`${prefix}/actions/runs/${runs[0].id}`);
-  const name = validateRun(run, pr, repository);
+  const name = validateRun(run, pr, repository, (head) =>
+    pages(`${prefix}/commits/${head}/pulls?per_page=100`).flat(),
+  );
   const checks = pages(`${prefix}/commits/${pr.head.sha}/check-runs?per_page=100`)
     .flatMap((page) => page.check_runs)
     .filter((check) => check.name === 'PR Quality / verify' && check.app?.id === 15368)

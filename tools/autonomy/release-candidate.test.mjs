@@ -164,3 +164,68 @@ test('release tests stay in read-only PR verification; publication never rebuild
   assert.match(release, /attestations/);
   assert.match(read('.github/workflows/release-monitor.yml'), /release-plan.mjs verify-published/);
 });
+
+test('empty run associations require independent exact merged commit provenance', () => {
+  const repository = 'wibus-wee/lody-wxt';
+  const pr = {
+    number: 28,
+    head: { sha: 'a'.repeat(40), repo: { full_name: repository } },
+    base: { ref: 'main', repo: { full_name: repository } },
+    merged_at: '2026-10-14T09:28:29Z',
+    merge_commit_sha: 'b'.repeat(40),
+  };
+  const run = {
+    id: 38530218724,
+    run_attempt: 2,
+    path: '.github/workflows/release-pr.yml',
+    event: 'pull_request',
+    head_sha: pr.head.sha,
+    repository: { full_name: repository },
+    head_repository: { full_name: repository },
+    status: 'completed',
+    conclusion: 'success',
+    pull_requests: [],
+  };
+  const lookup = (head) => {
+    assert.equal(head, pr.head.sha);
+    return [pr];
+  };
+  assert.equal(
+    validateRun(run, pr, repository, lookup),
+    `release-candidate-${pr.head.sha}-${run.id}-2`,
+  );
+  for (const entries of [
+    [],
+    [pr, pr],
+    [{ ...pr, number: 99 }],
+    [{ ...pr, head: { ...pr.head, sha: 'c'.repeat(40) } }],
+    [{ ...pr, head: { ...pr.head, repo: { full_name: 'attacker/fork' } } }],
+    [{ ...pr, base: { ...pr.base, repo: { full_name: 'attacker/fork' } } }],
+    [{ ...pr, base: { ...pr.base, ref: 'other' } }],
+    [{ ...pr, merged_at: null }],
+    [{ ...pr, merge_commit_sha: 'd'.repeat(40) }],
+  ])
+    assert.throws(() => validateRun(run, pr, repository, () => entries));
+  assert.throws(() => validateRun(run, { ...pr, merged_at: null }, repository, lookup));
+  assert.throws(
+    () =>
+      validateRun(run, pr, repository, () => {
+        throw new Error('API unavailable');
+      }),
+    /API unavailable/,
+  );
+  for (const changed of [
+    { pull_requests: [{ number: 99 }] },
+    { pull_requests: null },
+    { conclusion: 'failure' },
+    { head_sha: 'c'.repeat(40) },
+    { repository: { full_name: 'attacker/fork' } },
+    { event: 'workflow_dispatch' },
+    { path: '.github/workflows/untrusted.yml' },
+  ])
+    assert.throws(() =>
+      validateRun({ ...run, ...changed }, pr, repository, () => {
+        assert.fail('invalid run must not reach association fallback');
+      }),
+    );
+});
