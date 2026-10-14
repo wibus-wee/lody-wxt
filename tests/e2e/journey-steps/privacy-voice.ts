@@ -16,6 +16,14 @@ When(
       expect(this.page.getByRole('switch', { name: '在新消息中使用' })).not.toBeChecked(),
     );
     await this.page.getByRole('textbox', { name: '回复偏好与背景' }).fill(preference);
+    const back = this.page.getByRole('button', { name: '返回设置', exact: true });
+    if (await back.isVisible()) await back.click();
+    await this.page.getByRole('button', { name: '隐私与数据 浏览器访问与附件草稿' }).click();
+    if (await back.isVisible()) await back.click();
+    await this.page.getByRole('button', { name: '对话偏好 回复指令与背景' }).click();
+    await expect(this.page.getByRole('textbox', { name: '回复偏好与背景' })).toHaveValue(
+      preference,
+    );
     await this.page.getByRole('button', { name: '保存偏好', exact: true }).click();
     await expect(this.page.getByText('个人偏好已保存。', { exact: true })).toBeVisible();
     await this.page.getByRole('switch', { name: '在新消息中使用' }).click();

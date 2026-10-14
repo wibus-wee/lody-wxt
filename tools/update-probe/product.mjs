@@ -217,6 +217,8 @@ with zipfile.ZipFile(sys.argv[2],'w',compression=zipfile.ZIP_DEFLATED) as archiv
     await panel.close();
     const page = await context.newPage();
     await page.goto(`chrome-extension://${id}/options.html#/settings`);
+    await page.getByRole('button', { name: '关于与更新 版本与安装方式', exact: true }).click();
+    await page.getByRole('button', { name: '安装目录与更新恢复', exact: true }).click();
     const updates = page.getByRole('region', { name: '目录更新', exact: true });
     await expect(updates).toContainText('尚未绑定安装目录');
     await updates.scrollIntoViewIfNeeded();
@@ -274,6 +276,8 @@ with zipfile.ZipFile(sys.argv[2],'w',compression=zipfile.ZIP_DEFLATED) as archiv
     await nextWorker;
     const after = await context.newPage();
     await after.goto(`chrome-extension://${id}/options.html#/settings`);
+    await after.getByRole('button', { name: '关于与更新 版本与安装方式', exact: true }).click();
+    await after.getByRole('button', { name: '安装目录与更新恢复', exact: true }).click();
     await expect(after.getByRole('region', { name: '扩展更新', exact: true })).toContainText(
       `当前版本：${nextVersion}`,
     );

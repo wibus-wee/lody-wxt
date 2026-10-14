@@ -38,6 +38,7 @@ test('settings categories adapt to narrow and wide views and retain preferences 
     await expect(page.getByRole('combobox', { name: '主题' })).toContainText('深色');
     await page.getByRole('button', { name: '返回设置', exact: true }).click();
     await expect(navigation).toBeVisible();
+    await expect(page.getByRole('button', { name: '通用 外观与浏览器快捷键' })).toBeFocused();
     await page.getByRole('button', { name: '隐私与数据 浏览器访问与附件草稿' }).click();
     await expect(page.getByRole('heading', { name: '本地附件草稿' })).toBeVisible();
     await expect(page.getByRole('button', { name: '设置浏览器快捷键' })).toBeHidden();
