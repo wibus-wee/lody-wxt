@@ -114,6 +114,7 @@ jobs:
             release-assets/SHA256SUMS
             release-assets/build-info.json
             release-assets/appcast.json
+            release-assets/update-index.json
       - name: Verify signed subjects and exact workflow identity before publication
         env:
           ATTESTATION_BUNDLE: ${{ steps.attest.outputs.bundle-path }}

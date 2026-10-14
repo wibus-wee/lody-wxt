@@ -66,3 +66,38 @@ test('five packaged samples bind to their own framework result; missing and fail
   collectExtensionOutcomes(report(null), 1, empty);
   assert.equal(empty.get('extension:1:appcast'), 'incomplete');
 });
+
+test('native directory update cannot be certified by web evidence or partial native recovery', () => {
+  const { journey, variant } = findCase('install-directory-update', 'native-recovery');
+  const manifest = { id: 'native-run', sourceHash: 'native-source' };
+  const key = `${journey.id}/${variant.id}`;
+  const record = {
+    runId: manifest.id,
+    modelHash,
+    sourceHash: manifest.sourceHash,
+    journey: journey.id,
+    case: variant.id,
+    namespace: journey.namespace,
+    layer: 'extension',
+    repetition: 1,
+    frameworkId: 'native-framework',
+    status: 'passed',
+    checkpoints: variant.obligations.map((id) => ({ id })),
+  };
+  const outcomes = new Map([['extension:1:native-framework', 'passed']]);
+  assert.equal(auditEvidence([record], manifest, [], outcomes).get(key)[0].status, 'verified');
+  assert.throws(
+    () => auditEvidence([{ ...record, layer: 'web' }], manifest, [], outcomes),
+    /Native update/,
+  );
+  assert.equal(
+    auditEvidence(
+      [{ ...record, checkpoints: record.checkpoints.slice(0, -1) }],
+      manifest,
+      [],
+      outcomes,
+    ).get(key)[0].status,
+    'incomplete',
+  );
+  assert.equal(auditEvidence([record], manifest, []).get(key)[0].status, 'incomplete');
+});

@@ -61,6 +61,7 @@ jobs:
           node tools/autonomy/release-candidate.mjs inspect "${{ github.event.pull_request.base.sha }}" "$CANDIDATE_SHA"
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm exec playwright install --with-deps chromium
+      - run: sudo apt-get update && sudo apt-get install -y xvfb xdotool imagemagick openbox
       - run: node --test tools/autonomy/*.test.mjs
       - name: Prepare tagged UI and icons using the pinned build interface
         run: |

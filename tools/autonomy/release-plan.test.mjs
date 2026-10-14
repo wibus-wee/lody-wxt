@@ -16,12 +16,14 @@ import path from 'node:path';
 import process from 'node:process';
 import { test } from 'node:test';
 
+import { createUpdateIndex } from '../release/update-index.mjs';
 import {
   assertReleaseSource,
   assets,
   planPromotion,
   publish,
   reconcileAssets,
+  releaseAssetNames,
   sha256,
   validateReleaseEnvironment,
   validateTag,
@@ -201,6 +203,35 @@ test('checksum inventory, version, commit and tagged dependency provenance are e
       /Immutable asset differs/,
     );
     assert.equal(uploads, assets.length);
+    // New packages require a separately checksummed index bound to the real ZIP.
+    files['build-info.json'] = JSON.stringify({
+      ...JSON.parse(files['build-info.json']),
+      updateIndexSchema: 1,
+    });
+    entries['build-info.json'] = files['build-info.json'];
+    files['lody-chrome.zip'] = makeZip();
+    const indexedAppcast = JSON.parse(files['appcast.json']);
+    indexedAppcast.enclosure.sha256 = sha256(files['lody-chrome.zip']);
+    indexedAppcast.enclosure.length = files['lody-chrome.zip'].length;
+    files['appcast.json'] = JSON.stringify(indexedAppcast);
+    save();
+    assert.throws(() => verifyAssets(directory, 'v1.2.3', commit, provenance));
+    files['update-index.json'] = JSON.stringify(
+      createUpdateIndex(path.join(directory, 'lody-chrome.zip'), '1.2.3'),
+    );
+    save();
+    verifyAssets(directory, 'v1.2.3', commit, provenance);
+    const validIndex = files['update-index.json'];
+    const corruptIndex = JSON.parse(validIndex);
+    corruptIndex.files[0].sha256 = '0'.repeat(64);
+    files['update-index.json'] = JSON.stringify(corruptIndex);
+    save(); // Recompute checksum too: ZIP comparison must still reject it.
+    assert.throws(
+      () => verifyAssets(directory, 'v1.2.3', commit, provenance),
+      /Update index differs/,
+    );
+    files['update-index.json'] = validIndex;
+    save();
     writeFileSync(path.join(directory, 'lody-chrome.zip'), 'tampered');
     assert.throws(() => verifyAssets(directory, 'v1.2.3', commit, provenance));
     save();
@@ -425,4 +456,14 @@ test('missing or rejected attestations stop verification without skipping subjec
     /Signature verification failed/,
   );
   assert.equal(verified, 1);
+});
+
+test('legacy inventories remain unchanged; indexed releases require the extra signed asset', () => {
+  assert.deepEqual(releaseAssetNames({}), assets);
+  assert.deepEqual(releaseAssetNames({ updateIndexSchema: 1 }), [...assets, 'update-index.json']);
+  assert.throws(() => releaseAssetNames({ updateIndexSchema: 2 }));
+  const local = Object.fromEntries([...assets, 'update-index.json'].map((name) => [name, name]));
+  const legacy = Object.fromEntries(assets.map((name) => [name, name]));
+  assert.deepEqual(reconcileAssets(local, legacy), ['update-index.json']);
+  assert.throws(() => reconcileAssets(legacy, local));
 });

@@ -107,6 +107,18 @@ When(
     await expect
       .poll(() => this.cloud.shortcuts.content('desktop-private').prompt)
       .toBe('读取附加资料，并检查结论的来源。');
+    // Body upload precedes activation and index publication. Reload only after
+    // the full remote publication is acknowledged; otherwise we interrupt it.
+    await expect
+      .poll(() => this.cloud.shortcuts.indexEntry('desktop-private'))
+      .toMatchObject({
+        kind: 'active',
+        entry: {
+          id: 'desktop-private',
+          revision: this.cloud.shortcuts.content('desktop-private').revision,
+          name: '浏览器与 Desktop 同步',
+        },
+      });
     await this.page.reload();
     await restored(this.page);
     await this.page.getByRole('button', { name: panelName, exact: true }).click();

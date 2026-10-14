@@ -223,6 +223,9 @@ export class RuntimeBoundary {
 
   submittedTurn(sessionId = 'history-a') {
     const history = this.document(sessionId).getList('history');
+    const users = v
+      .parse(v.array(v.looseObject({ role: v.string() })), history.toJSON())
+      .filter((turn) => turn.role === 'user');
     const turn = v.parse(
       v.object({
         id: v.string(),
@@ -230,7 +233,7 @@ export class RuntimeBoundary {
         userId: v.string(),
         inputConfig: v.record(v.string(), v.unknown()),
       }),
-      history.toJSON().at(-1),
+      users.at(-1),
     );
     return {
       requestId: turn.id,

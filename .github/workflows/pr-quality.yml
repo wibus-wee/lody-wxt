@@ -46,6 +46,10 @@ jobs:
       - run: pnpm check
       - run: pnpm test:sdk
       - run: pnpm test:sdk:package
+      - name: Verify directory updater browser infrastructure
+        env:
+          DEBUG: pw:browser
+        run: pnpm exec vitest run tests/browser/update-archive.browser.test.ts tests/browser/update-directory.browser.test.ts tests/browser/update-binding.browser.test.ts --coverage.enabled=false
       - run: pnpm test:browser
       - run: pnpm exec wxt build -b firefox
       - run: pnpm exec vite build --config docs/vite.config.ts
@@ -130,6 +134,7 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
       - run: pnpm exec playwright install --with-deps chromium
+      - run: sudo apt-get update && sudo apt-get install -y xvfb xdotool imagemagick openbox
       - run: pnpm test:assurance:extension
       # The installed Chrome package from assurance is the package we publish as evidence.
       # Avoid pnpm build again; direct target builds reuse the prepared SDK/UI.

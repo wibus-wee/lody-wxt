@@ -6,7 +6,7 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
 import { readArchive } from './archive.mjs';
-import { assertReleaseSource, assets, sha256, validateTag } from './release-plan.mjs';
+import { assertReleaseSource, releaseAssetNames, sha256, validateTag } from './release-plan.mjs';
 
 const workflow = '.github/workflows/release-pr.yml';
 const sha = /^[a-f0-9]{40}$/;
@@ -170,7 +170,8 @@ export async function downloadCandidate(tag, directory) {
   const read = await readArchive(bytes);
   mkdirSync(directory, { recursive: true });
   // Never extract arbitrary candidate paths into the privileged checkout.
-  for (const name of [...assets, 'release-notes.md'])
+  const names = releaseAssetNames(JSON.parse(read('build-info.json')));
+  for (const name of [...names, 'release-notes.md'])
     writeFileSync(path.join(directory, name), read(name));
   return candidate;
 }

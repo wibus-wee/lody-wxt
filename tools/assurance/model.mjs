@@ -22,6 +22,12 @@ export const model = {
         'src/features/updates/use-updates.ts',
         'src/features/updates/UpdateNotice.tsx',
         'src/features/updates/UpdateSettingsLink.tsx',
+        'src/features/updates/archive.ts',
+        'src/features/updates/directory-binding.ts',
+        'src/features/updates/directory-transaction.ts',
+        'src/features/updates/directory-update.ts',
+        'src/features/updates/DirectoryUpdate.tsx',
+        'src/features/updates/DirectoryUpdateView.tsx',
         'tools/release/artifacts.mjs',
       ],
       state:
@@ -29,7 +35,7 @@ export const model = {
       persistence:
         'Extension local storage across surfaces and worker restarts; version-pinned release assets.',
       lifetime:
-        'Six-hour checks omit credentials; failed or invalid feeds retain confirmed metadata and expose failure. Downloads require a user action; installation stays manual.',
+        'Six-hour checks omit credentials; failed or invalid feeds retain confirmed metadata and expose failure. Downloads and native directory grants require a user action. Manifest-last writes retain a rollback journal; lost grants retain recovery controls until the original directory is reauthorized. Browser reload remains explicit.',
     },
     notifications: {
       source: [
@@ -240,7 +246,7 @@ export const model = {
   namespaces: {
     updates: {
       disposition: 'journey',
-      owners: ['distribution', 'updates', 'shell'],
+      owners: ['distribution', 'updates', 'account', 'quickDraft', 'documents', 'shell'],
       reason:
         'Release metadata, browser lifecycle, cross-surface reminders and manual downloads must preserve their version and failure boundaries.',
     },
@@ -342,6 +348,53 @@ export const model = {
     },
   },
   journeys: [
+    {
+      id: 'install-directory-update',
+      namespace: 'updates',
+      priority: 'P0',
+      intent:
+        'Bind the actual unpacked installation, recover failed incremental updates and retain authenticated conversation drafts through native reload and grant loss.',
+      chain: ['distribution', 'updates', 'account', 'quickDraft', 'documents', 'shell'],
+      cases: [
+        {
+          id: 'native-recovery',
+          requiredLayer: 'extension',
+          lifecycle: [
+            'sign-in',
+            'draft',
+            'bind',
+            'reject',
+            'download-failure',
+            'write',
+            'rollback',
+            'reload',
+            'reauthorize',
+            'resume',
+          ],
+          states: [
+            'updates:bound',
+            'updates:recoverable',
+            'updates:verified',
+            'account:retained',
+            'quickDraft:retained',
+          ],
+          obligations: [
+            'authenticated-session-and-unsent-draft-established',
+            'reject-copy-with-matching-manifest',
+            'native-binding-persists-across-page-reload',
+            'corrupt-index-rejected-before-write',
+            'download-failure-preserves-installation',
+            'only-changed-manifest-downloaded-and-written',
+            'visible-rollback-restores-original-version',
+            'reload-permission-loss-preserves-binding-and-recovery-controls',
+            'pending-journal-rejects-different-directory',
+            'real-reload-confirms-version-and-clears-completed-journal',
+            'account-and-workspace-retained-after-update',
+            'same-session-and-unsent-draft-retained-without-submission',
+          ],
+        },
+      ],
+    },
     {
       id: 'discover-and-download-update',
       namespace: 'updates',

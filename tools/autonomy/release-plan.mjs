@@ -1,13 +1,22 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { lstatSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
 import { validateManifest } from '../release/artifacts.mjs';
+import { createUpdateIndex } from '../release/update-index.mjs';
 
 const stableTag = /^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/;
 const checksumLine = /^([a-f0-9]{64}) {2}([\w.-]+)$/;
@@ -22,6 +31,21 @@ export const assets = [
   'build-info.json',
   'lody-chrome.zip',
 ];
+export function releaseAssetNames(info) {
+  if (info.updateIndexSchema === undefined) return assets;
+  assert.equal(info.updateIndexSchema, 1, 'Unsupported update index schema');
+  return [...assets, 'update-index.json'];
+}
+function directoryAssets(directory) {
+  const metadata = lstatSync(path.join(directory, 'build-info.json'));
+  assert.ok(
+    metadata.isFile() && metadata.size > 0 && metadata.size <= 2 * 1024 * 1024,
+    'Invalid release metadata',
+  );
+  return releaseAssetNames(
+    JSON.parse(readFileSync(path.join(directory, 'build-info.json'), 'utf8')),
+  );
+}
 export const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 export function validateTag(tag) {
   assert.match(tag, stableTag);
@@ -87,7 +111,8 @@ export function verifyArchive(directory, version) {
 }
 export function verifyAssets(directory, tag, commit, provenance) {
   const version = validateTag(tag);
-  for (const name of assets) {
+  const names = directoryAssets(directory);
+  for (const name of names) {
     const file = lstatSync(path.join(directory, name));
     const limit =
       name === 'lody-chrome.zip'
@@ -102,7 +127,7 @@ export function verifyAssets(directory, tag, commit, provenance) {
   }
   const read = (name) => readFileSync(path.join(directory, name));
   const checksums = read('SHA256SUMS').toString().trim().split('\n');
-  const expected = assets.filter((name) => name !== 'SHA256SUMS');
+  const expected = names.filter((name) => name !== 'SHA256SUMS');
   assert.equal(checksums.length, expected.length);
   const seen = new Set();
   for (const line of checksums) {
@@ -140,14 +165,31 @@ export function verifyAssets(directory, tag, commit, provenance) {
     `https://github.com/${process.env.GH_REPO || 'wibus-wee/lody-wxt'}/releases/download/${tag}/lody-chrome.zip`,
   );
   verifyArchive(directory, version);
+  if (names.includes('update-index.json'))
+    assert.deepEqual(
+      JSON.parse(read('update-index.json')),
+      createUpdateIndex(path.join(directory, 'lody-chrome.zip'), version),
+      'Update index differs from actual ZIP bytes',
+    );
   return { version, commit, archiveSha256: appcast.enclosure.sha256 };
 }
 export function reconcileAssets(local, remote) {
   for (const name of Object.keys(remote)) {
-    assert.ok(assets.includes(name), `Unexpected published asset: ${name}`);
+    assert.ok(
+      Object.hasOwn(local, name) && [...assets, 'update-index.json'].includes(name),
+      `Unexpected published asset: ${name}`,
+    );
     assert.equal(remote[name], local[name], `Immutable asset differs: ${name}`);
   }
-  return assets.filter((name) => !(name in remote));
+  assert.ok(
+    assets.every((name) => Object.hasOwn(local, name)),
+    'Missing local release asset',
+  );
+  assert.ok(
+    Object.keys(local).every((name) => [...assets, 'update-index.json'].includes(name)),
+    'Unexpected local release asset',
+  );
+  return Object.keys(local).filter((name) => !(name in remote));
 }
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
 export function validateReleaseEnvironment(environment, name) {
@@ -285,7 +327,10 @@ export function verifyAttestations(directory, tag, options = {}, command = gh) {
       options.sourceRef,
     );
   }
-  return assets.map((asset) => {
+  const names = existsSync(path.join(directory, 'build-info.json'))
+    ? directoryAssets(directory)
+    : assets;
+  return names.map((asset) => {
     const verification = JSON.parse(
       command('attestation', 'verify', path.join(directory, asset), ...policy),
     );
@@ -323,7 +368,10 @@ export function publish(tag, directory, commit, options = {}) {
   const remoteDirectory = mkdtempSync(path.join(tmpdir(), 'lody-published-'));
   try {
     const local = Object.fromEntries(
-      assets.map((name) => [name, sha256(readFileSync(path.join(directory, name)))]),
+      directoryAssets(directory).map((name) => [
+        name,
+        sha256(readFileSync(path.join(directory, name))),
+      ]),
     );
     const remote = {};
     if (release.assets.length) {

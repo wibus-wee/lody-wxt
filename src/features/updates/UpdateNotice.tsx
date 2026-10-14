@@ -5,6 +5,7 @@ import { Card } from '../../shared/ui/card';
 import { composer } from '../../shared/ui/composer.stylex';
 import type { UpdateState } from './appcast';
 import { availableRelease, compareVersions } from './appcast';
+import { DirectoryUpdate } from './DirectoryUpdate';
 import { useUpdates } from './use-updates';
 
 const styles = stylex.create({
@@ -145,7 +146,8 @@ export function UpdateNotice({ installedVersion, state, busy, error, check, skip
             </p>
           )}
           <p {...stylex.props(styles.hint)}>
-            每 6 小时自动检查。发现新版后仍需下载 ZIP，覆盖原目录并重新加载；不要卸载扩展。
+            每 6 小时自动检查。支持目录更新的浏览器可在下方绑定安装目录；也可下载 ZIP
+            手动更新。不要卸载扩展。
           </p>
         </div>
       </Card.Root>
@@ -154,5 +156,15 @@ export function UpdateNotice({ installedVersion, state, busy, error, check, skip
 }
 
 export function UpdateSettings() {
-  return <UpdateNotice {...useUpdates()} />;
+  const updates = useUpdates();
+  const release =
+    updates.installedVersion && updates.state
+      ? availableRelease(updates.state, updates.installedVersion)
+      : null;
+  return (
+    <>
+      <UpdateNotice {...updates} />
+      <DirectoryUpdate release={release} />
+    </>
+  );
 }
