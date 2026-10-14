@@ -8,6 +8,8 @@ import process from 'node:process';
 import { expect } from '@playwright/test';
 import { chromium } from 'playwright';
 
+import { AccountBoundary, signIn } from '../../tests/e2e/support/account-boundary.ts';
+import { RuntimeBoundary } from '../../tests/e2e/support/runtime-boundary.ts';
 import { createUpdateIndex } from '../release/update-index.mjs';
 
 const invalidDirectory = /不是当前扩展|无法验证所选目录/;
@@ -15,13 +17,13 @@ const pickerTitle = /^(?:Select|Open|Choose)/;
 const byteRange = /^bytes=(\d+)-(\d+)$/;
 
 async function main() {
-  // Real packaged UI and native grants; only the release HTTP boundary is controlled.
+  // Real packaged UI and native grants; account, Streams and release HTTP boundaries are controlled.
   // Everything is scoped to disposable fixture directories and a fresh CI browser profile.
   const root = await mkdtemp(path.join(tmpdir(), 'lody-product-update-'));
   const extension = path.join(root, 'installed');
   const copied = path.join(root, 'wrong-copy');
   const target = path.join(root, 'target');
-  const report = path.resolve('reports/directory-product');
+  const report = path.resolve(process.env.DIRECTORY_PRODUCT_REPORT ?? 'reports/directory-product');
   await mkdir(report, { recursive: true });
   await cp(path.resolve('.output/chrome-mv3'), extension, { recursive: true });
   await cp(extension, copied, { recursive: true });
@@ -68,6 +70,8 @@ with zipfile.ZipFile(sys.argv[2],'w',compression=zipfile.ZIP_DEFLATED) as archiv
   const requests = [];
   const checkpoints = [];
   const pageErrors = [];
+  const cloud = new RuntimeBoundary();
+  let passed = false;
   let responseMode = 'corrupt-index';
   const context = await chromium.launchPersistentContext(path.join(root, 'profile'), {
     channel: 'chromium',
@@ -75,6 +79,7 @@ with zipfile.ZipFile(sys.argv[2],'w',compression=zipfile.ZIP_DEFLATED) as archiv
     viewport: { width: 1000, height: 850 },
     args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
   });
+  context.on('page', (page) => page.on('pageerror', (error) => pageErrors.push(error.message)));
   const screenshot = (name) =>
     execFileSync('import', ['-window', 'root', path.join(report, `${name}.png`)]);
   const key = (...keys) => execFileSync('xdotool', ['key', '--clearmodifiers', ...keys]);
@@ -157,8 +162,60 @@ with zipfile.ZipFile(sys.argv[2],'w',compression=zipfile.ZIP_DEFLATED) as archiv
     await chromeSettings.close();
     const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
     const id = new URL(worker.url()).host;
+    await context.route('https://fixture-boundary.invalid/ready', (route) =>
+      route.fulfill({ body: 'controlled' }),
+    );
+    await expect
+      .poll(() =>
+        worker.evaluate(async () => {
+          try {
+            return await (await fetch('https://fixture-boundary.invalid/ready')).text();
+          } catch {
+            return '';
+          }
+        }),
+      )
+      .toBe('controlled');
+    await new AccountBoundary().install(context);
+    await cloud.install(context);
+    const panel = await context.newPage();
+    await panel.goto(`chrome-extension://${id}/sidepanel.html`);
+    await signIn(panel);
+    await panel.getByRole('button', { name: 'Workspace', exact: true }).click();
+    await expect(panel.getByRole('button', { name: '运行配置', exact: true })).toContainText(
+      'Controlled model',
+    );
+    await panel.getByRole('button', { name: '会话列表', exact: true }).click();
+    await panel.locator('[data-history-id="history-a"]').click();
+    await expect(panel.getByRole('article', { name: '你的消息', exact: true })).toContainText(
+      'Previously asked question',
+    );
+    const draft = 'Unsent directory update draft retains its original session';
+    await panel.getByRole('textbox', { name: '消息', exact: true }).fill(draft);
+    await expect
+      .poll(() =>
+        panel.evaluate(
+          (text) =>
+            Object.entries(localStorage).some(
+              ([key, value]) =>
+                key.startsWith('lody:chat-draft:') &&
+                key.endsWith(':history-a') &&
+                JSON.parse(value).text === text,
+            ),
+          draft,
+        ),
+      )
+      .toBe(true);
+    const originalHistory = JSON.stringify(cloud.document('history-a').getList('history').toJSON());
+    const panelUrl = panel.url();
+    await panel.screenshot({
+      path: path.join(report, '00-session-draft-before.png'),
+      fullPage: true,
+    });
+    checkpoints.push('authenticated-session-and-unsent-draft-established');
+    // Close the editing surface before update; retain data through the real storage owner.
+    await panel.close();
     const page = await context.newPage();
-    page.on('pageerror', (error) => pageErrors.push(error.message));
     await page.goto(`chrome-extension://${id}/options.html#/settings`);
     const updates = page.getByRole('region', { name: '目录更新', exact: true });
     await expect(updates).toContainText('尚未绑定安装目录');
@@ -248,13 +305,43 @@ with zipfile.ZipFile(sys.argv[2],'w',compression=zipfile.ZIP_DEFLATED) as archiv
     checkpoints.push('real-reload-confirms-version-and-clears-completed-journal');
     await after.getByRole('region', { name: '目录更新', exact: true }).scrollIntoViewIfNeeded();
     await after.screenshot({ path: path.join(report, '05-reloaded.png'), fullPage: true });
+    const restored = await context.newPage();
+    await restored.goto(`chrome-extension://${id}/sidepanel.html#/account`);
+    await expect(restored.getByText('已登录：Browser tester', { exact: true })).toBeVisible();
+    await expect(restored.getByRole('combobox', { name: '工作区', exact: true })).toContainText(
+      'Test studio',
+    );
+    checkpoints.push('account-and-workspace-retained-after-update');
+    await restored.goto(panelUrl);
+    await expect(restored.getByRole('article', { name: '你的消息', exact: true })).toContainText(
+      'Previously asked question',
+    );
+    await expect(restored.getByRole('textbox', { name: '消息', exact: true })).toHaveValue(draft);
+    const selection = await restored.evaluate(() =>
+      Object.entries(localStorage)
+        .filter(([key]) => key.startsWith('lody:chat-resume:'))
+        .map(([, value]) => JSON.parse(value).id),
+    );
+    assert.deepEqual(selection, ['history-a']);
+    assert.equal(
+      JSON.stringify(cloud.document('history-a').getList('history').toJSON()),
+      originalHistory,
+    );
+    await restored.screenshot({
+      path: path.join(report, '08-session-draft-after.png'),
+      fullPage: true,
+    });
+    checkpoints.push('same-session-and-unsent-draft-retained-without-submission');
     assert.deepEqual(pageErrors, []);
+    passed = true;
   } finally {
     screenshot('final');
     await writeFile(
       path.join(report, 'result.json'),
       JSON.stringify(
         {
+          passed,
+          invocation: process.env.DIRECTORY_PRODUCT_INVOCATION ?? null,
           head: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
           browser: context.browser()?.version(),
           beforeVersion,

@@ -29,6 +29,7 @@ export function validateModel() {
     for (const variant of journey.cases) {
       assert.ok(!cases.has(variant.id), `Duplicate case ${journey.id}/${variant.id}`);
       cases.add(variant.id);
+      if (variant.requiredLayer) assert.equal(variant.requiredLayer, 'extension');
       assert.ok(variant.lifecycle.length >= 3 && variant.obligations.length >= 3);
       assert.equal(new Set(variant.obligations).size, variant.obligations.length);
       for (const state of variant.states)
@@ -79,6 +80,8 @@ export async function sourceFingerprint() {
     'tools/vite/wasm.ts',
     'tools/vite/worker-wasm.ts',
     'tools/ui/build.mjs',
+    'tools/update-probe/product.mjs',
+    'tools/release/update-index.mjs',
     'packages/lody-sdk/scripts/build.mjs',
   ])
     hash.update(file).update(await readFile(file));

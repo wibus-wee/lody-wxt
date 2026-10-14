@@ -134,6 +134,7 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
       - run: pnpm exec playwright install --with-deps chromium
+      - run: sudo apt-get update && sudo apt-get install -y xvfb xdotool imagemagick openbox
       - run: pnpm test:assurance:extension
       # The installed Chrome package from assurance is the package we publish as evidence.
       # Avoid pnpm build again; direct target builds reuse the prepared SDK/UI.

@@ -1,7 +1,7 @@
 {
   "updates": {
     "disposition": "journey",
-    "owners": ["distribution", "updates", "shell"],
+    "owners": ["distribution", "updates", "account", "quickDraft", "documents", "shell"],
     "reason": "Release metadata, browser lifecycle, cross-surface reminders and manual downloads must preserve their version and failure boundaries."
   },
   "notifications": {

@@ -40,7 +40,7 @@ jobs:
           LODY_UI_PINNED: '1'
         run: pnpm build
       - name: Exercise actual updater controls
-        run: xvfb-run --auto-servernum sh -c 'openbox >/tmp/openbox-product.log 2>&1 & sleep 1; node tools/update-probe/product.mjs'
+        run: xvfb-run --auto-servernum sh -c 'openbox >/tmp/openbox-product.log 2>&1 & sleep 1; node --import tsx tools/update-probe/product.mjs'
       - uses: actions/upload-artifact@v4
         if: always()
         with:

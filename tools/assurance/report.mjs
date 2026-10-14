@@ -41,6 +41,8 @@ export function auditEvidence(records, manifest, authored, outcomes = new Map())
     );
     const { journey, variant } = findCase(record.journey, record.case);
     assert.equal(record.namespace, journey.namespace);
+    if (variant.requiredLayer)
+      assert.equal(record.layer, variant.requiredLayer, 'Native update requires packaged evidence');
     if (['pageContext', 'extension'].includes(journey.namespace))
       assert.equal(record.layer, 'extension', 'Packaged lifecycle requires packaged evidence');
     for (const sample of record.interactions ?? [])
