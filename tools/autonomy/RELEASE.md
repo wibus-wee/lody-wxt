@@ -40,7 +40,9 @@ The Manifest V3 version and required runtime entrypoints must match; development
 Embedded provenance and installation instructions must exactly match their public companion files.
 Assets must be nonempty regular files: the archive is capped at 256 MiB, JSON/guide companions at 2 MiB and the checksum inventory at 4 KiB.
 Embedded metadata is bounded to 2 MiB each and ZIP inspection to 60 seconds.
-Legacy releases keep their five public assets: `lody-chrome.zip`, `INSTALL.md`, `SHA256SUMS`, `build-info.json` and `appcast.json`. New packages declaring `updateIndexSchema: 1` in build-info additionally require `update-index.json`; its checksum, ZIP-derived file inventory and provenance signature are verified before publication. The legacy appcast schema is unchanged.
+Legacy releases keep their five public assets: `lody-chrome.zip`, `INSTALL.md`, `SHA256SUMS`, `build-info.json` and `appcast.json`.
+New packages declaring `updateIndexSchema: 1` in build-info additionally require `update-index.json`; its checksum, ZIP-derived file inventory and provenance signature are verified before publication.
+The legacy appcast schema is unchanged.
 Release notes remain the release body.
 SHA-256 and build-info provide integrity and source/dependency traceability; the protected publisher additionally creates and verifies signed GitHub provenance attestations for all five public assets.
 

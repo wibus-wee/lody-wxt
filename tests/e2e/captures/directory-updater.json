@@ -1,0 +1,187 @@
+[
+  {
+    "surface": "web",
+    "route": "/#/settings",
+    "scenario": "directory-updater-unbound",
+    "state": "Web settings retain manual extension update guidance",
+    "account": "signed-out",
+    "covers": [
+      "src/features/updates/DirectoryUpdate.tsx",
+      "src/features/updates/DirectoryUpdateView.tsx",
+      "src/features/updates/UpdateNotice.tsx"
+    ],
+    "before": {
+      "route": "/#/settings",
+      "state": "Existing update settings without directory controls",
+      "account": "signed-out",
+      "actions": [
+        {
+          "action": "assertAbsent",
+          "role": "region",
+          "name": "目录更新"
+        },
+        {
+          "action": "assertVisible",
+          "role": "region",
+          "name": "扩展更新"
+        }
+      ]
+    },
+    "actions": [
+      {
+        "action": "assertAbsent",
+        "role": "region",
+        "name": "目录更新"
+      },
+      {
+        "action": "assertVisible",
+        "role": "region",
+        "name": "扩展更新"
+      }
+    ]
+  },
+  {
+    "surface": "extension",
+    "route": "/#/settings",
+    "scenario": "directory-updater-unbound",
+    "state": "Unbound installation directory with explicit update controls",
+    "account": "signed-out",
+    "covers": [
+      "src/features/updates/DirectoryUpdate.tsx",
+      "src/features/updates/DirectoryUpdateView.tsx",
+      "src/features/updates/UpdateNotice.tsx"
+    ],
+    "entry": "options",
+    "before": {
+      "route": "/#/settings",
+      "state": "Existing update settings without directory controls",
+      "account": "signed-out",
+      "actions": [
+        {
+          "action": "assertAbsent",
+          "role": "region",
+          "name": "目录更新"
+        },
+        {
+          "action": "assertVisible",
+          "role": "region",
+          "name": "扩展更新"
+        }
+      ]
+    },
+    "actions": [
+      {
+        "action": "assertVisible",
+        "role": "button",
+        "name": "选择安装目录"
+      },
+      {
+        "action": "assertVisible",
+        "role": "button",
+        "name": "下载并写入更新"
+      },
+      {
+        "action": "assertText",
+        "role": "region",
+        "name": "目录更新",
+        "value": "尚未绑定安装目录"
+      }
+    ]
+  },
+  {
+    "surface": "extension",
+    "route": "/#/settings",
+    "scenario": "directory-updater-unbound",
+    "state": "Unbound installation directory with explicit update controls",
+    "account": "signed-out",
+    "covers": [
+      "src/features/updates/DirectoryUpdate.tsx",
+      "src/features/updates/DirectoryUpdateView.tsx",
+      "src/features/updates/UpdateNotice.tsx"
+    ],
+    "entry": "sidepanel",
+    "before": {
+      "route": "/#/settings",
+      "state": "Existing update settings without directory controls",
+      "account": "signed-out",
+      "actions": [
+        {
+          "action": "assertAbsent",
+          "role": "region",
+          "name": "目录更新"
+        },
+        {
+          "action": "assertVisible",
+          "role": "region",
+          "name": "扩展更新"
+        }
+      ]
+    },
+    "actions": [
+      {
+        "action": "assertVisible",
+        "role": "button",
+        "name": "选择安装目录"
+      },
+      {
+        "action": "assertVisible",
+        "role": "button",
+        "name": "下载并写入更新"
+      },
+      {
+        "action": "assertText",
+        "role": "region",
+        "name": "目录更新",
+        "value": "尚未绑定安装目录"
+      }
+    ]
+  },
+  {
+    "surface": "extension",
+    "route": "/#/settings",
+    "scenario": "directory-updater-unbound",
+    "state": "Unbound installation directory with explicit update controls",
+    "account": "signed-out",
+    "covers": [
+      "src/features/updates/DirectoryUpdate.tsx",
+      "src/features/updates/DirectoryUpdateView.tsx",
+      "src/features/updates/UpdateNotice.tsx"
+    ],
+    "entry": "popup",
+    "before": {
+      "route": "/#/settings",
+      "state": "Existing update settings without directory controls",
+      "account": "signed-out",
+      "actions": [
+        {
+          "action": "assertAbsent",
+          "role": "region",
+          "name": "目录更新"
+        },
+        {
+          "action": "assertVisible",
+          "role": "region",
+          "name": "扩展更新"
+        }
+      ]
+    },
+    "actions": [
+      {
+        "action": "assertVisible",
+        "role": "button",
+        "name": "选择安装目录"
+      },
+      {
+        "action": "assertVisible",
+        "role": "button",
+        "name": "下载并写入更新"
+      },
+      {
+        "action": "assertText",
+        "role": "region",
+        "name": "目录更新",
+        "value": "尚未绑定安装目录"
+      }
+    ]
+  }
+]

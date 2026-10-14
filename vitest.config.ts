@@ -10,7 +10,9 @@ export default defineConfig({
     include: ['tests/browser/**/*.browser.test.ts'],
     browser: {
       enabled: true,
-      provider: playwright(),
+      // Exercise filesystem handles and IDB in the full browser used by the extension.
+      // Playwright's default headless shell exits with SIGTRAP in the updater cases.
+      provider: playwright({ launchOptions: { channel: 'chromium' } }),
       headless: true,
       instances: [{ browser: 'chromium' }],
     },
