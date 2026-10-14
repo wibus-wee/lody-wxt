@@ -6,6 +6,7 @@ import process from 'node:process';
 import { auditCatalog, modelHash, sourceFingerprint } from './catalog.mjs';
 import { extensionRuns } from './extension-runs.mjs';
 import { performanceBlocks } from './performance.mjs';
+import { previewArgs, waitForPreview } from './preview.mjs';
 import { generateReport } from './report.mjs';
 import { shardCases } from './shard.mjs';
 
@@ -80,30 +81,25 @@ async function main() {
         /* No preview. */
       }
       if (occupied) throw new Error('Port 4173 is occupied; stop dev:web before assurance runs.');
-      server = spawn(
-        process.execPath,
-        ['node_modules/vite/bin/vite.js', '--config', 'vite.config.ts'],
-        {
-          stdio: 'inherit',
-          env: {
-            ...process.env,
-            VITE_SESSION_SHARE_ORIGIN: 'https://share.example.test',
-            VITE_SESSION_SHARE_API_ORIGIN: 'https://share-api.example.test',
-          },
-        },
+      // Serve immutable built assets. Concurrent first navigations against the dev
+      // server stalled on cold dependency/module requests in the failure traces.
+      // Building first also makes the journeys exercise the shipped web output.
+      const previewEnv = {
+        VITE_SESSION_SHARE_ORIGIN: 'https://share.example.test',
+        VITE_SESSION_SHARE_API_ORIGIN: 'https://share-api.example.test',
+      };
+      const webBuild = await run(
+        'pnpm',
+        ['exec', 'vite', 'build', '--config', 'vite.config.ts'],
+        previewEnv,
       );
-      let ready = false;
-      for (let attempt = 0; attempt < 100; attempt++) {
-        if (server.exitCode !== null) throw new Error('Preview exited before becoming ready');
-        try {
-          ready = (await fetch('http://127.0.0.1:4173')).ok;
-        } catch {
-          /* Starting. */
-        }
-        if (ready) break;
-        await new Promise((resolve) => setTimeout(resolve, 200));
-      }
-      if (!ready) throw new Error('Preview failed to start');
+      manifest.layers.webBuild = { exitCode: webBuild };
+      if (webBuild !== 0) throw new Error('Web build failed before journey execution');
+      server = spawn(process.execPath, previewArgs, {
+        stdio: 'inherit',
+        env: { ...process.env, ...previewEnv },
+      });
+      await waitForPreview(server, 'http://127.0.0.1:4173');
       for (let repetition = 1; repetition <= repeat; repetition++) {
         const args = [
           '--import',
