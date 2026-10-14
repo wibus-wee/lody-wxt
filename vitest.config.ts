@@ -57,7 +57,7 @@ export default defineConfig({
         'src/features/account/{controller,model,storage}.ts',
         'src/features/conversations/{controller,model,storage}.ts',
         'src/features/page-context/{actions,capture}.ts',
-        'src/features/updates/{archive,directory-binding,directory-transaction}.ts',
+        'src/features/updates/{archive,directory-binding,directory-transaction,directory-update}.ts',
       ],
       reporter: ['text', 'json-summary', 'html'],
       reportsDirectory: 'coverage/browser',

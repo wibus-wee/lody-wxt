@@ -98,8 +98,18 @@ with zipfile.ZipFile(sys.argv[2],'w',compression=zipfile.ZIP_DEFLATED) as archiv
     key('ctrl+l');
     await new Promise((resolve) => setTimeout(resolve, 500));
     execFileSync('xdotool', ['type', '--clearmodifiers', directory]);
-    // Same native GTK chooser as the independently inspected feasibility proof.
-    execFileSync('xdotool', ['mousemove', '1157', '830', 'click', '1']);
+    // The retained picker image shows Open at the bottom-right of this GTK window.
+    // Resolve its real geometry; product and synthetic browser viewports differ.
+    const geometry = Object.fromEntries(
+      execFileSync('xdotool', ['getwindowgeometry', '--shell', active], { encoding: 'utf8' })
+        .trim()
+        .split('\n')
+        .map((line) => line.split('=')),
+    );
+    const x = Number(geometry.X) + Number(geometry.WIDTH) - 50;
+    const y = Number(geometry.Y) + Number(geometry.HEIGHT) - 27;
+    assert.ok(Number.isFinite(x) && Number.isFinite(y));
+    execFileSync('xdotool', ['mousemove', String(x), String(y), 'click', '1']);
     await new Promise((resolve) => setTimeout(resolve, 1500));
     screenshot(`${label}-grant`);
     // Explicit fixture-only read/write grant. No CDP grant or API replacement.
@@ -152,6 +162,7 @@ with zipfile.ZipFile(sys.argv[2],'w',compression=zipfile.ZIP_DEFLATED) as archiv
     await page.goto(`chrome-extension://${id}/options.html#/settings`);
     const updates = page.getByRole('region', { name: '目录更新', exact: true });
     await expect(updates).toContainText('尚未绑定安装目录');
+    await updates.scrollIntoViewIfNeeded();
     await page.screenshot({ path: path.join(report, '01-unbound.png'), fullPage: true });
     await chooseDirectory(page, copied, '02-wrong');
     await expect(updates).toContainText(invalidDirectory, { timeout: 15000 });
@@ -188,6 +199,7 @@ with zipfile.ZipFile(sys.argv[2],'w',compression=zipfile.ZIP_DEFLATED) as archiv
     );
     assert.ok(requests.every((request) => !request.authorization && !request.cookie));
     checkpoints.push('only-changed-manifest-downloaded-and-written');
+    await updates.scrollIntoViewIfNeeded();
     await page.screenshot({ path: path.join(report, '04-written.png'), fullPage: true });
     await updates.getByRole('button', { name: '恢复更新前文件', exact: true }).click();
     await expect(updates).toContainText('已恢复更新前的文件');
@@ -213,6 +225,7 @@ with zipfile.ZipFile(sys.argv[2],'w',compression=zipfile.ZIP_DEFLATED) as archiv
     );
     await expect(after.getByRole('button', { name: '恢复更新前文件', exact: true })).toHaveCount(0);
     checkpoints.push('real-reload-confirms-version-and-clears-completed-journal');
+    await after.getByRole('region', { name: '目录更新', exact: true }).scrollIntoViewIfNeeded();
     await after.screenshot({ path: path.join(report, '05-reloaded.png'), fullPage: true });
     assert.deepEqual(pageErrors, []);
   } finally {
