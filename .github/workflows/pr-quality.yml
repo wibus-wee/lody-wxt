@@ -46,6 +46,8 @@ jobs:
       - run: pnpm check
       - run: pnpm test:sdk
       - run: pnpm test:sdk:package
+      - name: Verify directory updater browser infrastructure
+        run: pnpm exec vitest run tests/browser/update-archive.browser.test.ts tests/browser/update-directory.browser.test.ts tests/browser/update-binding.browser.test.ts --coverage.enabled=false
       - run: pnpm test:browser
       - run: pnpm exec wxt build -b firefox
       - run: pnpm exec vite build --config docs/vite.config.ts

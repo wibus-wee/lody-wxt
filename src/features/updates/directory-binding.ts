@@ -115,8 +115,11 @@ export async function bindInstallationDirectory(
   identity: InstallationIdentity,
 ) {
   return navigator.locks.request('lody:directory-binding', async () => {
-    if (await directoryUpdateStatus()) throw new Error('请先恢复未完成的更新，再更换目录。');
-    await verifyInstallationDirectory(directory, identity);
+    if (await directoryUpdateStatus()) {
+      const previous = await boundInstallationDirectory(identity.id);
+      if (!previous || !(await previous.isSameEntry(directory)))
+        throw new Error('更新未完成，只能重新授权原安装目录。');
+    } else await verifyInstallationDirectory(directory, identity);
     await storage('write', { directory, id: identity.id });
     return directory.name;
   });

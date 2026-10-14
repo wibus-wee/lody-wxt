@@ -5,6 +5,7 @@ import { Card } from '../../shared/ui/card';
 import { composer } from '../../shared/ui/composer.stylex';
 import type { UpdateState } from './appcast';
 import { availableRelease, compareVersions } from './appcast';
+import { DirectoryUpdate } from './DirectoryUpdate';
 import { useUpdates } from './use-updates';
 
 const styles = stylex.create({
@@ -154,5 +155,15 @@ export function UpdateNotice({ installedVersion, state, busy, error, check, skip
 }
 
 export function UpdateSettings() {
-  return <UpdateNotice {...useUpdates()} />;
+  const updates = useUpdates();
+  const release =
+    updates.installedVersion && updates.state
+      ? availableRelease(updates.state, updates.installedVersion)
+      : null;
+  return (
+    <>
+      <UpdateNotice {...updates} />
+      <DirectoryUpdate release={release} />
+    </>
+  );
 }
