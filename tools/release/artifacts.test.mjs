@@ -97,6 +97,10 @@ test('download packaging preserves runtime bytes and produces matching offline d
     const output = packageRelease(fixture);
     const archive = path.join(output, 'lody-chrome.zip');
     const appcast = JSON.parse(readFileSync(path.join(output, 'appcast.json'), 'utf8'));
+    const index = JSON.parse(readFileSync(path.join(output, 'update-index.json'), 'utf8'));
+    assert.equal(index.version, '0.1.0');
+    assert.equal(index.archive.sha256, appcast.enclosure.sha256);
+    assert.equal(index.files.length, files.length);
     assert.equal(appcast.version, '0.1.0');
     assert.equal(appcast.enclosure.length, readFileSync(archive).byteLength);
     assert.equal(

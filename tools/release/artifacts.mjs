@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import updateConfig from '../../src/features/updates/config.json' with { type: 'json' };
+import { createUpdateIndex } from './update-index.mjs';
 
 const stableVersion = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/;
 const frontmatter = /^---\r?\n[\s\S]*?\r?\n---\r?\n/;
@@ -81,6 +82,7 @@ export function packageRelease(root) {
     writeFileSync(path.join(staging, 'INSTALL.md'), guide);
     writeFileSync(path.join(output, 'INSTALL.md'), guide);
     const provenance = {
+      updateIndexSchema: 1,
       version,
       commit: run('git', ['rev-parse', 'HEAD'], root),
       sourceTreeDirty:
@@ -123,14 +125,22 @@ export function packageRelease(root) {
       },
     };
     writeFileSync(path.join(output, 'appcast.json'), `${JSON.stringify(appcast, null, 2)}\n`);
-    const checksums = ['lody-chrome.zip', 'INSTALL.md', 'build-info.json', 'appcast.json'].map(
-      (file) => {
-        const digest = createHash('sha256')
-          .update(readFileSync(path.join(output, file)))
-          .digest('hex');
-        return `${digest}  ${file}`;
-      },
+    writeFileSync(
+      path.join(output, 'update-index.json'),
+      `${JSON.stringify(createUpdateIndex(path.join(output, 'lody-chrome.zip'), version), null, 2)}\n`,
     );
+    const checksums = [
+      'lody-chrome.zip',
+      'INSTALL.md',
+      'build-info.json',
+      'appcast.json',
+      'update-index.json',
+    ].map((file) => {
+      const digest = createHash('sha256')
+        .update(readFileSync(path.join(output, file)))
+        .digest('hex');
+      return `${digest}  ${file}`;
+    });
     writeFileSync(path.join(output, 'SHA256SUMS'), `${checksums.join('\n')}\n`);
     writeFileSync(
       path.join(output, 'release-notes.md'),

@@ -126,6 +126,7 @@ jobs:
             product/dist/release/SHA256SUMS
             product/dist/release/build-info.json
             product/dist/release/appcast.json
+            product/dist/release/update-index.json
   incident:
     needs: installed
     if: always() && needs.installed.outputs.tag != ''
