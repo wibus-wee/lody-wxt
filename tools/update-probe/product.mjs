@@ -230,6 +230,7 @@ with zipfile.ZipFile(sys.argv[2],'w',compression=zipfile.ZIP_DEFLATED) as archiv
     await chooseDirectory(page, extension, '03-correct');
     await expect(updates).toContainText('安装目录：installed', { timeout: 15000 });
     await page.reload();
+    await page.getByRole('button', { name: '安装目录与更新恢复', exact: true }).click();
     await expect(updates).toContainText('安装目录：installed');
     checkpoints.push('native-binding-persists-across-page-reload');
     await page.getByRole('button', { name: '检查更新', exact: true }).click();

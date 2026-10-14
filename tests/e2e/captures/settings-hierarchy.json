@@ -7,7 +7,8 @@
     "account": "signed-in",
     "covers": [
       "src/features/connection/Settings.tsx",
-      "src/features/updates/UpdateSettingsLink.tsx"
+      "src/features/updates/UpdateSettingsLink.tsx",
+      "src/features/chat/ChatHeader.tsx"
     ],
     "before": {
       "route": "/#/settings",
@@ -38,7 +39,8 @@
     "covers": [
       "src/features/connection/Settings.tsx",
       "src/features/privacy/BrowserPrivacySettings.tsx",
-      "src/features/updates/UpdateSettingsLink.tsx"
+      "src/features/updates/UpdateSettingsLink.tsx",
+      "src/features/chat/ChatHeader.tsx"
     ],
     "before": {
       "route": "/#/settings",
@@ -69,7 +71,8 @@
     "covers": [
       "src/features/connection/Settings.tsx",
       "src/features/notifications/NotificationSettings.tsx",
-      "src/features/updates/UpdateSettingsLink.tsx"
+      "src/features/updates/UpdateSettingsLink.tsx",
+      "src/features/chat/ChatHeader.tsx"
     ],
     "before": {
       "route": "/#/settings",
@@ -100,7 +103,8 @@
     "covers": [
       "src/features/connection/Settings.tsx",
       "src/features/privacy/BrowserPrivacySettings.tsx",
-      "src/features/updates/UpdateSettingsLink.tsx"
+      "src/features/updates/UpdateSettingsLink.tsx",
+      "src/features/chat/ChatHeader.tsx"
     ],
     "before": {
       "route": "/#/settings",
@@ -131,7 +135,8 @@
     "covers": [
       "src/features/connection/Settings.tsx",
       "src/features/updates/UpdateNotice.tsx",
-      "src/features/updates/UpdateSettingsLink.tsx"
+      "src/features/updates/UpdateSettingsLink.tsx",
+      "src/features/chat/ChatHeader.tsx"
     ],
     "before": {
       "route": "/#/settings",
@@ -162,7 +167,8 @@
     "account": "signed-in",
     "covers": [
       "src/features/connection/Settings.tsx",
-      "src/features/updates/UpdateSettingsLink.tsx"
+      "src/features/updates/UpdateSettingsLink.tsx",
+      "src/features/chat/ChatHeader.tsx"
     ],
     "before": {
       "route": "/#/settings",
@@ -194,7 +200,8 @@
     "covers": [
       "src/features/connection/Settings.tsx",
       "src/features/privacy/BrowserPrivacySettings.tsx",
-      "src/features/updates/UpdateSettingsLink.tsx"
+      "src/features/updates/UpdateSettingsLink.tsx",
+      "src/features/chat/ChatHeader.tsx"
     ],
     "before": {
       "route": "/#/settings",
@@ -226,7 +233,8 @@
     "covers": [
       "src/features/connection/Settings.tsx",
       "src/features/notifications/NotificationSettings.tsx",
-      "src/features/updates/UpdateSettingsLink.tsx"
+      "src/features/updates/UpdateSettingsLink.tsx",
+      "src/features/chat/ChatHeader.tsx"
     ],
     "before": {
       "route": "/#/settings",
@@ -258,7 +266,8 @@
     "covers": [
       "src/features/connection/Settings.tsx",
       "src/features/privacy/BrowserPrivacySettings.tsx",
-      "src/features/updates/UpdateSettingsLink.tsx"
+      "src/features/updates/UpdateSettingsLink.tsx",
+      "src/features/chat/ChatHeader.tsx"
     ],
     "before": {
       "route": "/#/settings",
@@ -290,7 +299,8 @@
     "covers": [
       "src/features/connection/Settings.tsx",
       "src/features/updates/UpdateNotice.tsx",
-      "src/features/updates/UpdateSettingsLink.tsx"
+      "src/features/updates/UpdateSettingsLink.tsx",
+      "src/features/chat/ChatHeader.tsx"
     ],
     "before": {
       "route": "/#/settings",
@@ -321,7 +331,8 @@
     "account": "signed-in",
     "covers": [
       "src/features/connection/Settings.tsx",
-      "src/features/updates/UpdateSettingsLink.tsx"
+      "src/features/updates/UpdateSettingsLink.tsx",
+      "src/features/chat/ChatHeader.tsx"
     ],
     "before": {
       "route": "/#/settings",
@@ -338,8 +349,8 @@
     "actions": [
       {
         "action": "assertVisible",
-        "role": "navigation",
-        "name": "设置分类"
+        "role": "button",
+        "name": "通用 外观与浏览器快捷键"
       }
     ]
   },
@@ -352,7 +363,8 @@
     "account": "signed-out",
     "covers": [
       "src/features/connection/Settings.tsx",
-      "src/features/updates/UpdateSettingsLink.tsx"
+      "src/features/updates/UpdateSettingsLink.tsx",
+      "src/features/chat/ChatHeader.tsx"
     ],
     "actions": [
       {

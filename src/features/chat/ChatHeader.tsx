@@ -76,7 +76,8 @@ const routes = [
 export function ChatHeader({ children }: { children?: ReactNode }) {
   const { preferences } = usePreferences();
   const { pathname } = useLocation();
-  const current = routes.find((route) => route.path === pathname);
+  const current =
+    pathname === '/settings' ? undefined : routes.find((route) => route.path === pathname);
   return (
     <header {...stylex.props(styles.header)}>
       <Button

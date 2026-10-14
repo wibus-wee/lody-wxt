@@ -19,6 +19,7 @@ When(
     const back = this.page.getByRole('button', { name: '返回设置', exact: true });
     if (await back.isVisible()) await back.click();
     await this.page.getByRole('button', { name: '隐私与数据 浏览器访问与附件草稿' }).click();
+    await expect(this.page.getByRole('heading', { name: '隐私与数据', exact: true })).toBeVisible();
     if (await back.isVisible()) await back.click();
     await this.page.getByRole('button', { name: '对话偏好 回复指令与背景' }).click();
     await expect(this.page.getByRole('textbox', { name: '回复偏好与背景' })).toHaveValue(
