@@ -93,7 +93,7 @@ async function main() {
         ['exec', 'vite', 'build', '--config', 'vite.config.ts'],
         previewEnv,
       );
-      manifest.layers.webBuild = { exitCode: webBuild };
+      manifest.layers.preparation.exitCode ||= webBuild;
       if (webBuild !== 0) throw new Error('Web build failed before journey execution');
       server = spawn(process.execPath, previewArgs, {
         stdio: 'inherit',

@@ -22,6 +22,7 @@ test('assurance serves built output rather than cold dev modules', async () => {
   const source = await readFile(new URL('./run.mjs', import.meta.url), 'utf8');
   assert.ok(source.indexOf("['exec', 'vite', 'build'") < source.indexOf('server = spawn('));
   assert.match(source, /if \(webBuild !== 0\) throw/);
+  assert.match(source, /manifest\.layers\.preparation\.exitCode \|\|= webBuild/);
 });
 test('readiness accepts a completed HTTP response', async (t) => {
   const url = await fixture(t, (_, res) => res.end('ready'));
