@@ -140,7 +140,7 @@
     "surface": "extension",
     "route": "/#/settings",
     "scenario": "directory-updater-unbound",
-    "state": "Unbound installation directory with explicit update controls",
+    "state": "Popup retains settings launch control; directory updater lives in options or sidebar settings",
     "account": "signed-out",
     "covers": [
       "src/features/updates/DirectoryUpdate.tsx",
@@ -150,7 +150,7 @@
     "entry": "popup",
     "before": {
       "route": "/#/settings",
-      "state": "Existing update settings without directory controls",
+      "state": "Existing popup settings launch control",
       "account": "signed-out",
       "actions": [
         {
@@ -160,27 +160,21 @@
         },
         {
           "action": "assertVisible",
-          "role": "region",
-          "name": "扩展更新"
+          "role": "button",
+          "name": "打开设置"
         }
       ]
     },
     "actions": [
       {
-        "action": "assertVisible",
-        "role": "button",
-        "name": "选择安装目录"
-      },
-      {
-        "action": "assertVisible",
-        "role": "button",
-        "name": "下载并写入更新"
-      },
-      {
-        "action": "assertText",
+        "action": "assertAbsent",
         "role": "region",
-        "name": "目录更新",
-        "value": "尚未绑定安装目录"
+        "name": "目录更新"
+      },
+      {
+        "action": "assertVisible",
+        "role": "button",
+        "name": "打开设置"
       }
     ]
   }
