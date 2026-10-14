@@ -4,14 +4,9 @@ import { browser } from 'wxt/browser';
 
 import { isExtension } from '../../shared/storage';
 import type { Appcast } from './appcast';
-import {
-  boundInstallationDirectory,
-  directoryPickerAvailable,
-  selectInstallationDirectory,
-} from './directory-binding';
-import { directoryUpdateStatus, finishDirectoryUpdate } from './directory-transaction';
+import { directoryPickerAvailable, selectInstallationDirectory } from './directory-binding';
 import type { DirectoryAction } from './directory-update';
-import { performDirectoryAction } from './directory-update';
+import { performDirectoryAction, readDirectoryUpdateState } from './directory-update';
 import { DirectoryUpdateView } from './DirectoryUpdateView';
 
 const queryKey = ['directory-update'];
@@ -34,13 +29,7 @@ export function DirectoryUpdate({ release }: { release: Appcast | null }) {
     retry: false,
     queryFn: async () => {
       if (!identity) throw new Error('扩展更新不可用。');
-      const pending = await directoryUpdateStatus();
-      if (pending?.phase === 'applied' && pending.version === identity.version)
-        await finishDirectoryUpdate(identity.version);
-      return {
-        directory: await boundInstallationDirectory(identity.id),
-        pending: await directoryUpdateStatus(),
-      };
+      return readDirectoryUpdateState(identity);
     },
   });
   const mutation = useMutation({
@@ -73,7 +62,7 @@ export function DirectoryUpdate({ release }: { release: Appcast | null }) {
       busy={mutation.isPending}
       canUpdate={!!release && !!query.data?.directory && !pending}
       message={message}
-      error={mutation.error?.message ?? query.error?.message ?? null}
+      error={mutation.error?.message ?? query.error?.message ?? query.data?.recoveryError ?? null}
       bind={bind}
       update={() =>
         start({ kind: 'update', directory: query.data?.directory ?? null, release, identity })

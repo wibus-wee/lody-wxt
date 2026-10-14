@@ -1,9 +1,15 @@
 import type { Appcast } from './appcast';
 import { downloadUpdateFiles, fetchUpdateIndex, sha256 } from './archive';
 import type { InstallationIdentity } from './directory-binding';
-import { bindInstallationDirectory, verifyInstallationDirectory } from './directory-binding';
+import {
+  bindInstallationDirectory,
+  boundInstallationDirectory,
+  verifyInstallationDirectory,
+} from './directory-binding';
 import {
   applyDirectoryUpdate,
+  directoryUpdateStatus,
+  finishDirectoryUpdate,
   prepareDirectoryUpdate,
   rollbackDirectoryUpdate,
 } from './directory-transaction';
@@ -70,4 +76,27 @@ export async function performDirectoryAction({
   progress('正在写入更新，恢复备份已保存…');
   await applyDirectoryUpdate(signal);
   return `已写入 ${release.version}，下载 ${result.transferred.toLocaleString()} 字节${result.full ? '（完整包回退）' : '（增量）'}。请完成当前会话后重新加载扩展。`;
+}
+
+// Reading status must preserve recovery controls even when the browser revokes
+// directory permission after an extension reload. Never discard the journal on error.
+export async function readDirectoryUpdateState(identity: InstallationIdentity) {
+  const [directory, initialPending] = await Promise.all([
+    boundInstallationDirectory(identity.id),
+    directoryUpdateStatus(),
+  ]);
+  let pending = initialPending;
+  let recoveryError: string | null = null;
+  if (pending?.phase === 'applied' && pending.version === identity.version) {
+    try {
+      await finishDirectoryUpdate(identity.version);
+      pending = await directoryUpdateStatus();
+    } catch (error) {
+      recoveryError =
+        error instanceof DOMException && error.name === 'NotAllowedError'
+          ? '目录访问权限已失效。请重新授权原目录，校验完成前会保留恢复记录。'
+          : `更新校验未完成，恢复记录已保留：${error instanceof Error ? error.message : String(error)}`;
+    }
+  }
+  return { directory, pending, recoveryError };
 }

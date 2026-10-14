@@ -80,8 +80,8 @@ with zipfile.ZipFile(sys.argv[2],'w',compression=zipfile.ZIP_DEFLATED) as archiv
   const key = (...keys) => execFileSync('xdotool', ['key', '--clearmodifiers', ...keys]);
   const installedVersion = async () =>
     JSON.parse(await readFile(path.join(extension, 'manifest.json'), 'utf8')).version;
-  async function chooseDirectory(page, directory, label) {
-    await page.getByRole('button', { name: '选择安装目录', exact: true }).click();
+  async function chooseDirectory(page, directory, label, button = '选择安装目录') {
+    await page.getByRole('button', { name: button, exact: true }).click();
     let title = '';
     for (let attempt = 0; attempt < 100; attempt++) {
       title = execFileSync('xdotool', ['getactivewindow', 'getwindowname'], {
@@ -223,6 +223,27 @@ with zipfile.ZipFile(sys.argv[2],'w',compression=zipfile.ZIP_DEFLATED) as archiv
     await expect(after.getByRole('region', { name: '目录更新', exact: true })).toContainText(
       '安装目录：installed',
     );
+    const recovered = after.getByRole('region', { name: '目录更新', exact: true });
+    await expect(recovered).toContainText('目录访问权限已失效');
+    await expect(
+      recovered.getByRole('button', { name: '恢复更新前文件', exact: true }),
+    ).toBeVisible();
+    await expect(
+      recovered.getByRole('button', { name: '下载并写入更新', exact: true }),
+    ).toBeDisabled();
+    checkpoints.push('reload-permission-loss-preserves-binding-and-recovery-controls');
+    await recovered.scrollIntoViewIfNeeded();
+    await after.screenshot({
+      path: path.join(report, '05-permission-recovery.png'),
+      fullPage: true,
+    });
+    await chooseDirectory(after, copied, '06-wrong-reauthorize', '重新授权原目录');
+    await expect(recovered).toContainText('只能重新授权原安装目录');
+    await expect(
+      recovered.getByRole('button', { name: '恢复更新前文件', exact: true }),
+    ).toBeVisible();
+    checkpoints.push('pending-journal-rejects-different-directory');
+    await chooseDirectory(after, extension, '07-reauthorize', '重新授权原目录');
     await expect(after.getByRole('button', { name: '恢复更新前文件', exact: true })).toHaveCount(0);
     checkpoints.push('real-reload-confirms-version-and-clears-completed-journal');
     await after.getByRole('region', { name: '目录更新', exact: true }).scrollIntoViewIfNeeded();
