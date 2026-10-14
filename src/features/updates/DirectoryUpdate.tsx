@@ -71,6 +71,7 @@ export function DirectoryUpdate({ release }: { release: Appcast | null }) {
   if (!enabled || !identity) return null;
   const pending = query.data?.pending;
   const bind = () => {
+    if (activeRef.current) return;
     // Do not await anything before opening the picker: the browser requires this click.
     const selected = selectInstallationDirectory();
     void run(async () => {

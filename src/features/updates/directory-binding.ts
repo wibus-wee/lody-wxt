@@ -77,7 +77,7 @@ export async function verifyInstallationDirectory(
   if (manifestFile.size > 1024 * 1024) throw new Error('目录中的 manifest 过大。');
   const manifest = v.parse(manifestSchema, JSON.parse(await manifestFile.text()));
   if (manifest.version !== identity.version) throw new Error('所选目录版本与当前扩展不一致。');
-  const markerName = `.lody-update-proof-${crypto.randomUUID()}.txt`;
+  const markerName = `lody-update-proof-${crypto.randomUUID()}.txt`;
   const marker = crypto.randomUUID();
   // An unpredictable marker proves this is the directory actually served by this extension.
   // A matching manifest alone also accepts a copy or a different installation.

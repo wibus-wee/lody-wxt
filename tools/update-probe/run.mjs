@@ -7,6 +7,7 @@ import path from 'node:path';
 import process from 'node:process';
 
 import { chromium } from 'playwright';
+import { build } from 'vite';
 
 const pickerTitle = /^(?:Select|Open|Choose)/;
 
@@ -17,9 +18,22 @@ async function main() {
   const report = path.resolve('reports/directory-proof');
   await mkdir(extension);
   await mkdir(report, { recursive: true });
+  await build({
+    configFile: false,
+    build: {
+      outDir: extension,
+      emptyOutDir: false,
+      lib: {
+        entry: path.resolve('src/features/updates/directory-binding.ts'),
+        name: 'LodyDirectory',
+        formats: ['iife'],
+        fileName: () => 'directory-binding.js',
+      },
+    },
+  });
   const manifest = {
     manifest_version: 3,
-    name: 'Directory proof fixture',
+    name: 'Lody',
     version: '0.0.1',
     permissions: ['storage'],
     background: { service_worker: 'background.js' },
@@ -31,7 +45,7 @@ async function main() {
   );
   await writeFile(
     path.join(extension, 'proof.html'),
-    '<!doctype html><html><head><title>Directory proof fixture</title></head><body><button id="pick">Select test directory</button><button id="write">Write test update</button><button id="reload">Reload</button><pre id="result"></pre><script src="proof.js"></script></body></html>',
+    '<!doctype html><html><head><title>Directory proof fixture</title></head><body><button id="pick">Select test directory</button><button id="write">Write test update</button><button id="reload">Reload</button><pre id="result"></pre><script src="directory-binding.js"></script><script src="proof.js"></script></body></html>',
   );
   await writeFile(
     path.join(extension, 'proof.js'),
@@ -48,7 +62,8 @@ document.querySelector('#write').onclick = async () => { try {
  if (permission !== 'granted') throw new Error('Write permission: '+permission);
  const file = await directory.getFileHandle('manifest.json');
  const manifest = JSON.parse(await (await file.getFile()).text());
- if (manifest.name !== 'Directory proof fixture') throw new Error('Unexpected directory');
+ await LodyDirectory.verifyInstallationDirectory(directory, {id:chrome.runtime.id,version:chrome.runtime.getManifest().version,rootUrl:chrome.runtime.getURL('')});
+ if (manifest.name !== 'Lody') throw new Error('Unexpected directory');
  await chrome.storage.local.set({proof:'retained'});
  manifest.version = '0.0.2';
  const writer = await file.createWritable(); await writer.write(JSON.stringify(manifest)); await writer.close();

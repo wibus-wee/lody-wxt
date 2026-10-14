@@ -39,6 +39,8 @@ async function sendExisting(world: JourneyWorld) {
   await sendButton(world.page).click();
   await expect(userTurn(world.page, world.draft)).toHaveCount(1);
   world.sessionId = 'history-a';
+  // A rendered optimistic turn is not proof that the controlled backend committed it.
+  await expect.poll(() => world.cloud.submittedQuestions(world.draft)).toBe(1);
   world.requestId = world.cloud.submittedTurn().requestId;
 }
 
