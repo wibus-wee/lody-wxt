@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.0](https://github.com/wibus-wee/lody-wxt/compare/v0.2.4...v0.3.0) (2026-10-14)
+
+
+### Features
+
+* implement directory-bound incremental extension updates ([#27](https://github.com/wibus-wee/lody-wxt/issues/27)) ([b2d3cae](https://github.com/wibus-wee/lody-wxt/commit/b2d3caee12f85e4e92b7e49ee0b94cebbc6c3d6b))
+
+
+### Bug Fixes
+
+* serve built web assets for assurance journeys ([#29](https://github.com/wibus-wee/lody-wxt/issues/29)) ([1724c5d](https://github.com/wibus-wee/lody-wxt/commit/1724c5dced2f711cab4c1bba63f7764d24e68b3e))
+
+
+### Performance Improvements
+
+* verify release packages in the version PR ([#25](https://github.com/wibus-wee/lody-wxt/issues/25)) ([7d67bac](https://github.com/wibus-wee/lody-wxt/commit/7d67bac02c20aca2f1a3901de5ccad8a1b080469))
+
 ## [0.2.4](https://github.com/wibus-wee/lody-wxt/compare/v0.2.3...v0.2.4) (2026-10-13)
 
 
