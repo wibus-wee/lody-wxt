@@ -23,8 +23,8 @@ const manifestSchema = v.object({
 const bindingSchema = v.strictObject({
   directory: v.custom<FileSystemDirectoryHandle>(
     (value) =>
-      typeof FileSystemDirectoryHandle !== 'undefined' &&
-      value instanceof FileSystemDirectoryHandle,
+      globalThis.FileSystemDirectoryHandle !== undefined &&
+      value instanceof globalThis.FileSystemDirectoryHandle,
   ),
   id: v.string(),
 });
@@ -102,12 +102,17 @@ export async function verifyInstallationDirectory(
       throw error;
     }
     const url = new URL(markerName, origin).href;
-    const response = await request(url, {
-      cache: 'no-store',
-      credentials: 'omit',
-      redirect: 'error',
-      signal: AbortSignal.timeout(5000),
-    });
+    let response: Response;
+    try {
+      response = await request(url, {
+        cache: 'no-store',
+        credentials: 'omit',
+        redirect: 'error',
+        signal: AbortSignal.timeout(5000),
+      });
+    } catch (cause) {
+      throw new Error('无法验证所选目录，请确认选择的是当前扩展的安装目录。', { cause });
+    }
     if (!response.ok || response.url !== url || (await response.text()) !== marker)
       throw new Error('所选目录不是当前扩展的安装目录。');
   } finally {

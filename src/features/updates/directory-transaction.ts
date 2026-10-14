@@ -15,8 +15,8 @@ const journalSchema = v.strictObject({
   schema: v.literal(1),
   directory: v.custom<FileSystemDirectoryHandle>(
     (value) =>
-      typeof FileSystemDirectoryHandle !== 'undefined' &&
-      value instanceof FileSystemDirectoryHandle,
+      globalThis.FileSystemDirectoryHandle !== undefined &&
+      value instanceof globalThis.FileSystemDirectoryHandle,
   ),
   release: appcastSchema,
   index: v.unknown(),

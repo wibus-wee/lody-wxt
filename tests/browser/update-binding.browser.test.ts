@@ -67,7 +67,7 @@ it('cleans up after failed fetches but preserves external replacements of the ma
     verifyInstallationDirectory(directory, identity, async () => {
       throw new Error('offline');
     }),
-  ).rejects.toThrow('offline');
+  ).rejects.toThrow('无法验证所选目录');
   expect(await inventory()).toEqual(['manifest.json']);
   await expect(
     verifyInstallationDirectory(directory, identity, async (input) => {

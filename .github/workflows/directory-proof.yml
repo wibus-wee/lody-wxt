@@ -3,6 +3,11 @@ on:
   pull_request:
     paths:
       - 'tools/update-probe/**'
+      - 'src/features/updates/**'
+      - tools/release/update-index.mjs
+      - package.json
+      - pnpm-lock.yaml
+      - wxt.config.ts
       - .github/workflows/directory-proof.yml
 permissions:
   contents: read
@@ -30,8 +35,16 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: sudo apt-get update && sudo apt-get install -y xvfb xdotool imagemagick openbox
       - run: xvfb-run --auto-servernum sh -c 'openbox >/tmp/openbox.log 2>&1 & sleep 1; node tools/update-probe/run.mjs'
+      - name: Build actual product for native updater journey
+        env:
+          LODY_UI_PINNED: '1'
+        run: pnpm build
+      - name: Exercise actual updater controls
+        run: xvfb-run --auto-servernum sh -c 'openbox >/tmp/openbox-product.log 2>&1 & sleep 1; node tools/update-probe/product.mjs'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: directory-proof-${{ github.event.pull_request.head.sha }}
-          path: reports/directory-proof/
+          path: |
+            reports/directory-proof/
+            reports/directory-product/
