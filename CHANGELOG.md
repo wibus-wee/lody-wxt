@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/wibus-wee/lody-wxt/compare/v0.3.0...v0.3.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* verify merged release runs through commit association ([#30](https://github.com/wibus-wee/lody-wxt/issues/30)) ([9520fb7](https://github.com/wibus-wee/lody-wxt/commit/9520fb7f35657eef1bb32fb725eea95ec327e312))
+
 ## [0.3.0](https://github.com/wibus-wee/lody-wxt/compare/v0.2.4...v0.3.0) (2026-10-14)
 
 
