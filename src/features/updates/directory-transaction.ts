@@ -13,7 +13,11 @@ const entrySchema = v.strictObject({
 });
 const journalSchema = v.strictObject({
   schema: v.literal(1),
-  directory: v.instance(FileSystemDirectoryHandle),
+  directory: v.custom<FileSystemDirectoryHandle>(
+    (value) =>
+      typeof FileSystemDirectoryHandle !== 'undefined' &&
+      value instanceof FileSystemDirectoryHandle,
+  ),
   release: appcastSchema,
   index: v.unknown(),
   entries: v.pipe(v.array(entrySchema), v.maxLength(10000)),

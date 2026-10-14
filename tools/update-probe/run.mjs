@@ -18,6 +18,13 @@ async function main() {
   const report = path.resolve('reports/directory-proof');
   await mkdir(extension);
   await mkdir(report, { recursive: true });
+  await writeFile(
+    path.join(report, 'source.json'),
+    JSON.stringify({
+      commit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+      tree: execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { encoding: 'utf8' }).trim(),
+    }),
+  );
   await build({
     configFile: false,
     build: {

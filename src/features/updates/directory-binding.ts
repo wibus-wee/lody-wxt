@@ -21,7 +21,11 @@ const manifestSchema = v.object({
   version: v.string(),
 });
 const bindingSchema = v.strictObject({
-  directory: v.instance(FileSystemDirectoryHandle),
+  directory: v.custom<FileSystemDirectoryHandle>(
+    (value) =>
+      typeof FileSystemDirectoryHandle !== 'undefined' &&
+      value instanceof FileSystemDirectoryHandle,
+  ),
   id: v.string(),
 });
 async function storage(action: 'read' | 'write', binding?: v.InferOutput<typeof bindingSchema>) {
