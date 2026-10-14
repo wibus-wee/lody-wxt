@@ -1,0 +1,365 @@
+[
+  {
+    "surface": "web",
+    "route": "/#/settings?section=general",
+    "scenario": "settings-general",
+    "state": "Focused 通用 settings with category navigation appropriate to viewport",
+    "account": "signed-in",
+    "covers": [
+      "src/features/connection/Settings.tsx",
+      "src/features/updates/UpdateSettingsLink.tsx"
+    ],
+    "before": {
+      "route": "/#/settings",
+      "state": "Previous flat settings list at 外观",
+      "account": "signed-in",
+      "actions": [
+        {
+          "action": "assertVisible",
+          "role": "heading",
+          "name": "外观"
+        }
+      ]
+    },
+    "actions": [
+      {
+        "action": "assertVisible",
+        "role": "heading",
+        "name": "通用"
+      }
+    ]
+  },
+  {
+    "surface": "web",
+    "route": "/#/settings?section=conversation",
+    "scenario": "settings-conversation",
+    "state": "Focused 对话偏好 settings with category navigation appropriate to viewport",
+    "account": "signed-in",
+    "covers": [
+      "src/features/connection/Settings.tsx",
+      "src/features/privacy/BrowserPrivacySettings.tsx",
+      "src/features/updates/UpdateSettingsLink.tsx"
+    ],
+    "before": {
+      "route": "/#/settings",
+      "state": "Previous flat settings list at 个人偏好",
+      "account": "signed-in",
+      "actions": [
+        {
+          "action": "assertVisible",
+          "role": "heading",
+          "name": "个人偏好"
+        }
+      ]
+    },
+    "actions": [
+      {
+        "action": "assertVisible",
+        "role": "heading",
+        "name": "对话偏好"
+      }
+    ]
+  },
+  {
+    "surface": "web",
+    "route": "/#/settings?section=notifications",
+    "scenario": "settings-notifications",
+    "state": "Focused 通知 settings with category navigation appropriate to viewport",
+    "account": "signed-in",
+    "covers": [
+      "src/features/connection/Settings.tsx",
+      "src/features/notifications/NotificationSettings.tsx",
+      "src/features/updates/UpdateSettingsLink.tsx"
+    ],
+    "before": {
+      "route": "/#/settings",
+      "state": "Previous flat settings list at 任务通知",
+      "account": "signed-in",
+      "actions": [
+        {
+          "action": "assertVisible",
+          "role": "heading",
+          "name": "任务通知"
+        }
+      ]
+    },
+    "actions": [
+      {
+        "action": "assertVisible",
+        "role": "heading",
+        "name": "通知"
+      }
+    ]
+  },
+  {
+    "surface": "web",
+    "route": "/#/settings?section=privacy",
+    "scenario": "settings-privacy",
+    "state": "Focused 隐私与数据 settings with category navigation appropriate to viewport",
+    "account": "signed-in",
+    "covers": [
+      "src/features/connection/Settings.tsx",
+      "src/features/privacy/BrowserPrivacySettings.tsx",
+      "src/features/updates/UpdateSettingsLink.tsx"
+    ],
+    "before": {
+      "route": "/#/settings",
+      "state": "Previous flat settings list at 浏览器访问",
+      "account": "signed-in",
+      "actions": [
+        {
+          "action": "assertVisible",
+          "role": "heading",
+          "name": "浏览器访问"
+        }
+      ]
+    },
+    "actions": [
+      {
+        "action": "assertVisible",
+        "role": "heading",
+        "name": "隐私与数据"
+      }
+    ]
+  },
+  {
+    "surface": "web",
+    "route": "/#/settings?section=updates",
+    "scenario": "settings-updates",
+    "state": "Focused 关于与更新 settings with category navigation appropriate to viewport",
+    "account": "signed-in",
+    "covers": [
+      "src/features/connection/Settings.tsx",
+      "src/features/updates/UpdateNotice.tsx",
+      "src/features/updates/UpdateSettingsLink.tsx"
+    ],
+    "before": {
+      "route": "/#/settings",
+      "state": "Previous flat settings list at 扩展更新",
+      "account": "signed-in",
+      "actions": [
+        {
+          "action": "assertVisible",
+          "role": "heading",
+          "name": "扩展更新"
+        }
+      ]
+    },
+    "actions": [
+      {
+        "action": "assertVisible",
+        "role": "heading",
+        "name": "关于与更新"
+      }
+    ]
+  },
+  {
+    "surface": "extension",
+    "entry": "options",
+    "route": "/#/settings?section=general",
+    "scenario": "settings-general",
+    "state": "Focused 通用 settings with category navigation appropriate to viewport",
+    "account": "signed-in",
+    "covers": [
+      "src/features/connection/Settings.tsx",
+      "src/features/updates/UpdateSettingsLink.tsx"
+    ],
+    "before": {
+      "route": "/#/settings",
+      "state": "Previous flat settings list at 外观",
+      "account": "signed-in",
+      "actions": [
+        {
+          "action": "assertVisible",
+          "role": "heading",
+          "name": "外观"
+        }
+      ]
+    },
+    "actions": [
+      {
+        "action": "assertVisible",
+        "role": "heading",
+        "name": "通用"
+      }
+    ]
+  },
+  {
+    "surface": "extension",
+    "entry": "options",
+    "route": "/#/settings?section=conversation",
+    "scenario": "settings-conversation",
+    "state": "Focused 对话偏好 settings with category navigation appropriate to viewport",
+    "account": "signed-in",
+    "covers": [
+      "src/features/connection/Settings.tsx",
+      "src/features/privacy/BrowserPrivacySettings.tsx",
+      "src/features/updates/UpdateSettingsLink.tsx"
+    ],
+    "before": {
+      "route": "/#/settings",
+      "state": "Previous flat settings list at 个人偏好",
+      "account": "signed-in",
+      "actions": [
+        {
+          "action": "assertVisible",
+          "role": "heading",
+          "name": "个人偏好"
+        }
+      ]
+    },
+    "actions": [
+      {
+        "action": "assertVisible",
+        "role": "heading",
+        "name": "对话偏好"
+      }
+    ]
+  },
+  {
+    "surface": "extension",
+    "entry": "options",
+    "route": "/#/settings?section=notifications",
+    "scenario": "settings-notifications",
+    "state": "Focused 通知 settings with category navigation appropriate to viewport",
+    "account": "signed-in",
+    "covers": [
+      "src/features/connection/Settings.tsx",
+      "src/features/notifications/NotificationSettings.tsx",
+      "src/features/updates/UpdateSettingsLink.tsx"
+    ],
+    "before": {
+      "route": "/#/settings",
+      "state": "Previous flat settings list at 任务通知",
+      "account": "signed-in",
+      "actions": [
+        {
+          "action": "assertVisible",
+          "role": "heading",
+          "name": "任务通知"
+        }
+      ]
+    },
+    "actions": [
+      {
+        "action": "assertVisible",
+        "role": "heading",
+        "name": "通知"
+      }
+    ]
+  },
+  {
+    "surface": "extension",
+    "entry": "options",
+    "route": "/#/settings?section=privacy",
+    "scenario": "settings-privacy",
+    "state": "Focused 隐私与数据 settings with category navigation appropriate to viewport",
+    "account": "signed-in",
+    "covers": [
+      "src/features/connection/Settings.tsx",
+      "src/features/privacy/BrowserPrivacySettings.tsx",
+      "src/features/updates/UpdateSettingsLink.tsx"
+    ],
+    "before": {
+      "route": "/#/settings",
+      "state": "Previous flat settings list at 浏览器访问",
+      "account": "signed-in",
+      "actions": [
+        {
+          "action": "assertVisible",
+          "role": "heading",
+          "name": "浏览器访问"
+        }
+      ]
+    },
+    "actions": [
+      {
+        "action": "assertVisible",
+        "role": "heading",
+        "name": "隐私与数据"
+      }
+    ]
+  },
+  {
+    "surface": "extension",
+    "entry": "options",
+    "route": "/#/settings?section=updates",
+    "scenario": "settings-updates",
+    "state": "Focused 关于与更新 settings with category navigation appropriate to viewport",
+    "account": "signed-in",
+    "covers": [
+      "src/features/connection/Settings.tsx",
+      "src/features/updates/UpdateNotice.tsx",
+      "src/features/updates/UpdateSettingsLink.tsx"
+    ],
+    "before": {
+      "route": "/#/settings",
+      "state": "Previous flat settings list at 扩展更新",
+      "account": "signed-in",
+      "actions": [
+        {
+          "action": "assertVisible",
+          "role": "heading",
+          "name": "扩展更新"
+        }
+      ]
+    },
+    "actions": [
+      {
+        "action": "assertVisible",
+        "role": "heading",
+        "name": "关于与更新"
+      }
+    ]
+  },
+  {
+    "surface": "extension",
+    "entry": "sidepanel",
+    "route": "/#/settings",
+    "scenario": "settings-index",
+    "state": "Settings category index in side panel",
+    "account": "signed-in",
+    "covers": [
+      "src/features/connection/Settings.tsx",
+      "src/features/updates/UpdateSettingsLink.tsx"
+    ],
+    "before": {
+      "route": "/#/settings",
+      "state": "Previous flat settings entry",
+      "account": "signed-in",
+      "actions": [
+        {
+          "action": "assertVisible",
+          "role": "heading",
+          "name": "设置"
+        }
+      ]
+    },
+    "actions": [
+      {
+        "action": "assertVisible",
+        "role": "navigation",
+        "name": "设置分类"
+      }
+    ]
+  },
+  {
+    "surface": "extension",
+    "entry": "popup",
+    "route": "/#/",
+    "scenario": "settings-popup-entry",
+    "state": "Popup settings entry remains available",
+    "account": "signed-out",
+    "covers": [
+      "src/features/connection/Settings.tsx",
+      "src/features/updates/UpdateSettingsLink.tsx"
+    ],
+    "actions": [
+      {
+        "action": "assertVisible",
+        "role": "button",
+        "name": "打开设置"
+      }
+    ]
+  }
+]

@@ -2,8 +2,9 @@ import * as stylex from '@stylexjs/stylex';
 import { useEffect, useState } from 'react';
 
 import { isExtension } from '../../shared/storage';
-import { Alert, Field, Switch } from '../../shared/ui';
+import { Alert, Button, Field, Switch } from '../../shared/ui';
 import { Card } from '../../shared/ui/card';
+import { Collapsible } from '../../shared/ui/collapsible';
 import { composer } from '../../shared/ui/composer.stylex';
 import { getNotificationState, setNotificationsEnabled, watchNotificationState } from './client';
 import type { NotificationState } from './model';
@@ -81,16 +82,23 @@ export function NotificationSettings() {
           </Alert.Root>
         )}
         {!!state?.events.length && (
-          <ul aria-label="最近任务通知" {...stylex.props(styles.events)}>
-            {state.events
-              .slice(-5)
-              .toReversed()
-              .map((event) => (
-                <li key={event.id} {...stylex.props(styles.hint)}>
-                  {notificationMessage(event.kind)} · {new Date(event.at).toLocaleString()}
-                </li>
-              ))}
-          </ul>
+          <Collapsible.Root>
+            <Collapsible.Trigger render={<Button variant="ghost" size="small" />}>
+              最近任务通知
+            </Collapsible.Trigger>
+            <Collapsible.Panel>
+              <ul aria-label="最近任务通知" {...stylex.props(styles.events)}>
+                {state.events
+                  .slice(-5)
+                  .toReversed()
+                  .map((event) => (
+                    <li key={event.id} {...stylex.props(styles.hint)}>
+                      {notificationMessage(event.kind)} · {new Date(event.at).toLocaleString()}
+                    </li>
+                  ))}
+              </ul>
+            </Collapsible.Panel>
+          </Collapsible.Root>
         )}
       </div>
     </Card.Root>

@@ -11,6 +11,7 @@ When(
     await ready(this);
     await this.page.getByRole('textbox', { name: '消息', exact: true }).fill(this.draft);
     await this.page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await this.page.getByRole('button', { name: '对话偏好 回复指令与背景' }).click();
     await this.evidence.check('preference-off-by-default', () =>
       expect(this.page.getByRole('switch', { name: '在新消息中使用' })).not.toBeChecked(),
     );
@@ -49,6 +50,7 @@ When(
     await this.page.getByRole('button', { name: '新建会话', exact: true }).click();
     await this.page.getByRole('textbox', { name: '消息', exact: true }).fill('下一条独立问题');
     await this.page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await this.page.getByRole('button', { name: '对话偏好 回复指令与背景' }).click();
     await this.page.getByRole('switch', { name: '在新消息中使用' }).click();
     await expect(this.page.getByRole('switch', { name: '在新消息中使用' })).not.toBeChecked();
     await this.page.getByRole('button', { name: '删除偏好', exact: true }).click();

@@ -44,7 +44,7 @@ export function UpdateSettingsLinkView({
             aria-label="Settings"
             aria-description={version ? hint : undefined}
             data-update-version={version ?? undefined}
-            render={<NavLink to="/settings" />}
+            render={<NavLink to={version ? '/settings?section=updates' : '/settings'} />}
           />
         }
       >
