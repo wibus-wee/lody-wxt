@@ -31,8 +31,8 @@ export type UpdateIndex = v.InferOutput<typeof indexSchema>;
 export type UpdateFile = UpdateIndex['files'][number];
 
 export function parseUpdateIndex(input: unknown, release: Appcast): UpdateIndex {
-  v.parse(appcastSchema, release);
   const index = v.parse(indexSchema, input);
+  v.parse(appcastSchema, release);
   if (
     index.version !== release.version ||
     index.archive.length !== release.enclosure.length ||
@@ -98,12 +98,12 @@ async function readBounded(
   const chunks: Uint8Array[] = [];
   let length = 0;
   try {
-    for (;;) {
-      const next = await reader.read();
-      if (next.done) break;
+    let next = await reader.read();
+    while (!next.done) {
       length += next.value.length;
       if (length > maximum) throw new Error('更新下载超过允许大小。');
       chunks.push(next.value);
+      next = await reader.read();
     }
   } finally {
     await reader.cancel();
@@ -171,7 +171,7 @@ async function decodeFile(file: UpdateFile, compressed: Uint8Array<ArrayBuffer>)
 // Nothing here writes the installation. All bytes are verified before handoff.
 export async function downloadUpdateFiles(
   release: Appcast,
-  input: unknown,
+  input: UpdateIndex,
   unchanged: ReadonlyMap<string, string>,
   signal: AbortSignal,
   request: typeof fetch = globalThis.fetch,

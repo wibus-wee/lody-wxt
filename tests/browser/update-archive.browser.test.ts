@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 
 import type { Appcast } from '../../src/features/updates/appcast';
-import type { UpdateFile } from '../../src/features/updates/archive';
+import type { UpdateFile, UpdateIndex } from '../../src/features/updates/archive';
 import {
   downloadUpdateFiles,
   fetchUpdateIndex,
@@ -55,7 +55,7 @@ async function fixture() {
       type: 'application/zip',
     },
   };
-  const index = {
+  const index: UpdateIndex = {
     schemaVersion: 1,
     application: 'lody-wxt',
     version: release.version,
