@@ -14,6 +14,27 @@ import { contentHash, validateScreenshotManifest } from './screenshot-manifest.m
 import { scanDiffSecrets } from './secrets.mjs';
 import { assertCleanSnapshot } from './snapshot.mjs';
 
+const generalCategoryName = /^通用(?:\s|$)/;
+
+// Both layouts must use the real theme control. Wait for hydration before
+// choosing a path; a hidden control in a narrow category view is not ready.
+export async function selectCaptureTheme(page, theme, assertion) {
+  if (!['light', 'dark'].includes(theme)) throw new Error('Unsupported capture theme');
+  const control = page.getByRole('combobox', { name: '主题', exact: true });
+  const general = page
+    .getByRole('navigation', { name: '设置分类', exact: true })
+    .getByRole('button', { name: generalCategoryName });
+  await assertion(control.or(general).filter({ visible: true }).first()).toBeVisible();
+  if (!(await control.isVisible())) await general.click();
+  await assertion(control).toBeVisible();
+  await control.click();
+  await page
+    .getByRole('option', { name: theme === 'light' ? '浅色' : '深色', exact: true })
+    .click();
+  await page.keyboard.press('Escape');
+  await assertion(page.locator('main')).toHaveAttribute('data-theme', theme);
+}
+
 export const captureViewports = Object.freeze([
   { width: 1280, height: 800 },
   { width: 390, height: 844 },
@@ -729,12 +750,7 @@ export async function captureUI({
                 await setup.goto(`${optionsUrl}/#/account`.replace('.html/#', '.html#'));
                 if (plan.account === 'signed-in') await signIn(setup);
                 await setup.getByRole('button', { name: 'Settings', exact: true }).click();
-                await setup.getByRole('combobox', { name: '主题', exact: true }).click();
-                await setup
-                  .getByRole('option', { name: theme === 'light' ? '浅色' : '深色', exact: true })
-                  .click();
-                await setup.keyboard.press('Escape');
-                await expect(setup.locator('main')).toHaveAttribute('data-theme', theme);
+                await selectCaptureTheme(setup, theme, expect);
                 page = plan.surface === 'extension' ? await context.newPage() : setup;
                 page.setDefaultTimeout(10000);
                 await configureCaptureClock(page, plan.surface);
