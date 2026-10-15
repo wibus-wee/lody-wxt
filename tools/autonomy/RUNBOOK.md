@@ -22,7 +22,15 @@ Do not interpret missing events or unobserved CI completion as successful accept
 - Do not manually mark old acceptance checks green.
   If a remote required check still names the removed acceptance service, obtain owner approval to migrate that exact branch rule.
   This change does not mutate repository settings.
-- Keep the existing strict GitHub protection, required PR Quality identity, code-owner approval and no-force-push controls. `pnpm autonomy:preflight` only inspects them.
+- Require PR-only changes on `main`, strict up-to-date checks, `PR Quality / verify` from GitHub Actions (App ID 15368), administrator enforcement, linear history, no force pushes and no branch deletion.
+  Do not configure PR bypass allowances.
+- This is a single-maintainer repository: require zero GitHub approvals, no mandatory Code Owner review and no last-push approval.
+  The owner cannot approve their own PR.
+  CODEOWNERS remains a scope map; protected/elevated changes still require explicit owner approval outside candidate-controlled content, and the connected assistant personally reviews all evidence.
+- Repository auto-merge need not be enabled.
+  The assistant merges only the freshly verified exact head through the existing connection and never arms deferred auto-merge.
+  The historical `protected-auto-merge` strategy name means this protected direct merge path without a merge queue.
+- `pnpm autonomy:preflight` only inspects these prerequisites.
   A denied API means unknown configuration.
 - Release promotion/publication uses the existing restricted environments without manual reviewers.
   Test, performance, checksum, attestation and immutable-download gates still apply; credentials are unchanged.
