@@ -11,10 +11,20 @@ When(
     await ready(this);
     await this.page.getByRole('textbox', { name: '消息', exact: true }).fill(this.draft);
     await this.page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await this.page.getByRole('button', { name: '对话偏好 回复指令与背景' }).click();
     await this.evidence.check('preference-off-by-default', () =>
       expect(this.page.getByRole('switch', { name: '在新消息中使用' })).not.toBeChecked(),
     );
     await this.page.getByRole('textbox', { name: '回复偏好与背景' }).fill(preference);
+    const back = this.page.getByRole('button', { name: '返回设置', exact: true });
+    if (await back.isVisible()) await back.click();
+    await this.page.getByRole('button', { name: '隐私与数据 浏览器访问与附件草稿' }).click();
+    await expect(this.page.getByRole('heading', { name: '隐私与数据', exact: true })).toBeVisible();
+    if (await back.isVisible()) await back.click();
+    await this.page.getByRole('button', { name: '对话偏好 回复指令与背景' }).click();
+    await expect(this.page.getByRole('textbox', { name: '回复偏好与背景' })).toHaveValue(
+      preference,
+    );
     await this.page.getByRole('button', { name: '保存偏好', exact: true }).click();
     await expect(this.page.getByText('个人偏好已保存。', { exact: true })).toBeVisible();
     await this.page.getByRole('switch', { name: '在新消息中使用' }).click();
@@ -49,6 +59,7 @@ When(
     await this.page.getByRole('button', { name: '新建会话', exact: true }).click();
     await this.page.getByRole('textbox', { name: '消息', exact: true }).fill('下一条独立问题');
     await this.page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await this.page.getByRole('button', { name: '对话偏好 回复指令与背景' }).click();
     await this.page.getByRole('switch', { name: '在新消息中使用' }).click();
     await expect(this.page.getByRole('switch', { name: '在新消息中使用' })).not.toBeChecked();
     await this.page.getByRole('button', { name: '删除偏好', exact: true }).click();

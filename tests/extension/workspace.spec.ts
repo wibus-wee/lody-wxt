@@ -59,7 +59,7 @@ test('built MV3 popup and options synchronize durable preferences through the se
     const popup = await context.newPage();
     const options = await context.newPage();
     await popup.goto(`chrome-extension://${id}/popup.html`);
-    await options.goto(`chrome-extension://${id}/options.html#/settings`);
+    await options.goto(`chrome-extension://${id}/options.html#/settings?section=general`);
     await expect(popup.locator('main')).toHaveAttribute('data-mood', 'outline');
     await expect(options.locator('main')).toHaveAttribute('data-mood', 'outline');
     const ambient = options.getByRole('switch', { name: '背景动态效果', exact: true });

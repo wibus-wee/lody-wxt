@@ -50,6 +50,7 @@ async function main() {
     await options.goto(`chrome-extension://${id}/options.html#/settings`);
     await options.getByRole('heading', { name: 'Release install check', exact: true }).waitFor();
     assert.equal(await options.locator('main').getAttribute('data-theme'), 'dark');
+    await options.getByRole('button', { name: '通用 外观与浏览器快捷键', exact: true }).click();
     await options.getByRole('combobox', { name: '主题', exact: true }).waitFor();
 
     // Closing Chrome releases files on Windows; restarting reloads the same extension ID.

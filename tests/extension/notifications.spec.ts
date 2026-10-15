@@ -124,6 +124,7 @@ test('packaged notifications observe verified terminal events with the panel clo
     });
     await expect.poll(async () => (await state(worker)).tracked['history-a']).toBeGreaterThan(0);
     await panel.getByRole('button', { name: 'Settings', exact: true }).click();
+    await panel.getByRole('button', { name: '通知 任务提醒与最近通知' }).click();
     await panel.getByRole('switch', { name: '会话完成或需要处理时通知我', exact: true }).click();
     await evidence.check('consent-and-baseline', async () => {
       await expect

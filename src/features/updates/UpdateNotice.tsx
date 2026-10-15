@@ -1,10 +1,14 @@
 import * as stylex from '@stylexjs/stylex';
+import { useState } from 'react';
 
+import { isExtension } from '../../shared/storage';
 import { Alert, Button } from '../../shared/ui';
 import { Card } from '../../shared/ui/card';
+import { Collapsible } from '../../shared/ui/collapsible';
 import { composer } from '../../shared/ui/composer.stylex';
 import type { UpdateState } from './appcast';
 import { availableRelease, compareVersions } from './appcast';
+import { directoryPickerAvailable } from './directory-binding';
 import { DirectoryUpdate } from './DirectoryUpdate';
 import { useUpdates } from './use-updates';
 
@@ -157,6 +161,7 @@ export function UpdateNotice({ installedVersion, state, busy, error, check, skip
 
 export function UpdateSettings() {
   const updates = useUpdates();
+  const [directoryOpen, setDirectoryOpen] = useState(false);
   const release =
     updates.installedVersion && updates.state
       ? availableRelease(updates.state, updates.installedVersion)
@@ -164,7 +169,16 @@ export function UpdateSettings() {
   return (
     <>
       <UpdateNotice {...updates} />
-      <DirectoryUpdate release={release} />
+      {isExtension() && directoryPickerAvailable() && (
+        <Collapsible.Root open={directoryOpen} onOpenChange={setDirectoryOpen}>
+          <Collapsible.Trigger render={<Button variant="ghost" size="small" />}>
+            安装目录与更新恢复
+          </Collapsible.Trigger>
+          <Collapsible.Panel keepMounted>
+            <DirectoryUpdate release={release} />
+          </Collapsible.Panel>
+        </Collapsible.Root>
+      )}
     </>
   );
 }

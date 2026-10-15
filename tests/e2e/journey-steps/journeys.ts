@@ -460,9 +460,10 @@ register('keep a question while changing theme and ambient policy', async (world
   await ready(world);
   await composer(world.page).fill(world.draft);
   world.otherPage = await world.context.newPage();
-  await world.otherPage.goto('http://127.0.0.1:4173/#/settings');
+  await world.otherPage.goto('http://127.0.0.1:4173/#/settings?section=general');
   await world.page.bringToFront();
   await world.page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await world.page.getByRole('button', { name: '通用 外观与浏览器快捷键' }).click();
   await world.page.getByRole('combobox', { name: '主题', exact: true }).click();
   const trigger = world.page.getByRole('option', { name: '深色', exact: true });
   const applied = await armInteraction(world.page, trigger, 'appearance-applied', {

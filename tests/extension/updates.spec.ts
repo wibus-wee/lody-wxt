@@ -74,7 +74,7 @@ test('packaged appcast preserves version-pinned downloads, skipped reminders and
     const id = new URL(worker.url()).host;
     const settings = await context.newPage();
     settings.on('pageerror', (error) => pageErrors.push(error.message));
-    await settings.goto(`chrome-extension://${id}/options.html#/settings`);
+    await settings.goto(`chrome-extension://${id}/options.html#/settings?section=updates`);
     const updates = settings.getByRole('region', { name: '扩展更新', exact: true });
     const check = updates.getByRole('button', { name: '检查更新', exact: true });
     await expect(check).toBeEnabled();
@@ -247,7 +247,7 @@ test('packaged appcast preserves version-pinned downloads, skipped reminders and
     const restartedPage: Page = await context.newPage();
     await evidence.check('profile-restart-retains-update-state', async () => {
       expect(new URL(restartedWorker.url()).host).toBe(id);
-      await restartedPage.goto(`chrome-extension://${id}/options.html#/settings`);
+      await restartedPage.goto(`chrome-extension://${id}/options.html#/settings?section=updates`);
       await expect(
         restartedPage.getByRole('region', { name: '扩展更新', exact: true }),
       ).toContainText(`可用版本：${newest}`);
