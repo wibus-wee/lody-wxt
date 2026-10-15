@@ -20,7 +20,7 @@ function configuration() {
     'release-monitor.yml',
   ];
   return {
-    repository: { autoMerge: true, defaultBranch: 'main' },
+    repository: { autoMerge: false, defaultBranch: 'main' },
     protection: {
       required_status_checks: {
         strict: true,
@@ -33,7 +33,11 @@ function configuration() {
       required_linear_history: { enabled: true },
       allow_force_pushes: { enabled: false },
       allow_deletions: { enabled: false },
-      required_pull_request_reviews: { require_code_owner_reviews: true },
+      required_pull_request_reviews: {
+        require_code_owner_reviews: false,
+        required_approving_review_count: 0,
+        require_last_push_approval: false,
+      },
     },
     branchRules: [
       { type: 'merge_queue', parameters: { max_entries_to_build: 1, max_entries_to_merge: 1 } },
@@ -78,4 +82,59 @@ test('personal repository does not need merge queue or a special acceptance chec
     assessConfiguration({ ...policy, mergeStrategy: 'protected-auto-merge' }, c).configured,
     true,
   );
+});
+
+test('single-maintainer review keeps PR-only changes without self-approval deadlock', () => {
+  for (const mutate of [
+    (c) => {
+      c.protection.required_pull_request_reviews = null;
+    },
+    (c) => {
+      c.protection.required_pull_request_reviews.require_code_owner_reviews = true;
+    },
+    (c) => {
+      c.protection.required_pull_request_reviews.required_approving_review_count = 1;
+    },
+    (c) => {
+      c.protection.required_pull_request_reviews.require_last_push_approval = true;
+    },
+    (c) => {
+      c.protection.required_pull_request_reviews.bypass_pull_request_allowances = {
+        users: [{}],
+        teams: [],
+        apps: [],
+      };
+    },
+    (c) => {
+      c.protection.required_status_checks.strict = false;
+    },
+    (c) => {
+      c.protection.enforce_admins.enabled = false;
+    },
+    (c) => {
+      c.protection.required_linear_history.enabled = false;
+    },
+    (c) => {
+      c.protection.allow_force_pushes.enabled = true;
+    },
+    (c) => {
+      c.protection.allow_deletions.enabled = true;
+    },
+    (c) => {
+      c.protection.required_status_checks.checks = [];
+    },
+  ]) {
+    const c = configuration();
+    mutate(c);
+    assert.equal(assessConfiguration(policy, c).configured, false);
+  }
+  const c = configuration();
+  c.protection.required_pull_request_reviews.bypass_pull_request_allowances = {
+    users: [],
+    teams: [],
+    apps: [],
+  };
+  assert.equal(assessConfiguration(policy, c).configured, true);
+  delete c.repository.autoMerge;
+  assert.equal(assessConfiguration(policy, c).configured, true);
 });
