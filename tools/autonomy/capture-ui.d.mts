@@ -7,3 +7,9 @@ export function captureSourceScreenshot(
   outcome: 'blocked' | 'overlay',
   assertion: typeof expect,
 ): Promise<Page>;
+
+export function selectCaptureTheme(
+  page: Page,
+  theme: 'light' | 'dark',
+  assertion: typeof expect,
+): Promise<void>;
