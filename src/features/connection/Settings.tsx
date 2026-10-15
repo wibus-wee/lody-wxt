@@ -40,10 +40,12 @@ const styles = stylex.create({
     width: '100%',
     justifyContent: 'space-between',
     height: 'auto',
+    minHeight: 64,
     paddingBlock: 12,
     textAlign: 'start',
   },
   selected: { backgroundColor: composer.background },
+  itemText: { minWidth: 0, flex: 1, whiteSpace: 'normal', lineHeight: 1.4 },
   caption: { display: 'block', color: composer.hint, fontSize: 12, fontWeight: 400, marginTop: 4 },
   detail: { minWidth: 0, display: 'grid', gap: 20 },
   hidden: { display: 'none' },
@@ -56,6 +58,14 @@ const styles = stylex.create({
     minHeight: 0,
   },
   heading: { fontSize: 20, margin: 0 },
+  detailHeading: {
+    justifySelf: 'start',
+    outlineStyle: 'none',
+    textDecorationLine: { default: 'none', ':focus-visible': 'underline' },
+    textDecorationColor: composer.hint,
+    textDecorationThickness: 1,
+    textUnderlineOffset: 6,
+  },
   section: { display: 'grid', gap: 16 },
   title: { fontSize: 13, fontWeight: 600, color: composer.hint, margin: 0 },
   form: { display: 'grid', gap: 8 },
@@ -128,7 +138,7 @@ export function Settings({
           onClick={() => select('account')}
           {...stylex.props(styles.item)}
         >
-          <span>
+          <span {...stylex.props(styles.itemText)}>
             {account.account?.user.name ?? account.account?.user.email ?? '登录 Lody'}
             <span {...stylex.props(styles.caption)}>
               {account.error ? '账户连接需要处理' : (account.workspace?.name ?? '账户与工作区')}
@@ -152,7 +162,7 @@ export function Settings({
               onClick={() => select(item.id)}
               {...stylex.props(styles.item, (active ?? 'general') === item.id && styles.selected)}
             >
-              <span>
+              <span {...stylex.props(styles.itemText)}>
                 {item.title}
                 <span {...stylex.props(styles.caption)}>{item.description}</span>
               </span>
@@ -166,7 +176,11 @@ export function Settings({
               返回设置
             </Button>
           </div>
-          <h3 ref={detailTitleRef} tabIndex={-1} {...stylex.props(styles.heading)}>
+          <h3
+            ref={detailTitleRef}
+            tabIndex={-1}
+            {...stylex.props(styles.heading, styles.detailHeading)}
+          >
             {active === 'account'
               ? '账户与工作区'
               : categories.find((item) => item.id === (active ?? 'general'))?.title}

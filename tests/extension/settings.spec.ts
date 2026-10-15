@@ -25,12 +25,38 @@ test('settings categories adapt to narrow and wide views and retain preferences 
     page.on('pageerror', (error) => errors.push(error.message));
     await page.goto(`chrome-extension://${id}/options.html#/settings`);
     const navigation = page.getByRole('navigation', { name: '设置分类' });
+    const expectComfortableRows = async () => {
+      const rows = await navigation.getByRole('button').evaluateAll((buttons) =>
+        buttons.map((button) => {
+          const row = button.getBoundingClientRect();
+          const content = button.firstElementChild!.getBoundingClientRect();
+          return {
+            height: row.height,
+            top: content.top - row.top,
+            bottom: row.bottom - content.bottom,
+            fits: button.scrollWidth <= button.clientWidth,
+          };
+        }),
+      );
+      expect(rows).toHaveLength(5);
+      for (const row of rows) {
+        expect(row.height).toBeGreaterThanOrEqual(64);
+        expect(row.top).toBeGreaterThanOrEqual(8);
+        expect(row.bottom).toBeGreaterThanOrEqual(8);
+        expect(row.fits).toBe(true);
+      }
+    };
     await expect(navigation.getByRole('button')).toHaveCount(5);
+    await expectComfortableRows();
     await expect(page.getByRole('combobox', { name: '主题' })).toBeHidden();
     await page.screenshot({ path: test.info().outputPath('settings-narrow-index.png') });
     await page.getByRole('button', { name: '通用 外观与浏览器快捷键' }).click();
     await expect(navigation).toBeHidden();
     await expect(page.getByRole('heading', { name: '通用', exact: true })).toBeFocused();
+    await expect(page.getByRole('heading', { name: '通用', exact: true })).toHaveCSS(
+      'outline-style',
+      'none',
+    );
     await page.getByRole('combobox', { name: '主题' }).click();
     await page.getByRole('option', { name: '深色', exact: true }).click();
     await expect(page.locator('main')).toHaveAttribute('data-theme', 'dark');
@@ -39,6 +65,14 @@ test('settings categories adapt to narrow and wide views and retain preferences 
     await page.getByRole('button', { name: '返回设置', exact: true }).click();
     await expect(navigation).toBeVisible();
     await expect(page.getByRole('button', { name: '通用 外观与浏览器快捷键' })).toBeFocused();
+    await page.keyboard.press('Enter');
+    const title = page.getByRole('heading', { name: '通用', exact: true });
+    await expect(title).toBeFocused();
+    await expect(title).toHaveCSS('outline-style', 'none');
+    await expect(title).toHaveCSS('text-decoration-line', 'underline');
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('combobox', { name: '主题' })).toBeFocused();
+    await page.getByRole('button', { name: '返回设置', exact: true }).click();
     await page.getByRole('button', { name: '隐私与数据 浏览器访问与附件草稿' }).click();
     await expect(page.getByRole('heading', { name: '本地附件草稿' })).toBeVisible();
     await expect(page.getByRole('button', { name: '设置浏览器快捷键' })).toBeHidden();
@@ -50,6 +84,7 @@ test('settings categories adapt to narrow and wide views and retain preferences 
     await page.setViewportSize({ width: 1100, height: 800 });
     await expect(navigation).toBeVisible();
     await expect(page.getByRole('button', { name: '返回设置', exact: true })).toBeHidden();
+    await expectComfortableRows();
     await page.getByRole('button', { name: '通用 外观与浏览器快捷键' }).click();
     await page.screenshot({ path: test.info().outputPath('settings-wide-general-dark.png') });
     expect(
@@ -60,6 +95,9 @@ test('settings categories adapt to narrow and wide views and retain preferences 
     await page.getByRole('option', { name: '浅色', exact: true }).click();
     await page.screenshot({ path: test.info().outputPath('settings-wide-general-light.png') });
     await page.setViewportSize({ width: 320, height: 700 });
+    await page.getByRole('button', { name: '返回设置', exact: true }).click();
+    await expectComfortableRows();
+    await page.getByRole('button', { name: '通用 外观与浏览器快捷键' }).click();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
