@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.2](https://github.com/wibus-wee/lody-wxt/compare/v0.3.1...v0.3.2) (2026-10-15)
+
+
+### Bug Fixes
+
+* align protected review with single-maintainer workflow ([#35](https://github.com/wibus-wee/lody-wxt/issues/35)) ([7492505](https://github.com/wibus-wee/lody-wxt/commit/7492505bc8a48d75b8d72cadb5ce6b62335b0986))
+* organize settings around user tasks and responsive navigation ([#32](https://github.com/wibus-wee/lody-wxt/issues/32)) ([b913d28](https://github.com/wibus-wee/lody-wxt/commit/b913d2828a27fb21a00adf7c3da8d1292e2ad19a))
+* support categorized settings in protected UI capture ([#33](https://github.com/wibus-wee/lody-wxt/issues/33)) ([f47d37c](https://github.com/wibus-wee/lody-wxt/commit/f47d37c67097b4e216e229576b572f37807830c3))
+
 ## [0.3.1](https://github.com/wibus-wee/lody-wxt/compare/v0.3.0...v0.3.1) (2026-10-14)
 
 
