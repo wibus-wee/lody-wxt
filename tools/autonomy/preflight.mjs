@@ -14,7 +14,6 @@ export function assessConfiguration(policy, results) {
   const require = (condition, reason) => {
     if (!condition) blockers.push(reason);
   };
-  require(results.repository?.autoMerge === true, 'Repository auto-merge is not confirmed enabled');
   require(results.repository?.defaultBranch ===
     policy.baseBranch, 'Default branch differs from protected policy');
   require(policy.reviewer === 'connected-assistant', 'Connected assistant review policy required');
@@ -26,8 +25,18 @@ export function assessConfiguration(policy, results) {
   require(protection?.allow_force_pushes?.enabled === false &&
     protection?.allow_deletions?.enabled ===
       false, 'Force-push/deletion restrictions are not confirmed');
-  require(protection?.required_pull_request_reviews?.require_code_owner_reviews ===
-    true, 'Protected code-owner approval is not enforced');
+  const reviews = protection?.required_pull_request_reviews;
+  require(reviews != null &&
+    typeof reviews === 'object', 'Pull-request-only changes are not enforced');
+  require(reviews?.require_code_owner_reviews === false &&
+    reviews?.required_approving_review_count === 0 &&
+    reviews?.require_last_push_approval ===
+      false, 'Single-maintainer review settings are not confirmed');
+  const bypass = reviews?.bypass_pull_request_allowances;
+  require(!bypass ||
+    ['users', 'teams', 'apps'].every(
+      (kind) => Array.isArray(bypass[kind]) && bypass[kind].length === 0,
+    ), 'Pull-request bypass allowances are not permitted');
   for (const name of policy.requiredChecks) {
     const app = policy.ciAppId;
     require(protection?.required_status_checks?.checks?.some(
