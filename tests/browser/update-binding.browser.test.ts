@@ -32,7 +32,11 @@ async function inventory() {
   return names;
 }
 afterEach(async () => {
-  if (name) await (await navigator.storage.getDirectory()).removeEntry(name, { recursive: true });
+  if (name) {
+    const current = name;
+    name = '';
+    await (await navigator.storage.getDirectory()).removeEntry(current, { recursive: true });
+  }
 });
 it('proves the selected directory with fresh served bytes and removes its temporary marker', async () => {
   await fixture();

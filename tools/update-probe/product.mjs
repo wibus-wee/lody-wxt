@@ -125,11 +125,19 @@ with zipfile.ZipFile(sys.argv[2],'w',compression=zipfile.ZIP_DEFLATED) as archiv
     await page.getByRole('button', { name: '恢复目录授权', exact: true }).click();
     await new Promise((resolve) => setTimeout(resolve, 1000));
     screenshot(`${label}-permission-prompt`);
-    if (cancel) key('Escape');
-    else {
-      key('Tab');
-      key('Return');
-    }
+    // The retained Chromium screenshot shows the restore-grant bubble at x135..455.
+    // Escape can dismiss the translation bubble instead, leaving the grant unresolved.
+    // Close this bubble explicitly, or grant this visit only (never persistent access).
+    execFileSync('xdotool', [
+      'mousemove',
+      cancel ? '427' : '295',
+      cancel ? '121' : '313',
+      'click',
+      '1',
+    ]);
+    await expect(page.getByRole('button', { name: '停止，保留恢复记录', exact: true })).toHaveCount(
+      0,
+    );
   }
   let id;
   async function reloadExtension() {

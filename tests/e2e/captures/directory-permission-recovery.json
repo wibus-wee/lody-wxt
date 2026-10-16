@@ -1,0 +1,109 @@
+[
+  {
+    "surface": "web",
+    "route": "/#/settings",
+    "scenario": "directory-permission-entry",
+    "state": "Saved-directory permission recovery entry and unbound guidance",
+    "account": "signed-out",
+    "covers": [
+      "src/features/updates/DirectoryUpdate.tsx",
+      "src/features/updates/DirectoryUpdateView.tsx"
+    ],
+    "actions": [
+      {
+        "action": "click",
+        "role": "button",
+        "name": "关于与更新 版本与安装方式"
+      },
+      {
+        "action": "assertAbsent",
+        "role": "region",
+        "name": "目录更新"
+      },
+      {
+        "action": "assertVisible",
+        "role": "region",
+        "name": "扩展更新"
+      }
+    ]
+  },
+  {
+    "surface": "extension",
+    "route": "/#/settings",
+    "scenario": "directory-permission-entry",
+    "state": "Saved-directory permission recovery entry and unbound guidance",
+    "account": "signed-out",
+    "covers": [
+      "src/features/updates/DirectoryUpdate.tsx",
+      "src/features/updates/DirectoryUpdateView.tsx"
+    ],
+    "actions": [
+      {
+        "action": "click",
+        "role": "button",
+        "name": "关于与更新 版本与安装方式"
+      },
+      {
+        "action": "click",
+        "role": "button",
+        "name": "安装目录与更新恢复"
+      },
+      {
+        "action": "assertText",
+        "role": "region",
+        "name": "目录更新",
+        "value": "尚未绑定安装目录"
+      }
+    ],
+    "entry": "options"
+  },
+  {
+    "surface": "extension",
+    "route": "/#/settings",
+    "scenario": "directory-permission-entry",
+    "state": "Saved-directory permission recovery entry and unbound guidance",
+    "account": "signed-out",
+    "covers": [
+      "src/features/updates/DirectoryUpdate.tsx",
+      "src/features/updates/DirectoryUpdateView.tsx"
+    ],
+    "actions": [
+      {
+        "action": "click",
+        "role": "button",
+        "name": "关于与更新 版本与安装方式"
+      },
+      {
+        "action": "click",
+        "role": "button",
+        "name": "安装目录与更新恢复"
+      },
+      {
+        "action": "assertText",
+        "role": "region",
+        "name": "目录更新",
+        "value": "尚未绑定安装目录"
+      }
+    ],
+    "entry": "sidepanel"
+  },
+  {
+    "surface": "extension",
+    "route": "/#/settings",
+    "scenario": "directory-permission-entry",
+    "state": "Saved-directory permission recovery entry and unbound guidance",
+    "account": "signed-out",
+    "covers": [
+      "src/features/updates/DirectoryUpdate.tsx",
+      "src/features/updates/DirectoryUpdateView.tsx"
+    ],
+    "actions": [
+      {
+        "action": "assertVisible",
+        "role": "button",
+        "name": "打开设置"
+      }
+    ],
+    "entry": "popup"
+  }
+]
