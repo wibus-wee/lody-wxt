@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.3](https://github.com/wibus-wee/lody-wxt/compare/v0.3.2...v0.3.3) (2026-10-16)
+
+
+### Bug Fixes
+
+* **assurance:** capture preview latency and expose release reports ([#40](https://github.com/wibus-wee/lody-wxt/issues/40)) ([3702857](https://github.com/wibus-wee/lody-wxt/commit/3702857d007a9878cd1ca1ca8b9fb3b3a24c8e35))
+* **assurance:** capture real expired installation directory grants ([#38](https://github.com/wibus-wee/lody-wxt/issues/38)) ([d9fd5b9](https://github.com/wibus-wee/lody-wxt/commit/d9fd5b999a0d06c280f74178a06beb3f4d092a3c))
+* **updates:** restore saved installation directory permission ([#37](https://github.com/wibus-wee/lody-wxt/issues/37)) ([707e91b](https://github.com/wibus-wee/lody-wxt/commit/707e91bedd70857cf1bffe0d0d378c85ebb38679))
+
 ## [0.3.2](https://github.com/wibus-wee/lody-wxt/compare/v0.3.1...v0.3.2) (2026-10-15)
 
 
