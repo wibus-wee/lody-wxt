@@ -62,7 +62,10 @@ export function DirectoryUpdate({ release }: { release: Appcast | null }) {
     start({ kind: 'bind', selected, identity });
   };
   const directory = query.data?.directory ?? null;
-  const needsPermission = !!directory && query.data?.permission !== 'granted';
+  const needsPermission =
+    !!directory &&
+    (query.data?.permission !== 'granted' ||
+      (mutation.error instanceof DOMException && mutation.error.name === 'NotAllowedError'));
   const authorize = () => {
     if (activeRef.current || !directory) return;
     try {
