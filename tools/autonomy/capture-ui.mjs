@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { execFileSync } from 'node:child_process';
-import { mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
 import { tmpdir } from 'node:os';
@@ -8,6 +8,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { prepareExpiredDirectory } from './capture-directory.mjs';
 import { canonical } from './common.mjs';
 import { resolveIntent } from './contract.mjs';
 import { contentHash, validateScreenshotManifest } from './screenshot-manifest.mjs';
@@ -134,6 +135,7 @@ export function validateCapturePlans(
             'covers',
             'before',
             'sourceScreenshot',
+            'directoryPermission',
           ].includes(field),
       ) ||
       !['web', 'extension'].includes(plan.surface) ||
@@ -168,6 +170,18 @@ export function validateCapturePlans(
     )
       throw new Error(
         'Source screenshot requires an installed signed-in sidepanel and fixed outcome',
+      );
+    if (
+      plan.directoryPermission !== undefined &&
+      (plan.directoryPermission !== 'expired' ||
+        plan.surface !== 'extension' ||
+        !['options', 'sidepanel'].includes(plan.entry) ||
+        plan.account !== 'signed-out' ||
+        plan.route !== '/#/settings?section=updates' ||
+        plan.sourceScreenshot !== undefined)
+    )
+      throw new Error(
+        'Directory permission fixture requires signed-out installed settings and fixed expired state',
       );
     const identity = JSON.stringify([plan.surface, plan.entry, plan.scenario]);
     if (identities.has(identity)) throw new Error('Duplicate capture plan');
@@ -205,7 +219,15 @@ export function validateCapturePlans(
       if (
         !plan.before ||
         Object.keys(plan.before).some(
-          (field) => !['route', 'state', 'account', 'actions', 'sourceScreenshot'].includes(field),
+          (field) =>
+            ![
+              'route',
+              'state',
+              'account',
+              'actions',
+              'sourceScreenshot',
+              'directoryPermission',
+            ].includes(field),
         ) ||
         !['route', 'state', 'account', 'actions'].every((field) =>
           Object.hasOwn(plan.before, field),
@@ -390,6 +412,7 @@ export const trustedFixtureInputs = [
   'tests/e2e/support/sharing-boundary.ts',
   'tests/e2e/support/shortcut-boundary.ts',
   'tools/autonomy/capture-ui.mjs',
+  'tools/autonomy/capture-directory.mjs',
   'tools/autonomy/screenshot-manifest.mjs',
   'tools/autonomy/snapshot.mjs',
   'tools/autonomy/common.mjs',
@@ -708,13 +731,24 @@ export async function captureUI({
                 const ownership = [];
                 if (plan.surface === 'extension') {
                   accountBoundary = await localAccountBoundary(temporary);
-                  const installed = path.resolve(directory, '.output/chrome-mv3');
+                  const sourceInstalled = path.resolve(directory, '.output/chrome-mv3');
+                  const installed = plan.directoryPermission
+                    ? path.join(temporary, 'installed')
+                    : sourceInstalled;
+                  if (plan.directoryPermission) {
+                    await cp(sourceInstalled, installed, { recursive: true });
+                    if (
+                      JSON.stringify(await buildInventory(temporary, 'installed')) !==
+                      JSON.stringify(await buildInventory(directory, '.output/chrome-mv3'))
+                    )
+                      throw new Error('Disposable installed copy differs from verified build');
+                  }
                   context = await chromium.launchPersistentContext(
                     path.join(temporary, 'profile'),
                     {
                       ...settings,
                       channel: 'chromium',
-                      headless: true,
+                      headless: !plan.directoryPermission,
                       args: [
                         `--disable-extensions-except=${installed}`,
                         `--load-extension=${installed}`,
@@ -737,6 +771,24 @@ export async function captureUI({
                     context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
                   origin = `chrome-extension://${new URL(worker.url()).host}`;
                   entry = `${plan.entry}.html`;
+                  if (plan.directoryPermission) {
+                    const result = await prepareExpiredDirectory(
+                      context,
+                      origin,
+                      installed,
+                      path.join(output, name),
+                      expect,
+                    );
+                    if (
+                      JSON.stringify(await buildInventory(temporary, 'installed')) !==
+                      JSON.stringify(await buildInventory(directory, '.output/chrome-mv3'))
+                    )
+                      throw new Error('Native fixture changed installed build bytes');
+                    await writeFile(
+                      path.join(output, `${name}.directory.json`),
+                      `${JSON.stringify(result, null, 2)}\n`,
+                    );
+                  }
                 } else {
                   context = await browser.newContext(settings);
                   await new AccountBoundary().install(context);
