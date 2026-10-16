@@ -3,7 +3,7 @@ import process from 'node:process';
 
 import { auditCatalog, modelHash } from './catalog.mjs';
 import { model } from './model.mjs';
-import { performanceBlocks, promoteBaseline } from './performance.mjs';
+import { assertReleaseSamples, performanceBlocks, promoteBaseline } from './performance.mjs';
 import { generateReport } from './report.mjs';
 
 const command = process.argv[2] ?? 'audit';
@@ -16,6 +16,13 @@ if (command === 'namespaces') {
   );
 } else if (command === 'audit') {
   const audit = await generateReport();
+  if (process.argv.includes('--release-samples')) {
+    assertReleaseSamples(
+      audit.performance,
+      model.interactions.map((entry) => entry.id),
+    );
+    if (audit.measurementFailures.length > 0) process.exitCode = 1;
+  }
   if (
     !audit.runId ||
     !audit.finished ||

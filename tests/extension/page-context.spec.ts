@@ -7,6 +7,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { chromium, expect, test } from '@playwright/test';
 
 import { JourneyEvidence } from '../../tools/assurance/evidence';
+import { armInteraction } from '../../tools/assurance/interaction';
 import { AccountBoundary, signIn } from '../e2e/support/account-boundary';
 import { RuntimeBoundary } from '../e2e/support/runtime-boundary';
 
@@ -128,13 +129,24 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
       await expect(panel.getByTestId('context-card')).toHaveCount(0);
       await panel.getByRole('button', { name: '附加上下文', exact: true }).click();
       await panel.getByRole('menuitem', { name: '其他资料来源…', exact: true }).click();
-      await panel
+      const capture = panel
         .getByRole('dialog', { name: '其他资料来源', exact: true })
-        .getByRole('button', { name: '附加当前页面', exact: true })
-        .click();
+        .getByRole('button', { name: '附加当前页面', exact: true });
+      const measured = evidence
+        ? await armInteraction(panel, capture, 'capture-preview', {
+            selector: '[data-testid="context-card"] button[aria-label="查看资料 Capture fixture"]',
+          })
+        : null;
+      await capture.click();
       await expect(
         panel.getByRole('button', { name: '查看资料 Capture fixture', exact: true }),
       ).toBeVisible();
+      if (evidence && measured) {
+        const sample = await measured();
+        evidence.interactions.push(sample);
+        expect(sample.status).toBe('observed');
+        expect(sample.durationMs).toBeGreaterThanOrEqual(0);
+      }
       await panel.getByRole('button', { name: '查看资料 Capture fixture', exact: true }).click();
       const preview = panel.getByRole('dialog');
       await expect(preview).toContainText('Visible article');
@@ -359,7 +371,7 @@ for (const origin of ['https://backend.lody.ai', 'http://capture.lody.test']) {
     } finally {
       const trace =
         evidence && process.env.ASSURANCE_RUN_DIRECTORY
-          ? `${process.env.ASSURANCE_RUN_DIRECTORY}/packaged-capture.trace.zip`
+          ? `${process.env.ASSURANCE_RUN_DIRECTORY}/packaged-capture-${process.env.ASSURANCE_REPETITION ?? '1'}.trace.zip`
           : testInfo.outputPath('capture.trace.zip');
       await test.step('retain the capture trace', async () => {
         await context.tracing.stop({ path: trace });

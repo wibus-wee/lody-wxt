@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { performanceBlocks, releaseSampleFindings } from './performance.mjs';
+import { assertReleaseSamples, performanceBlocks, releaseSampleFindings } from './performance.mjs';
 
 const audit = { measurementFailures: [], performanceWarnings: [], performance: [] };
 test('advisory release reports every missing and undersampled boundary', () => {
@@ -31,4 +31,18 @@ test('report policy preserves invalid measurement and regression findings', () =
   }
   assert.equal(performanceBlocks(audit), false);
   assert.throws(() => performanceBlocks(audit, 'ignore-everything'), /Unknown performance mode/);
+});
+
+test('release sample completeness remains mandatory independently of advisory timing policy', () => {
+  const ids = ['capture-preview', 'update-check'];
+  const complete = ids.map((id) => ({ id, values: [1, 2, 3, 4, 5] }));
+  assert.doesNotThrow(() => assertReleaseSamples(complete, ids));
+  assert.throws(
+    () => assertReleaseSamples(complete.slice(1), ids),
+    /Missing release measurement: capture-preview/,
+  );
+  assert.throws(
+    () => assertReleaseSamples([{ id: 'capture-preview', values: [1, 2, 3, 4] }, complete[1]], ids),
+    /Incomplete release samples: capture-preview/,
+  );
 });
