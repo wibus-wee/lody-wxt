@@ -1,0 +1,224 @@
+[
+  {
+    "surface": "web",
+    "route": "/#/settings?section=updates",
+    "scenario": "directory-permission-entry",
+    "state": "Saved-directory permission recovery entry and unbound guidance",
+    "account": "signed-out",
+    "covers": [
+      "src/features/updates/DirectoryUpdate.tsx",
+      "src/features/updates/DirectoryUpdateView.tsx"
+    ],
+    "actions": [
+      {
+        "action": "assertAbsent",
+        "role": "region",
+        "name": "目录更新"
+      },
+      {
+        "action": "assertVisible",
+        "role": "region",
+        "name": "扩展更新"
+      }
+    ]
+  },
+  {
+    "surface": "extension",
+    "route": "/#/settings?section=updates",
+    "scenario": "directory-permission-entry",
+    "state": "Saved-directory permission recovery entry and unbound guidance",
+    "account": "signed-out",
+    "covers": [
+      "src/features/updates/DirectoryUpdate.tsx",
+      "src/features/updates/DirectoryUpdateView.tsx"
+    ],
+    "actions": [
+      {
+        "action": "click",
+        "role": "button",
+        "name": "安装目录与更新恢复"
+      },
+      {
+        "action": "assertText",
+        "role": "region",
+        "name": "目录更新",
+        "value": "尚未绑定安装目录"
+      }
+    ],
+    "entry": "options"
+  },
+  {
+    "surface": "extension",
+    "route": "/#/settings?section=updates",
+    "scenario": "directory-permission-entry",
+    "state": "Saved-directory permission recovery entry and unbound guidance",
+    "account": "signed-out",
+    "covers": [
+      "src/features/updates/DirectoryUpdate.tsx",
+      "src/features/updates/DirectoryUpdateView.tsx"
+    ],
+    "actions": [
+      {
+        "action": "click",
+        "role": "button",
+        "name": "安装目录与更新恢复"
+      },
+      {
+        "action": "assertText",
+        "role": "region",
+        "name": "目录更新",
+        "value": "尚未绑定安装目录"
+      }
+    ],
+    "entry": "sidepanel"
+  },
+  {
+    "surface": "extension",
+    "route": "/#/settings",
+    "scenario": "directory-permission-entry",
+    "state": "Saved-directory permission recovery entry and unbound guidance",
+    "account": "signed-out",
+    "covers": [
+      "src/features/updates/DirectoryUpdate.tsx",
+      "src/features/updates/DirectoryUpdateView.tsx"
+    ],
+    "actions": [
+      {
+        "action": "assertVisible",
+        "role": "button",
+        "name": "打开设置"
+      }
+    ],
+    "entry": "popup"
+  },
+  {
+    "surface": "extension",
+    "entry": "options",
+    "route": "/#/settings?section=updates",
+    "scenario": "directory-permission-expired",
+    "state": "Retained installation with expired native grant and explicit recovery control",
+    "account": "signed-out",
+    "directoryPermission": "expired",
+    "covers": [
+      "src/features/updates/DirectoryUpdate.tsx",
+      "src/features/updates/DirectoryUpdateView.tsx"
+    ],
+    "actions": [
+      {
+        "action": "click",
+        "role": "button",
+        "name": "安装目录与更新恢复"
+      },
+      {
+        "action": "assertText",
+        "role": "region",
+        "name": "目录更新",
+        "value": "安装目录：installed"
+      },
+      {
+        "action": "assertText",
+        "role": "region",
+        "name": "目录更新",
+        "value": "目录访问权限已失效"
+      },
+      {
+        "action": "assertEnabled",
+        "role": "button",
+        "name": "恢复目录授权"
+      }
+    ],
+    "before": {
+      "route": "/#/settings?section=updates",
+      "state": "Old UI retains the installation but has no grant recovery control",
+      "account": "signed-out",
+      "actions": [
+        {
+          "action": "click",
+          "role": "button",
+          "name": "安装目录与更新恢复"
+        },
+        {
+          "action": "assertText",
+          "role": "region",
+          "name": "目录更新",
+          "value": "安装目录：installed"
+        },
+        {
+          "action": "assertAbsent",
+          "role": "button",
+          "name": "恢复目录授权"
+        },
+        {
+          "action": "assertVisible",
+          "role": "region",
+          "name": "目录更新"
+        }
+      ]
+    }
+  },
+  {
+    "surface": "extension",
+    "entry": "sidepanel",
+    "route": "/#/settings?section=updates",
+    "scenario": "directory-permission-expired",
+    "state": "Retained installation with expired native grant and explicit recovery control",
+    "account": "signed-out",
+    "directoryPermission": "expired",
+    "covers": [
+      "src/features/updates/DirectoryUpdate.tsx",
+      "src/features/updates/DirectoryUpdateView.tsx"
+    ],
+    "actions": [
+      {
+        "action": "click",
+        "role": "button",
+        "name": "安装目录与更新恢复"
+      },
+      {
+        "action": "assertText",
+        "role": "region",
+        "name": "目录更新",
+        "value": "安装目录：installed"
+      },
+      {
+        "action": "assertText",
+        "role": "region",
+        "name": "目录更新",
+        "value": "目录访问权限已失效"
+      },
+      {
+        "action": "assertEnabled",
+        "role": "button",
+        "name": "恢复目录授权"
+      }
+    ],
+    "before": {
+      "route": "/#/settings?section=updates",
+      "state": "Old UI retains the installation but has no grant recovery control",
+      "account": "signed-out",
+      "actions": [
+        {
+          "action": "click",
+          "role": "button",
+          "name": "安装目录与更新恢复"
+        },
+        {
+          "action": "assertText",
+          "role": "region",
+          "name": "目录更新",
+          "value": "安装目录：installed"
+        },
+        {
+          "action": "assertAbsent",
+          "role": "button",
+          "name": "恢复目录授权"
+        },
+        {
+          "action": "assertVisible",
+          "role": "region",
+          "name": "目录更新"
+        }
+      ]
+    }
+  }
+]

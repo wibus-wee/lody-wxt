@@ -1,6 +1,12 @@
 import { afterEach, expect, it } from 'vitest';
 
-import { verifyInstallationDirectory } from '../../src/features/updates/directory-binding';
+import {
+  directoryActionError,
+  installationDirectoryPermission,
+  requestInstallationDirectoryPermission,
+  requireInstallationDirectoryPermission,
+  verifyInstallationDirectory,
+} from '../../src/features/updates/directory-binding';
 
 let directory: FileSystemDirectoryHandle;
 let name: string;
@@ -26,7 +32,11 @@ async function inventory() {
   return names;
 }
 afterEach(async () => {
-  if (name) await (await navigator.storage.getDirectory()).removeEntry(name, { recursive: true });
+  if (name) {
+    const current = name;
+    name = '';
+    await (await navigator.storage.getDirectory()).removeEntry(current, { recursive: true });
+  }
 });
 it('proves the selected directory with fresh served bytes and removes its temporary marker', async () => {
   await fixture();
@@ -79,4 +89,22 @@ it('cleans up after failed fetches but preserves external replacements of the ma
     }),
   ).rejects.toThrow('已保留');
   expect(await inventory()).toHaveLength(2);
+});
+
+it('checks and reuses a real directory grant without changing its contents', async () => {
+  await fixture();
+  expect(await installationDirectoryPermission(directory)).toBe('granted');
+  await requireInstallationDirectoryPermission(directory);
+  expect(await requestInstallationDirectoryPermission(directory)).toBe('granted');
+  expect(await inventory()).toEqual(['manifest.json']);
+});
+it('explains lost permission and cancellation without hiding unrelated failures', () => {
+  expect(directoryActionError(new DOMException('native detail', 'NotAllowedError'))).toContain(
+    '恢复目录授权',
+  );
+  expect(directoryActionError(new DOMException('cancelled', 'AbortError'))).toContain('操作已取消');
+  expect(directoryActionError(new Error('broken journal'))).toBe('broken journal');
+  expect(directoryActionError(new DOMException('missing directory', 'NotFoundError'))).toBe(
+    'missing directory',
+  );
 });

@@ -4,7 +4,13 @@ import { browser } from 'wxt/browser';
 
 import { isExtension } from '../../shared/storage';
 import type { Appcast } from './appcast';
-import { directoryPickerAvailable, selectInstallationDirectory } from './directory-binding';
+import {
+  directoryActionError,
+  directoryPermissionMessage,
+  directoryPickerAvailable,
+  requestInstallationDirectoryPermission,
+  selectInstallationDirectory,
+} from './directory-binding';
 import type { DirectoryAction } from './directory-update';
 import { performDirectoryAction, readDirectoryUpdateState } from './directory-update';
 import { DirectoryUpdateView } from './DirectoryUpdateView';
@@ -55,20 +61,44 @@ export function DirectoryUpdate({ release }: { release: Appcast | null }) {
     const selected = selectInstallationDirectory();
     start({ kind: 'bind', selected, identity });
   };
+  const directory = query.data?.directory ?? null;
+  const needsPermission =
+    !!directory &&
+    (query.data?.permission !== 'granted' ||
+      (mutation.error instanceof DOMException && mutation.error.name === 'NotAllowedError'));
+  const authorize = () => {
+    if (activeRef.current || !directory) return;
+    try {
+      const permission = requestInstallationDirectoryPermission(directory);
+      start({ kind: 'authorize', directory, permission });
+    } catch (error) {
+      setMessage(`无法请求目录授权，请重新选择原安装目录：${String(error)}`);
+    }
+  };
   return (
     <DirectoryUpdateView
       directoryName={query.data?.directory?.name ?? null}
       pending={pending ?? null}
+      needsPermission={needsPermission}
+      authorize={authorize}
       busy={mutation.isPending}
-      canUpdate={!!release && !!query.data?.directory && !pending}
+      canUpdate={!!release && !!directory && !pending && !needsPermission}
       message={message}
-      error={mutation.error?.message ?? query.error?.message ?? query.data?.recoveryError ?? null}
+      error={
+        mutation.error
+          ? directoryActionError(mutation.error)
+          : query.error
+            ? directoryActionError(query.error)
+            : needsPermission
+              ? directoryPermissionMessage
+              : (query.data?.recoveryError ?? null)
+      }
       bind={bind}
       update={() =>
         start({ kind: 'update', directory: query.data?.directory ?? null, release, identity })
       }
-      resume={() => start({ kind: 'resume' })}
-      rollback={() => start({ kind: 'rollback' })}
+      resume={() => start({ kind: 'resume', directory })}
+      rollback={() => start({ kind: 'rollback', directory })}
       cancel={() => activeRef.current?.abort()}
     />
   );
