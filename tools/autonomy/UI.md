@@ -81,7 +81,14 @@ A failed control, unsupported route, missing package, changed entrypoint or inco
 The real lifecycle entrypoint remains `cucumber.mjs`; screenshots do not replace assurance journeys.
 Infrastructure tests validate plans, source identities and packaged-byte integrity without launching a browser.
 Actual browser execution is not established; see the current build blockers in [VALIDATION](./VALIDATION.md).
-Native OS permission dialogs, unsupported/nonproduct surfaces and arbitrary custom fixtures remain outside this plan grammar and require separate independent evidence.
+The fixed `directoryPermission: "expired"` fixture is available only for signed-out installed options/sidepanel plans on `/#/settings?section=updates`.
+It copies the verified extension into a disposable installation, binds that directory through the actual picker and one-visit grant, then reloads the extension through Chrome's extension manager.
+Read-only inspection must establish a real saved handle, an initially granted permission, and a subsequent non-granted permission with `getFileHandle` failing as `NotAllowedError`.
+It never replaces permission APIs or writes storage.
+Both revisions use the same protected helper, native grant diagnostics and observation receipts are retained, and the normal SHA-bound screenshot matrix remains mandatory.
+Plans cannot provide file paths, native inputs or custom scripts.
+This state preparation requires headed Chromium under the isolated CI display; failure to revoke permission fails capture.
+Other native OS dialogs, unsupported/nonproduct surfaces and arbitrary custom fixtures remain outside the grammar and require separate independent evidence.
 
 ## Manifest and fixture binding
 
