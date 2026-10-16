@@ -121,6 +121,27 @@ with zipfile.ZipFile(sys.argv[2],'w',compression=zipfile.ZIP_DEFLATED) as archiv
     key('Tab');
     key('Return');
   }
+  async function restoreDirectoryPermission(page, label, cancel = false) {
+    await page.getByRole('button', { name: '恢复目录授权', exact: true }).click();
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    screenshot(`${label}-permission-prompt`);
+    if (cancel) key('Escape');
+    else {
+      key('Tab');
+      key('Return');
+    }
+  }
+  let id;
+  async function reloadExtension() {
+    const next = context.waitForEvent('serviceworker', {
+      predicate: (candidate) => new URL(candidate.url()).host === id,
+    });
+    const manager = await context.newPage();
+    await manager.goto('chrome://extensions');
+    await manager.locator(`extensions-item[id="${id}"] #dev-reload-button`).click();
+    await next;
+    await manager.close();
+  }
   try {
     await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
     await context.route(config.feedUrl, (route) => route.fulfill({ json: feed }));
@@ -161,7 +182,7 @@ with zipfile.ZipFile(sys.argv[2],'w',compression=zipfile.ZIP_DEFLATED) as archiv
     assert.equal(await developerMode.getAttribute('aria-pressed'), 'true');
     await chromeSettings.close();
     const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
-    const id = new URL(worker.url()).host;
+    id = new URL(worker.url()).host;
     await context.route('https://fixture-boundary.invalid/ready', (route) =>
       route.fulfill({ body: 'controlled' }),
     );
@@ -215,11 +236,11 @@ with zipfile.ZipFile(sys.argv[2],'w',compression=zipfile.ZIP_DEFLATED) as archiv
     checkpoints.push('authenticated-session-and-unsent-draft-established');
     // Close the editing surface before update; retain data through the real storage owner.
     await panel.close();
-    const page = await context.newPage();
+    let page = await context.newPage();
     await page.goto(`chrome-extension://${id}/options.html#/settings`);
     await page.getByRole('button', { name: '关于与更新 版本与安装方式', exact: true }).click();
     await page.getByRole('button', { name: '安装目录与更新恢复', exact: true }).click();
-    const updates = page.getByRole('region', { name: '目录更新', exact: true });
+    let updates = page.getByRole('region', { name: '目录更新', exact: true });
     await expect(updates).toContainText('尚未绑定安装目录');
     await updates.scrollIntoViewIfNeeded();
     await page.screenshot({ path: path.join(report, '01-unbound.png'), fullPage: true });
@@ -233,6 +254,35 @@ with zipfile.ZipFile(sys.argv[2],'w',compression=zipfile.ZIP_DEFLATED) as archiv
     await page.getByRole('button', { name: '安装目录与更新恢复', exact: true }).click();
     await expect(updates).toContainText('安装目录：installed');
     checkpoints.push('native-binding-persists-across-page-reload');
+    // A real extension reload revokes the native grant while preserving IndexedDB.
+    // No pending journal: this is the reported reopening path, not just recovery after writing.
+    await reloadExtension();
+    page = await context.newPage();
+    await page.goto(`chrome-extension://${id}/options.html#/settings`);
+    await page.getByRole('button', { name: '关于与更新 版本与安装方式', exact: true }).click();
+    await page.getByRole('button', { name: '安装目录与更新恢复', exact: true }).click();
+    updates = page.getByRole('region', { name: '目录更新', exact: true });
+    await expect(updates).toContainText('安装目录：installed');
+    await expect(updates).toContainText('目录访问权限已失效');
+    await expect(
+      updates.getByRole('button', { name: '下载并写入更新', exact: true }),
+    ).toBeDisabled();
+    checkpoints.push('idle-grant-loss-preserves-directory-without-starting-update');
+    await restoreDirectoryPermission(page, '03-expired-cancel', true);
+    await expect(updates).toContainText('目录访问权限已失效');
+    assert.equal(await installedVersion(), beforeVersion);
+    checkpoints.push('cancelled-reauthorization-preserves-installation');
+    await restoreDirectoryPermission(page, '03-expired-allow');
+    await expect(updates).toContainText('目录授权已恢复');
+    await expect(updates.getByRole('button', { name: '恢复目录授权', exact: true })).toHaveCount(0);
+    assert.equal(await installedVersion(), beforeVersion);
+    assert.equal(requests.length, 0, 'Reauthorization must not download or start an update');
+    checkpoints.push('saved-directory-reauthorized-without-picker');
+    await page.screenshot({
+      path: path.join(report, '03-permission-restored.png'),
+      fullPage: true,
+    });
+
     await page.getByRole('button', { name: '检查更新', exact: true }).click();
     await expect(page.getByRole('region', { name: '扩展更新', exact: true })).toContainText(
       `可用版本：${nextVersion}`,
@@ -299,13 +349,13 @@ with zipfile.ZipFile(sys.argv[2],'w',compression=zipfile.ZIP_DEFLATED) as archiv
       path: path.join(report, '05-permission-recovery.png'),
       fullPage: true,
     });
-    await chooseDirectory(after, copied, '06-wrong-reauthorize', '重新授权原目录');
+    await chooseDirectory(after, copied, '06-wrong-reauthorize', '重新选择原目录');
     await expect(recovered).toContainText('只能重新授权原安装目录');
     await expect(
       recovered.getByRole('button', { name: '恢复更新前文件', exact: true }),
     ).toBeVisible();
     checkpoints.push('pending-journal-rejects-different-directory');
-    await chooseDirectory(after, extension, '07-reauthorize', '重新授权原目录');
+    await restoreDirectoryPermission(after, '07-reauthorize');
     await expect(after.getByRole('button', { name: '恢复更新前文件', exact: true })).toHaveCount(0);
     checkpoints.push('real-reload-confirms-version-and-clears-completed-journal');
     await after.getByRole('region', { name: '目录更新', exact: true }).scrollIntoViewIfNeeded();

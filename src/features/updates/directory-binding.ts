@@ -63,6 +63,31 @@ export function selectInstallationDirectory() {
   if (!window.showDirectoryPicker) throw new Error('此浏览器不支持目录更新，请使用 ZIP 更新。');
   return window.showDirectoryPicker({ mode: 'readwrite', id: 'lody-installation' });
 }
+export const directoryPermissionMessage =
+  '目录访问权限已失效，请点击“恢复目录授权”。安装目录和更新恢复记录仍保留。';
+
+export function installationDirectoryPermission(directory: FileSystemDirectoryHandle) {
+  return (directory as WritableDirectory).queryPermission({ mode: 'readwrite' });
+}
+
+// Must be invoked directly in a click, before IndexedDB, query refresh or mutation scheduling.
+export function requestInstallationDirectoryPermission(directory: FileSystemDirectoryHandle) {
+  return (directory as WritableDirectory).requestPermission({ mode: 'readwrite' });
+}
+
+export async function requireInstallationDirectoryPermission(directory: FileSystemDirectoryHandle) {
+  if ((await installationDirectoryPermission(directory)) !== 'granted')
+    throw new Error(directoryPermissionMessage);
+}
+
+export function directoryActionError(error: Error) {
+  if (error instanceof DOMException && error.name === 'NotAllowedError')
+    return directoryPermissionMessage;
+  if (error instanceof DOMException && error.name === 'AbortError')
+    return '操作已取消，安装目录和已有恢复记录保持不变。';
+  return error.message;
+}
+
 export async function verifyInstallationDirectory(
   directory: FileSystemDirectoryHandle,
   identity: InstallationIdentity,

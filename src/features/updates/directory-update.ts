@@ -4,6 +4,9 @@ import type { InstallationIdentity } from './directory-binding';
 import {
   bindInstallationDirectory,
   boundInstallationDirectory,
+  directoryPermissionMessage,
+  installationDirectoryPermission,
+  requireInstallationDirectoryPermission,
   verifyInstallationDirectory,
 } from './directory-binding';
 import {
@@ -22,8 +25,13 @@ export type DirectoryAction =
       release: Appcast | null;
       identity: InstallationIdentity;
     }
-  | { kind: 'resume' }
-  | { kind: 'rollback' };
+  | {
+      kind: 'authorize';
+      directory: FileSystemDirectoryHandle;
+      permission: Promise<PermissionState>;
+    }
+  | { kind: 'resume'; directory: FileSystemDirectoryHandle | null }
+  | { kind: 'rollback'; directory: FileSystemDirectoryHandle | null };
 
 export async function performDirectoryAction({
   action,
@@ -40,6 +48,16 @@ export async function performDirectoryAction({
     await bindInstallationDirectory(directory, action.identity);
     return `已绑定目录：${directory.name}`;
   }
+  if (action.kind === 'authorize') {
+    const permission = await action.permission;
+    signal.throwIfAborted();
+    if (permission !== 'granted') throw new Error(directoryPermissionMessage);
+    await requireInstallationDirectoryPermission(action.directory);
+    return '目录授权已恢复，可以继续更新或恢复文件。';
+  }
+  if (!action.directory) throw new Error('请先选择安装目录。');
+  await requireInstallationDirectoryPermission(action.directory);
+  signal.throwIfAborted();
   if (action.kind === 'resume') {
     await applyDirectoryUpdate(signal);
     return '更新已写入，请完成当前会话后重新加载扩展。';
@@ -85,9 +103,14 @@ export async function readDirectoryUpdateState(identity: InstallationIdentity) {
     boundInstallationDirectory(identity.id),
     directoryUpdateStatus(),
   ]);
+  const permission = directory ? await installationDirectoryPermission(directory) : null;
   let pending = initialPending;
   let recoveryError: string | null = null;
-  if (pending?.phase === 'applied' && pending.version === identity.version) {
+  if (
+    permission === 'granted' &&
+    pending?.phase === 'applied' &&
+    pending.version === identity.version
+  ) {
     try {
       await finishDirectoryUpdate(identity.version);
       pending = await directoryUpdateStatus();
@@ -98,5 +121,5 @@ export async function readDirectoryUpdateState(identity: InstallationIdentity) {
           : `更新校验未完成，恢复记录已保留：${error instanceof Error ? error.message : String(error)}`;
     }
   }
-  return { directory, pending, recoveryError };
+  return { directory, permission, pending, recoveryError };
 }
