@@ -2,8 +2,9 @@ import type { KnipConfig } from 'knip';
 
 const config: KnipConfig = {
   ignore: ['vendor/**'],
-  // OpenSSL is a system prerequisite for the isolated HTTPS protocol boundary.
-  ignoreBinaries: ['openssl'],
+  // System prerequisites installed explicitly by the isolated capture workflow.
+  // OpenSSL serves the HTTPS boundary; xdotool and ImageMagick import drive/record native dialogs.
+  ignoreBinaries: ['openssl', 'xdotool', 'import'],
   // The packed SDK fixture resolves runtime dependencies from its isolated consumer directory.
   ignoreIssues: { 'tests/sdk-consumer/consumer.mjs': ['unlisted'] },
   workspaces: {

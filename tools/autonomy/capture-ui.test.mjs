@@ -363,3 +363,47 @@ test('source screenshots use only fixed installed-extension fixtures and bind th
     validateCapturePlans([{ ...plan, before: { ...before, sourceScreenshot: 'arbitrary' } }]),
   );
 });
+
+test('native directory preparation accepts only fixed installed expired settings state', async () => {
+  const { validateCapturePlans, capturePlanHash } = await import('./capture-ui.mjs');
+  const plan = {
+    surface: 'extension',
+    entry: 'options',
+    route: '/#/settings?section=updates',
+    scenario: 'directory-expired',
+    state: 'Saved directory with revoked grant',
+    account: 'signed-out',
+    directoryPermission: 'expired',
+    covers: ['src/features/updates/DirectoryUpdate.tsx'],
+    actions: [{ action: 'assertVisible', role: 'region', name: '目录更新' }],
+  };
+  assert.equal(validateCapturePlans([plan])[0], plan);
+  assert.notEqual(
+    capturePlanHash([plan]),
+    capturePlanHash([{ ...plan, directoryPermission: undefined }]),
+  );
+  for (const change of [
+    { surface: 'web', entry: undefined },
+    { entry: 'popup' },
+    { account: 'signed-in' },
+    { directoryPermission: 'granted' },
+    { directoryPermission: { path: '/tmp' } },
+    { route: '/#/account' },
+    { sourceScreenshot: 'overlay' },
+  ])
+    assert.throws(() => validateCapturePlans([{ ...plan, ...change }]));
+  assert.throws(() =>
+    validateCapturePlans([
+      {
+        ...plan,
+        before: {
+          route: plan.route,
+          state: 'Invalid override',
+          account: 'signed-out',
+          actions: plan.actions,
+          directoryPermission: 'granted',
+        },
+      },
+    ]),
+  );
+});
