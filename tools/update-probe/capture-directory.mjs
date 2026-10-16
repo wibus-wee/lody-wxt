@@ -18,6 +18,7 @@ async function main() {
   const context = await chromium.launchPersistentContext(path.join(root, 'profile'), {
     channel: 'chromium',
     headless: false,
+    reducedMotion: 'reduce',
     viewport: { width: 1000, height: 850 },
     args: [`--disable-extensions-except=${installed}`, `--load-extension=${installed}`],
   });
@@ -38,7 +39,13 @@ async function main() {
     await expect(page.getByRole('region', { name: '目录更新', exact: true })).toContainText(
       '安装目录：installed',
     );
-    await page.screenshot({ path: path.join(report, 'expired.png'), fullPage: true });
+    await expect(page.getByText('安装目录：installed', { exact: true })).toBeVisible();
+    await page.getByRole('region', { name: '目录更新', exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: path.join(report, 'expired.png'),
+      fullPage: true,
+      animations: 'disabled',
+    });
     assert.deepEqual(await readFile(path.join(installed, 'manifest.json')), manifest);
     await writeFile(
       path.join(report, 'result.json'),
